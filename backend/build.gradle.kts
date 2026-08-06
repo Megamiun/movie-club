@@ -1,12 +1,13 @@
 val ktorVersion = "3.5.0"
 val exposedVersion = "1.3.1"
 val kotlinVersion = "2.4.10"
+val flywayVersion = "12.10.0"
 
 plugins {
     kotlin("jvm") version "2.4.10"
     kotlin("plugin.serialization") version "2.4.10"
 
-    id("io.ktor.plugin") version "3.2.0"
+    id("io.ktor.plugin") version "3.5.0"
     id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
 
@@ -49,6 +50,8 @@ dependencies {
     // Database
     implementation("org.postgresql:postgresql:42.7.7")
     implementation("com.zaxxer:HikariCP:7.1.0")
+    implementation("org.flywaydb:flyway-core:$flywayVersion")
+    implementation("org.flywaydb:flyway-database-postgresql:$flywayVersion")
 
     // JWT
     implementation("com.auth0:java-jwt:4.6.0")
