@@ -1,11 +1,12 @@
-val ktorVersion = "3.2.0"
-val exposedVersion = "1.0.0-beta-4"
-val kotlinVersion = "2.2.0"
+val ktorVersion = "3.5.0"
+val exposedVersion = "1.3.1"
+val kotlinVersion = "2.4.10"
 
 plugins {
-    kotlin("jvm") version "2.2.0"
+    kotlin("jvm") version "2.4.10"
+    kotlin("plugin.serialization") version "2.4.10"
+
     id("io.ktor.plugin") version "3.2.0"
-    kotlin("plugin.serialization") version "2.2.0"
     id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
 
@@ -47,13 +48,13 @@ dependencies {
 
     // Database
     implementation("org.postgresql:postgresql:42.7.7")
-    implementation("com.zaxxer:HikariCP:6.3.0")
+    implementation("com.zaxxer:HikariCP:7.1.0")
 
     // JWT
-    implementation("com.auth0:java-jwt:4.5.0")
+    implementation("com.auth0:java-jwt:4.6.0")
 
     // AWS S3
-    implementation("software.amazon.awssdk:s3:2.46.7")
+    implementation("software.amazon.awssdk:s3:2.47.5")
 
     // Logging
     implementation("ch.qos.logback:logback-classic:1.6.1")
