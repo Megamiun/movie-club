@@ -1,0 +1,35 @@
+# Claude Code (user-specific overrides only; settings.json is committed)
+.claude/settings.local.json
+
+# IntelliJ
+.idea/
+*.iml
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Kotlin / JVM
+build/
+out/
+*.class
+*.jar
+!gradle/wrapper/gradle-jar.jar
+
+# Gradle
+.gradle/
+local.properties
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
