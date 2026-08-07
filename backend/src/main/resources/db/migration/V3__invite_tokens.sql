@@ -1,0 +1,3 @@
+ALTER TABLE members
+    ALTER COLUMN name DROP NOT NULL,
+    ADD COLUMN invite_token UUID UNIQUE;

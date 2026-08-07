@@ -13,6 +13,10 @@ ij_kotlin_name_count_to_use_star_import = 999
 ij_kotlin_name_count_to_use_star_import_for_members = 999
 ij_kotlin_packages_to_use_import_on_demand =
 
+ktlint_standard_function-signature = disabled
+ktlint_standard_multiline-expression-wrapping = disabled
+ktlint_standard_multiline-if-else = disabled
+
 [*.{ts,tsx,js,jsx}]
 indent_style = space
 indent_size = 2

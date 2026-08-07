@@ -1,0 +1,37 @@
+### 1. Invite (requires a logged-in member's JWT)
+POST http://localhost:8080/auth/invite
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "email": "carol@example.com" }
+
+> {%
+  client.global.set("inviteToken", response.body.inviteToken);
+%}
+
+### 2. Register (consume the invite token)
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{
+  "inviteToken": "{{inviteToken}}",
+  "name": "Carol",
+  "password": "hunter2"
+}
+
+> {%
+  client.global.set("jwt", response.body.token);
+%}
+
+### 3. Login
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "hunter2" }
+
+> {%
+  client.global.set("jwt", response.body.token);
+%}
+
+### Health check
+GET http://localhost:8080/health

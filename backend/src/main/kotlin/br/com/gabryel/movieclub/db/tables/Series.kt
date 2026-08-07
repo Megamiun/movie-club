@@ -1,10 +1,10 @@
 package br.com.gabryel.movieclub.db.tables
 
 import br.com.gabryel.movieclub.db.DisplayTitlePreference
-import org.jetbrains.exposed.v1.core.dao.id.UUIDTable
-import org.jetbrains.exposed.v1.kotlin.datetime.timestamp
+import org.jetbrains.exposed.v1.core.dao.id.UuidTable
+import org.jetbrains.exposed.v1.datetime.timestamp
 
-object Series : UUIDTable("series") {
+object Series : UuidTable("series") {
     val clubId = reference("club_id", Clubs)
     val chosenById = reference("chosen_by_id", Members)
 

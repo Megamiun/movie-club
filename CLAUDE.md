@@ -9,7 +9,7 @@ A web app replacing Google Sheets for a weekly movie club. Supports multiple ind
 | Frontend | Vite + React + TypeScript (SPA, JSON REST API, no SSR) |
 | Backend | Ktor (Kotlin) |
 | Database | PostgreSQL + Exposed ORM |
-| Auth | Google OAuth |
+| Auth | Email/password (Argon2id) + JWT (7-day) + invite-token registration |
 | Movie metadata | TMDB API (lookup by IMDB `tt` ID via `/find` endpoint) |
 | Poster storage | AWS S3 (MinIO for local dev) |
 
@@ -23,7 +23,7 @@ A web app replacing Google Sheets for a weekly movie club. Supports multiple ind
 - Default sentiment scale: Adorei, Gostei!, Ambivalente, Indiferente, Desgostei, Detestei
 
 ### Member
-- Authenticates via Google OAuth
+- Authenticates via email/password; accounts created only through invite tokens
 - Belongs to one or more Clubs with a role
 - Has a personal **Watchlist** per Club (visible to all club members)
 

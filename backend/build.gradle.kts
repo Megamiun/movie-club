@@ -1,3 +1,5 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 val ktorVersion = "3.5.0"
 val exposedVersion = "1.3.1"
 val kotlinVersion = "2.4.10"
@@ -56,6 +58,9 @@ dependencies {
     // JWT
     implementation("com.auth0:java-jwt:4.6.0")
 
+    // Password hashing
+    implementation("de.mkammerer:argon2-jvm:2.12")
+
     // AWS S3
     implementation("software.amazon.awssdk:s3:2.47.5")
 
@@ -65,4 +70,9 @@ dependencies {
     // Testing
     testImplementation("io.ktor:ktor-server-test-host-jvm:$ktorVersion")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlinVersion")
+    testImplementation("io.mockk:mockk:1.13.14")
+}
+
+tasks.withType<ShadowJar> {
+    mergeServiceFiles()
 }

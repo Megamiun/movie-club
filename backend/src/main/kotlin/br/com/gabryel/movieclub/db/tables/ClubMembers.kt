@@ -2,7 +2,7 @@ package br.com.gabryel.movieclub.db.tables
 
 import br.com.gabryel.movieclub.db.ClubRole
 import org.jetbrains.exposed.v1.core.Table
-import org.jetbrains.exposed.v1.kotlin.datetime.timestamp
+import org.jetbrains.exposed.v1.datetime.timestamp
 
 object ClubMembers : Table("club_members") {
     val clubId = reference("club_id", Clubs)

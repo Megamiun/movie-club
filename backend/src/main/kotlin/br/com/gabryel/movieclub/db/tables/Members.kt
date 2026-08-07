@@ -1,12 +1,12 @@
 package br.com.gabryel.movieclub.db.tables
 
-import org.jetbrains.exposed.v1.core.dao.id.UUIDTable
-import org.jetbrains.exposed.v1.kotlin.datetime.timestamp
+import org.jetbrains.exposed.v1.core.dao.id.UuidTable
+import org.jetbrains.exposed.v1.datetime.timestamp
 
-object Members : UUIDTable("members") {
-    val googleId = varchar("google_id", 128).uniqueIndex()
+object Members : UuidTable("members") {
     val email = varchar("email", 255).uniqueIndex()
-    val name = varchar("name", 255)
-    val avatarUrl = varchar("avatar_url", 1024).nullable()
+    val name = varchar("name", 255).nullable()
+    val passwordHash = varchar("password_hash", 255).nullable()
+    val inviteToken = uuid("invite_token").nullable().uniqueIndex()
     val createdAt = timestamp("created_at")
 }

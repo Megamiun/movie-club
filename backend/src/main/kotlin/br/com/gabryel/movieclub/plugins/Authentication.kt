@@ -1,5 +1,6 @@
 package br.com.gabryel.movieclub.plugins
 
+import br.com.gabryel.movieclub.service.auth.JwtService
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.server.application.Application
@@ -8,7 +9,7 @@ import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.jwt.jwt
 
-fun Application.configureAuthentication() {
+fun Application.configureAuthentication(jwtService: JwtService) {
     val secret = environment.config.property("jwt.secret").getString()
     val issuer = environment.config.property("jwt.issuer").getString()
     val audience = environment.config.property("jwt.audience").getString()

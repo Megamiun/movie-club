@@ -1,10 +1,11 @@
 package br.com.gabryel.movieclub.db.tables
 
 import br.com.gabryel.movieclub.db.DisplayTitlePreference
-import org.jetbrains.exposed.v1.core.dao.id.UUIDTable
-import org.jetbrains.exposed.v1.kotlin.datetime.timestamp
+import org.jetbrains.exposed.v1.core.VarCharColumnType
+import org.jetbrains.exposed.v1.core.dao.id.UuidTable
+import org.jetbrains.exposed.v1.datetime.timestamp
 
-object Movies : UUIDTable("movies") {
+object Movies : UuidTable("movies") {
     val meetingId = reference("meeting_id", Meetings)
     val chosenById = reference("chosen_by_id", Members)
 
@@ -18,8 +19,8 @@ object Movies : UUIDTable("movies") {
     val year = integer("year").nullable()
     val director = varchar("director", 512).nullable()
     val runtimeMinutes = integer("runtime_minutes").nullable()
-    val genre = varchar("genre", 512).nullable()
-    val country = varchar("country", 512).nullable()
+    val genre = array("genre", VarCharColumnType(255)).nullable()
+    val country = array("country", VarCharColumnType(255)).nullable()
     val tmdbRating = decimal("tmdb_rating", precision = 4, scale = 1).nullable()
 
     val posterS3Key = varchar("poster_s3_key", 512).nullable()

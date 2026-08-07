@@ -1,8 +1,8 @@
 package br.com.gabryel.movieclub.db.tables
 
-import org.jetbrains.exposed.v1.core.dao.id.UUIDTable
+import org.jetbrains.exposed.v1.core.dao.id.UuidTable
 
-object Episodes : UUIDTable("episodes") {
+object Episodes : UuidTable("episodes") {
     val seasonId = reference("season_id", Seasons)
     val number = integer("number")
     val title = varchar("title", 512).nullable()
