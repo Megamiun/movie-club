@@ -1,0 +1,61 @@
+package br.com.gabryel.movieclub.routing
+
+import br.com.gabryel.movieclub.db.repositories.WatchlistEntryRow
+import br.com.gabryel.movieclub.service.WatchlistService
+import io.ktor.http.HttpStatusCode.Companion.Created
+import io.ktor.http.HttpStatusCode.Companion.NoContent
+import io.ktor.server.auth.authenticate
+import io.ktor.server.request.receive
+import io.ktor.server.response.respond
+import io.ktor.server.routing.Route
+import io.ktor.server.routing.delete
+import io.ktor.server.routing.get
+import io.ktor.server.routing.patch
+import io.ktor.server.routing.post
+
+fun Route.watchlistRoutes(watchlistService: WatchlistService) {
+    authenticate("auth-jwt") {
+        post("/clubs/{clubId}/watchlist") {
+            val body = call.receive<AddWatchlistEntryRequest>()
+            val entry = watchlistService.addEntry(
+                call.uuidPathParam("clubId"),
+                call.actingMemberId(),
+                body.title,
+                body.imdbUrl,
+                body.notes,
+            )
+            call.respond(Created, entry.toResponse())
+        }
+
+        get("/clubs/{clubId}/watchlist") {
+            val entries = watchlistService.listEntries(call.uuidPathParam("clubId"), call.actingMemberId())
+            call.respond(entries.map { it.toResponse() })
+        }
+
+        patch("/watchlist/{entryId}") {
+            val body = call.receive<UpdateWatchlistEntryRequest>()
+            val entry = watchlistService.updateEntry(
+                call.uuidPathParam("entryId"),
+                call.actingMemberId(),
+                body.title,
+                body.imdbUrl,
+                body.notes,
+            )
+            call.respond(entry.toResponse())
+        }
+
+        delete("/watchlist/{entryId}") {
+            watchlistService.deleteEntry(call.uuidPathParam("entryId"), call.actingMemberId())
+            call.respond(NoContent)
+        }
+    }
+}
+
+private fun WatchlistEntryRow.toResponse() = WatchlistEntryResponse(
+    id = id.toString(),
+    clubId = clubId.toString(),
+    memberId = memberId.toString(),
+    title = title,
+    imdbUrl = imdbUrl,
+    notes = notes,
+)

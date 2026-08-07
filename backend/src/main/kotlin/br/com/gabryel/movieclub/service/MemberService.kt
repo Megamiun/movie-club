@@ -1,19 +1,19 @@
 package br.com.gabryel.movieclub.service
 
-import br.com.gabryel.movieclub.service.auth.PasswordService
 import br.com.gabryel.movieclub.db.repositories.MemberRepository
 import br.com.gabryel.movieclub.db.repositories.RegisteredMember
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ConflictException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.UnauthorizedException
-import java.util.UUID
+import br.com.gabryel.movieclub.service.auth.PasswordService
+import kotlin.uuid.Uuid
 
 class MemberService(
     private val memberRepository: MemberRepository,
     private val passwordService: PasswordService,
 ) {
-    fun invite(email: String): UUID {
+    fun invite(email: String): Uuid {
         if (memberRepository.findByEmail(email) != null)
             throw ConflictException("Email already exists")
 
@@ -21,7 +21,7 @@ class MemberService(
     }
 
     fun register(inviteToken: String, name: String, password: String): RegisteredMember {
-        val token = runCatching { UUID.fromString(inviteToken) }.getOrNull()
+        val token = Uuid.parseOrNull(inviteToken)
             ?: throw BadRequestException("Invalid invite token")
 
         val member = memberRepository.findByInviteToken(token)

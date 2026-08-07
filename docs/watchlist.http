@@ -1,0 +1,46 @@
+### 0. Login (uses docs/dummy-user.sql seeded admin@example.com)
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "hunter2" }
+
+> {%
+  client.global.set("jwt", response.body.token);
+%}
+
+### 1. Create a club to work in
+POST http://localhost:8080/clubs
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "name": "Watchlist Test Club" }
+
+> {%
+  client.global.set("clubId", response.body.id);
+%}
+
+### 2. Add a watchlist entry
+POST http://localhost:8080/clubs/{{clubId}}/watchlist
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "title": "Dune" }
+
+> {%
+  client.global.set("entryId", response.body.id);
+%}
+
+### 3. List watchlist (visible to all club members)
+GET http://localhost:8080/clubs/{{clubId}}/watchlist
+Authorization: Bearer {{jwt}}
+
+### 4. Update the entry (owner-only)
+PATCH http://localhost:8080/watchlist/{{entryId}}
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "notes": "Watch before part two" }
+
+### 5. Delete the entry
+DELETE http://localhost:8080/watchlist/{{entryId}}
+Authorization: Bearer {{jwt}}

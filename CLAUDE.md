@@ -13,6 +13,14 @@ A web app replacing Google Sheets for a weekly movie club. Supports multiple ind
 | Movie metadata | TMDB API (lookup by IMDB `tt` ID via `/find` endpoint) |
 | Poster storage | AWS S3 (MinIO for local dev) |
 
+## Coding Conventions
+
+Mechanical/formatting rules (indentation, import order, trailing commas, line length) belong in `.editorconfig` — ktlint enforces those automatically. This section is for conventions ktlint can't check.
+
+- **Don't use `?.let { }` as a null check.** If the block is just conditionally executing code (not producing a value you need as an expression), use `if (x != null) { ... }` instead. Reserve `?.let` for chains that actually transform/map the non-null value into a result.
+- **Import enum constants directly and reference them unqualified**, e.g. `import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY` then use `QUALITY`, rather than writing `RatingScaleType.QUALITY` inline — unless that name would conflict with another imported symbol in the same file, in which case fall back to the qualified form.
+- **Don't parse a string into an enum with `Enum.valueOf(...)`.** It throws on a bad match, so parsing untrusted input means wrapping it in `runCatching` just to swallow the exception. Use `Enum.entries.find { it.name == input }` instead — it returns `null` on no match, no exception involved.
+
 ## Domain Model
 
 ### Club

@@ -64,6 +64,9 @@ dependencies {
     // AWS S3
     implementation("software.amazon.awssdk:s3:2.47.5")
 
+    // CSV import
+    implementation("org.apache.commons:commons-csv:1.12.0")
+
     // Logging
     implementation("ch.qos.logback:logback-classic:1.6.1")
 

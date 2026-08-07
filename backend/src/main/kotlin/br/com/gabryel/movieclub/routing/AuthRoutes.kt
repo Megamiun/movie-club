@@ -1,7 +1,7 @@
 package br.com.gabryel.movieclub.routing
 
-import br.com.gabryel.movieclub.service.auth.JwtService
 import br.com.gabryel.movieclub.service.MemberService
+import br.com.gabryel.movieclub.service.auth.JwtService
 import io.ktor.http.HttpStatusCode.Companion.Created
 import io.ktor.server.auth.authenticate
 import io.ktor.server.request.receive

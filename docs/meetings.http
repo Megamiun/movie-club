@@ -1,0 +1,120 @@
+### 0. Login (uses docs/dummy-user.sql seeded admin@example.com)
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "hunter2" }
+
+> {%
+  client.global.set("jwt", response.body.token);
+  client.global.set("adminId", response.body.member.id);
+%}
+
+### 1. Create a club to work in
+POST http://localhost:8080/clubs
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "name": "Meeting Test Club" }
+
+> {%
+  client.global.set("clubId", response.body.id);
+%}
+
+### 2. Create a meeting (future empty slot, no movie yet)
+POST http://localhost:8080/clubs/{{clubId}}/meetings
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "date": "2026-03-02" }
+
+> {%
+  client.global.set("meetingId", response.body.id);
+%}
+
+### 3. List meetings for the club
+GET http://localhost:8080/clubs/{{clubId}}/meetings
+Authorization: Bearer {{jwt}}
+
+### 4. Movies list should be empty
+GET http://localhost:8080/meetings/{{meetingId}}/movies
+Authorization: Bearer {{jwt}}
+
+### 5. Add a movie by IMDB id (TMDB fetch populates everything else)
+POST http://localhost:8080/meetings/{{meetingId}}/movies
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "imdbUrlOrId": "tt4857264" }
+
+> {%
+  client.global.set("movieId", response.body.id);
+%}
+
+### 6. Get rating scale option ids
+GET http://localhost:8080/clubs/{{clubId}}/rating-scales
+Authorization: Bearer {{jwt}}
+
+> {%
+  client.global.set("qualityOptionId", response.body[0].options[0].id);
+  client.global.set("sentimentOptionId", response.body[1].options[0].id);
+%}
+
+### 7. Rate the movie
+PUT http://localhost:8080/movies/{{movieId}}/review
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "qualityOptionId": "{{qualityOptionId}}", "sentimentOptionId": "{{sentimentOptionId}}", "comment": "Loved it" }
+
+### 8. List reviews
+GET http://localhost:8080/movies/{{movieId}}/reviews
+Authorization: Bearer {{jwt}}
+
+### 9. Set a custom display title
+PATCH http://localhost:8080/movies/{{movieId}}
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "customTitle": "My Custom Title", "preference": "CUSTOM" }
+
+### 10. Refresh TMDB metadata
+POST http://localhost:8080/movies/{{movieId}}/refresh-metadata
+Authorization: Bearer {{jwt}}
+
+### 11. Postpone the meeting
+PATCH http://localhost:8080/meetings/{{meetingId}}
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "date": "2026-03-09" }
+
+### 12. Create a second meeting and swap assignments
+POST http://localhost:8080/clubs/{{clubId}}/meetings
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "date": "2026-03-16" }
+
+> {%
+  client.global.set("meetingId2", response.body.id);
+%}
+
+###
+POST http://localhost:8080/meetings/{{meetingId}}/swap/{{meetingId2}}
+Authorization: Bearer {{jwt}}
+
+### 13. Deleting a meeting with movies fails (409)
+DELETE http://localhost:8080/meetings/{{meetingId}}
+Authorization: Bearer {{jwt}}
+
+### 14. Merge the empty meeting into the movie's meeting
+POST http://localhost:8080/meetings/{{meetingId}}/merge/{{meetingId2}}
+Authorization: Bearer {{jwt}}
+
+### 15. Delete the movie, then the now-empty meeting
+DELETE http://localhost:8080/movies/{{movieId}}
+Authorization: Bearer {{jwt}}
+
+###
+DELETE http://localhost:8080/meetings/{{meetingId}}
+Authorization: Bearer {{jwt}}

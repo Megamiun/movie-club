@@ -1,0 +1,83 @@
+### 0. Login (uses docs/dummy-user.sql seeded admin@example.com)
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "hunter2" }
+
+> {%
+  client.global.set("jwt", response.body.token);
+  client.global.set("adminId", response.body.member.id);
+%}
+
+### 1. Invite and register a second member (to add to the club below)
+POST http://localhost:8080/auth/invite
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "email": "carol@example.com" }
+
+> {%
+  client.global.set("inviteToken", response.body.inviteToken);
+%}
+
+###
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{
+  "inviteToken": "{{inviteToken}}",
+  "name": "Carol",
+  "password": "hunter2"
+}
+
+> {%
+  client.global.set("carolId", response.body.member.id);
+%}
+
+### 2. Create a club (creator becomes ADMIN, default rating scales seeded)
+POST http://localhost:8080/clubs
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "name": "Movie Club" }
+
+> {%
+  client.global.set("clubId", response.body.id);
+%}
+
+### 3. List my clubs
+GET http://localhost:8080/clubs
+Authorization: Bearer {{jwt}}
+
+### 4. Get club detail
+GET http://localhost:8080/clubs/{{clubId}}
+Authorization: Bearer {{jwt}}
+
+### 5. Add Carol as a member
+POST http://localhost:8080/clubs/{{clubId}}/members
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "memberId": "{{carolId}}", "role": "MEMBER" }
+
+### 6. Promote Carol to admin
+PATCH http://localhost:8080/clubs/{{clubId}}/members/{{carolId}}
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "role": "ADMIN" }
+
+### 7. Reorder rotation
+PUT http://localhost:8080/clubs/{{clubId}}/rotation
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "memberIds": ["{{carolId}}", "{{adminId}}"] }
+
+### 8. Get rating scales (default Portuguese quality/sentiment options)
+GET http://localhost:8080/clubs/{{clubId}}/rating-scales
+Authorization: Bearer {{jwt}}
+
+### 9. Remove Carol
+DELETE http://localhost:8080/clubs/{{clubId}}/members/{{carolId}}
+Authorization: Bearer {{jwt}}

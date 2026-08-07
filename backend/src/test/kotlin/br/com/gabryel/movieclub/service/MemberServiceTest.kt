@@ -1,6 +1,5 @@
 package br.com.gabryel.movieclub.service
 
-import br.com.gabryel.movieclub.service.auth.PasswordService
 import br.com.gabryel.movieclub.db.repositories.InvitedMember
 import br.com.gabryel.movieclub.db.repositories.MemberRepository
 import br.com.gabryel.movieclub.db.repositories.RegisteredMember
@@ -8,13 +7,14 @@ import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ConflictException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.UnauthorizedException
+import br.com.gabryel.movieclub.service.auth.PasswordService
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.uuid.Uuid
 
 class MemberServiceTest {
     private val memberRepository = mockk<MemberRepository>()
@@ -45,7 +45,7 @@ class MemberServiceTest {
 
     @Test
     fun `register throws ForbiddenException when token not found`() {
-        val token = UUID.randomUUID()
+        val token = Uuid.random()
         every { memberRepository.findByInviteToken(token) } returns null
 
         assertFailsWith<ForbiddenException> { memberService.register(token.toString(), "Name", "pass") }
@@ -53,7 +53,7 @@ class MemberServiceTest {
 
     @Test
     fun `register completes registration and returns registered member`() {
-        val token = UUID.randomUUID()
+        val token = Uuid.random()
         val invited = invitedMember(inviteToken = token)
         val registered = registeredMember(id = invited.id)
         every { memberRepository.findByInviteToken(token) } returns invited
@@ -95,13 +95,13 @@ class MemberServiceTest {
     }
 
     private fun invitedMember(
-        id: UUID = UUID.randomUUID(),
+        id: Uuid = Uuid.random(),
         email: String = "user@example.com",
-        inviteToken: UUID = UUID.randomUUID(),
+        inviteToken: Uuid = Uuid.random(),
     ) = InvitedMember(id, email, inviteToken)
 
     private fun registeredMember(
-        id: UUID = UUID.randomUUID(),
+        id: Uuid = Uuid.random(),
         email: String = "user@example.com",
         name: String = "Test User",
         passwordHash: String = "hashed",

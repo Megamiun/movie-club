@@ -1,0 +1,58 @@
+package br.com.gabryel.movieclub.routing
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+internal data class CreateClubRequest(
+    val name: String,
+)
+
+@Serializable
+internal data class ClubResponse(
+    val id: String,
+    val name: String,
+)
+
+@Serializable
+internal data class ClubMemberResponse(
+    val memberId: String,
+    val role: String,
+    val rotationOrder: Int,
+)
+
+@Serializable
+internal data class ClubDetailResponse(
+    val id: String,
+    val name: String,
+    val members: List<ClubMemberResponse>,
+)
+
+@Serializable
+internal data class AddClubMemberRequest(
+    val memberId: String,
+    val role: String = "MEMBER",
+)
+
+@Serializable
+internal data class ChangeRoleRequest(
+    val role: String,
+)
+
+@Serializable
+internal data class UpdateRotationRequest(
+    val memberIds: List<String>,
+)
+
+@Serializable
+internal data class RatingOptionResponse(
+    val id: String,
+    val label: String,
+    val position: Int,
+)
+
+@Serializable
+internal data class RatingScaleResponse(
+    val id: String,
+    val type: String,
+    val options: List<RatingOptionResponse>,
+)

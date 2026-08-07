@@ -1,0 +1,130 @@
+### 0. Login (uses docs/dummy-user.sql seeded admin@example.com)
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "hunter2" }
+
+> {%
+  client.global.set("jwt", response.body.token);
+  client.global.set("gabryelId", response.body.member.id);
+%}
+
+### 1. Create a club and invite a second member for Camila's mapping
+POST http://localhost:8080/clubs
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "name": "Import Test Club" }
+
+> {%
+  client.global.set("clubId", response.body.id);
+%}
+
+###
+POST http://localhost:8080/auth/invite
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "email": "import-camila@example.com" }
+
+> {%
+  client.global.set("inviteToken", response.body.inviteToken);
+%}
+
+###
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{ "inviteToken": "{{inviteToken}}", "name": "Camila", "password": "hunter2" }
+
+> {%
+  client.global.set("camilaId", response.body.member.id);
+%}
+
+###
+POST http://localhost:8080/clubs/{{clubId}}/members
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "memberId": "{{camilaId}}" }
+
+### 2. Import the 2025 Movies CSV. `mappings` is a JSON-encoded array; substitute the real member ids from steps
+### above. `file` is the CSV bytes from samples/. Requires the club admin's JWT (set in step 0).
+POST http://localhost:8080/clubs/{{clubId}}/import
+Authorization: Bearer {{jwt}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="type"
+
+movies
+--WebAppBoundary
+Content-Disposition: form-data; name="mappings"
+
+[{"choiceInitial":"G","csvDisplayName":"Gabryel","memberId":"{{gabryelId}}"},{"choiceInitial":"C","csvDisplayName":"Camila","memberId":"{{camilaId}}"}]
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="movies-2025.csv"
+Content-Type: text/csv
+
+< ../samples/Movie Club - Movies 2025.csv
+--WebAppBoundary--
+
+### 3. Re-running the same import is idempotent -- expect created:0, every row skipped as "already imported"
+POST http://localhost:8080/clubs/{{clubId}}/import
+Authorization: Bearer {{jwt}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="type"
+
+movies
+--WebAppBoundary
+Content-Disposition: form-data; name="mappings"
+
+[{"choiceInitial":"G","csvDisplayName":"Gabryel","memberId":"{{gabryelId}}"},{"choiceInitial":"C","csvDisplayName":"Camila","memberId":"{{camilaId}}"}]
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="movies-2025.csv"
+Content-Type: text/csv
+
+< ../samples/Movie Club - Movies 2025.csv
+--WebAppBoundary--
+
+### 4. Import Series.csv -- expect every series skipped-and-warned until an "IMDB Id" column is added to the file
+POST http://localhost:8080/clubs/{{clubId}}/import
+Authorization: Bearer {{jwt}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="type"
+
+series
+--WebAppBoundary
+Content-Disposition: form-data; name="mappings"
+
+[{"choiceInitial":"G","csvDisplayName":"Gabryel","memberId":"{{gabryelId}}"},{"choiceInitial":"C","csvDisplayName":"Camila","memberId":"{{camilaId}}"}]
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="series.csv"
+Content-Type: text/csv
+
+< ../samples/Movie Club - Series.csv
+--WebAppBoundary--
+
+### 5. Import Reserve.csv (watchlist backlog)
+POST http://localhost:8080/clubs/{{clubId}}/import
+Authorization: Bearer {{jwt}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="type"
+
+reserve
+--WebAppBoundary
+Content-Disposition: form-data; name="mappings"
+
+[{"choiceInitial":"G","csvDisplayName":"Gabryel","memberId":"{{gabryelId}}"},{"choiceInitial":"C","csvDisplayName":"Camila","memberId":"{{camilaId}}"}]
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="reserve.csv"
+Content-Type: text/csv
+
+< ../samples/Movie Club - Reserve.csv
+--WebAppBoundary--
