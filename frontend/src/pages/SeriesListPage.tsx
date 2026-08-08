@@ -1,16 +1,32 @@
 import AddIcon from '@mui/icons-material/Add'
-import { Alert, Box, Button, List, ListItemButton, ListItemText, Stack, TextField, Typography } from '@mui/material'
+import {
+  Alert,
+  Box,
+  Button,
+  List,
+  ListItemButton,
+  ListItemText,
+  Stack,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material'
 import { useState, type FormEvent } from 'react'
 import { Link as RouterLink, useOutletContext } from 'react-router-dom'
 import { seriesApi } from '../api/series'
 import { ApiError } from '../api/client'
+import type { TmdbSearchResult } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { TmdbSearchAutocomplete } from '../components/TmdbSearchAutocomplete'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 
 export function SeriesListPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { data: series, loading, error, reload } = useAsync(() => seriesApi.list(club.id), [club.id])
+  const [addMode, setAddMode] = useState<'search' | 'imdb'>('search')
+  const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
   const [imdbUrlOrId, setImdbUrlOrId] = useState('')
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -18,8 +34,14 @@ export function SeriesListPage() {
     event.preventDefault()
     setSubmitError(null)
     try {
-      await seriesApi.add(club.id, imdbUrlOrId)
-      setImdbUrlOrId('')
+      if (addMode === 'search') {
+        if (!selectedResult) return
+        await seriesApi.addByTmdbId(club.id, selectedResult.tmdbId)
+        setSelectedResult(null)
+      } else {
+        await seriesApi.add(club.id, imdbUrlOrId)
+        setImdbUrlOrId('')
+      }
       reload()
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -52,15 +74,34 @@ export function SeriesListPage() {
             {submitError}
           </Alert>
         )}
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={addMode}
+          onChange={(_, mode) => mode && setAddMode(mode)}
+          sx={{ mb: 1 }}
+        >
+          <ToggleButton value="search">Search by title</ToggleButton>
+          <ToggleButton value="imdb">IMDB URL/ID</ToggleButton>
+        </ToggleButtonGroup>
         <Stack direction="row" spacing={1}>
-          <TextField
-            label="IMDB URL or tt id"
-            size="small"
-            value={imdbUrlOrId}
-            onChange={(e) => setImdbUrlOrId(e.target.value)}
-            required
-            fullWidth
-          />
+          {addMode === 'search' ? (
+            <TmdbSearchAutocomplete
+              search={seriesApi.search}
+              value={selectedResult}
+              onChange={setSelectedResult}
+              label="Series title"
+            />
+          ) : (
+            <TextField
+              label="IMDB URL or tt id"
+              size="small"
+              value={imdbUrlOrId}
+              onChange={(e) => setImdbUrlOrId(e.target.value)}
+              required
+              fullWidth
+            />
+          )}
           <Button type="submit" variant="contained" startIcon={<AddIcon />}>
             Add series
           </Button>

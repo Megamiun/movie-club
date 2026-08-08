@@ -27,6 +27,23 @@ export interface MemberSummary {
   email: string
 }
 
+export interface TmdbSearchResult {
+  tmdbId: string
+  title: string
+  originalTitle: string
+  year: number | null
+  posterUrl: string | null
+}
+
+export interface EpisodeSearchResult {
+  episodeId: string
+  seasonId: string
+  seriesTitle: string
+  seasonNumber: number
+  episodeNumber: number
+  episodeTitle: string | null
+}
+
 export interface ClubDetail {
   id: string
   name: string

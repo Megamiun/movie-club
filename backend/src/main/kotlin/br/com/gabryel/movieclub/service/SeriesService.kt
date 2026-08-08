@@ -12,6 +12,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.NotFoundException
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
+import br.com.gabryel.movieclub.service.tmdb.TmdbTvSearchItem
 import br.com.gabryel.movieclub.service.tmdb.parseImdbId
 import kotlin.uuid.Uuid
 
@@ -22,15 +23,31 @@ class SeriesService(
     private val seasonRepository: SeasonRepository,
     private val episodeRepository: EpisodeRepository,
 ) {
+    suspend fun searchSeries(query: String): List<TmdbTvSearchItem> {
+        if (query.isBlank()) return emptyList()
+        return tmdbClient.searchTv(query.trim())
+    }
+
     suspend fun addSeries(clubId: Uuid, actingMemberId: Uuid, imdbUrlOrId: String): SeriesRow {
         clubService.requireMembership(clubId, actingMemberId)
         val imdbId = parseImdbId(imdbUrlOrId)
         val summary = tmdbClient.findTvByImdbId(imdbId)
             ?: throw BadRequestException("Could not find TMDB metadata for $imdbId")
 
-        val metadata = tmdbClient.getTvDetails(summary.id).toMetadata(summary.id)
+        return createFromTmdb(clubId, actingMemberId, summary.id)
+    }
 
-        return seriesRepository.create(clubId, actingMemberId, imdbId, metadata)
+    suspend fun addSeriesByTmdbId(clubId: Uuid, actingMemberId: Uuid, tmdbId: Int): SeriesRow {
+        clubService.requireMembership(clubId, actingMemberId)
+        return createFromTmdb(clubId, actingMemberId, tmdbId)
+    }
+
+    private suspend fun createFromTmdb(clubId: Uuid, actingMemberId: Uuid, tmdbId: Int): SeriesRow {
+        val details = tmdbClient.getTvDetails(tmdbId)
+        val imdbId = details.externalIds?.imdbId
+            ?: throw BadRequestException("TMDB series $tmdbId has no linked IMDB id")
+
+        return seriesRepository.create(clubId, actingMemberId, imdbId, details.toMetadata(tmdbId))
     }
 
     suspend fun refreshMetadata(seriesId: Uuid, actingMemberId: Uuid): SeriesRow {

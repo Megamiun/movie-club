@@ -4,8 +4,18 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 internal data class AddMovieRequest(
-    val imdbUrlOrId: String,
+    val imdbUrlOrId: String? = null,
+    val tmdbId: String? = null,
     val watchLink: String? = null,
+)
+
+@Serializable
+internal data class MovieSearchResultResponse(
+    val tmdbId: String,
+    val title: String,
+    val originalTitle: String,
+    val year: Int?,
+    val posterUrl: String?,
 )
 
 @Serializable

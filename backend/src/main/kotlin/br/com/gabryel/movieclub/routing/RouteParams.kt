@@ -20,6 +20,9 @@ internal fun ApplicationCall.actingMemberId(): Uuid {
 internal fun String.toUuidOrBadRequest(): Uuid =
     Uuid.parseOrNull(this) ?: throw BadRequestException("Invalid id: $this")
 
+internal fun String.toIntOrBadRequest(): Int =
+    toIntOrNull() ?: throw BadRequestException("Invalid number: $this")
+
 internal fun String.toDisplayTitlePreferenceOrBadRequest(): DisplayTitlePreference =
     DisplayTitlePreference.entries.find { it.name == this }
         ?: throw BadRequestException("Invalid display title preference: $this")

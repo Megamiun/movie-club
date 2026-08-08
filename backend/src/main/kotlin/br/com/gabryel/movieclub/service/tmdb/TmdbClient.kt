@@ -49,6 +49,40 @@ data class TmdbTvSummary(
 )
 
 @Serializable
+data class TmdbExternalIds(
+    @SerialName("imdb_id") val imdbId: String? = null,
+)
+
+/** One page of `/search/movie` results -- used by title search, distinct from [TmdbFindResponse]'s lookup-by-id. */
+@Serializable
+data class TmdbMovieSearchItem(
+    val id: Int,
+    val title: String,
+    @SerialName("original_title") val originalTitle: String,
+    @SerialName("release_date") val releaseDate: String? = null,
+    @SerialName("poster_path") val posterPath: String? = null,
+) {
+    val year: Int? get() = releaseDate?.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull()
+}
+
+@Serializable
+data class TmdbTvSearchItem(
+    val id: Int,
+    val name: String,
+    @SerialName("original_name") val originalName: String,
+    @SerialName("first_air_date") val firstAirDate: String? = null,
+    @SerialName("poster_path") val posterPath: String? = null,
+) {
+    val year: Int? get() = firstAirDate?.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull()
+}
+
+@Serializable
+private data class TmdbMovieSearchResponse(val results: List<TmdbMovieSearchItem> = emptyList())
+
+@Serializable
+private data class TmdbTvSearchResponse(val results: List<TmdbTvSearchItem> = emptyList())
+
+@Serializable
 data class TmdbGenre(
     val name: String,
 )
@@ -109,6 +143,7 @@ data class TmdbMovieDetails(
     @SerialName("poster_path") val posterPath: String? = null,
     val credits: TmdbCredits? = null,
     @SerialName("alternative_titles") val alternativeTitles: TmdbMovieAlternativeTitles? = null,
+    @SerialName("external_ids") val externalIds: TmdbExternalIds? = null,
 ) {
     val year: Int? get() = releaseDate?.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull()
     val director: String? get() = credits?.crew?.firstOrNull { it.job == "Director" }?.name
@@ -151,6 +186,7 @@ data class TmdbTvDetails(
     @SerialName("created_by") val createdBy: List<TmdbCreator> = emptyList(),
     @SerialName("alternative_titles") val alternativeTitles: TmdbTvAlternativeTitles? = null,
     val seasons: List<TmdbSeasonSummary> = emptyList(),
+    @SerialName("external_ids") val externalIds: TmdbExternalIds? = null,
 ) {
     val year: Int? get() = firstAirDate?.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull()
     val creator: String? get() = createdBy.firstOrNull()?.name
@@ -221,7 +257,7 @@ class TmdbClient(private val accessToken: String) {
     suspend fun getTvDetails(tmdbId: Int): TmdbTvDetails =
         http.get("$BASE_URL/tv/$tmdbId") {
             authorized()
-            parameter("append_to_response", "alternative_titles")
+            parameter("append_to_response", "alternative_titles,external_ids")
         }.body()
 
     suspend fun getEpisodeDetails(tvId: Int, seasonNumber: Int, episodeNumber: Int): TmdbEpisodeDetails =
@@ -229,6 +265,18 @@ class TmdbClient(private val accessToken: String) {
 
     suspend fun getSeasonDetails(tvId: Int, seasonNumber: Int): TmdbSeasonDetails =
         http.get("$BASE_URL/tv/$tvId/season/$seasonNumber") { authorized() }.body()
+
+    suspend fun searchMovies(query: String): List<TmdbMovieSearchItem> =
+        http.get("$BASE_URL/search/movie") {
+            authorized()
+            parameter("query", query)
+        }.body<TmdbMovieSearchResponse>().results
+
+    suspend fun searchTv(query: String): List<TmdbTvSearchItem> =
+        http.get("$BASE_URL/search/tv") {
+            authorized()
+            parameter("query", query)
+        }.body<TmdbTvSearchResponse>().results
 
     private suspend fun find(imdbId: String): TmdbFindResponse =
         http.get("$BASE_URL/find/$imdbId") {

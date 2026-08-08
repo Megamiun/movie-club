@@ -126,7 +126,7 @@ export function MeetingDetailPage() {
             <Divider sx={{ my: 3 }} />
             <MovieSection meetingId={meeting.id} scales={scales ?? []} members={club?.members ?? []} />
             <Divider sx={{ my: 3 }} />
-            <EpisodeSection meetingId={meeting.id} scales={scales ?? []} />
+            <EpisodeSection meetingId={meeting.id} clubId={meeting.clubId} scales={scales ?? []} />
           </>
         )}
       </AsyncState>

@@ -8,6 +8,7 @@ import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
+import br.com.gabryel.movieclub.db.repositories.dto.EpisodeSearchRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeasonRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.exception.BadRequestException
@@ -77,6 +78,12 @@ class EpisodeService(
     fun listEpisodesForMeeting(meetingId: Uuid, actingMemberId: Uuid): List<EpisodeRow> {
         clubService.requireMembership(requireMeeting(meetingId).clubId, actingMemberId)
         return episodeRepository.listByMeeting(meetingId)
+    }
+
+    fun searchEpisodes(clubId: Uuid, actingMemberId: Uuid, query: String): List<EpisodeSearchRow> {
+        clubService.requireMembership(clubId, actingMemberId)
+        if (query.isBlank()) return emptyList()
+        return episodeRepository.searchByClub(clubId, query.trim())
     }
 
     fun rate(

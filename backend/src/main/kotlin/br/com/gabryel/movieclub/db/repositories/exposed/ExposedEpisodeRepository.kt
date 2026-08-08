@@ -3,15 +3,22 @@ package br.com.gabryel.movieclub.db.repositories.exposed
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
+import br.com.gabryel.movieclub.db.repositories.dto.EpisodeSearchRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbEpisodeMetadata
+import br.com.gabryel.movieclub.db.tables.ClubSeries
 import br.com.gabryel.movieclub.db.tables.Episodes
 import br.com.gabryel.movieclub.db.tables.MeetingEpisodes
 import br.com.gabryel.movieclub.db.tables.MemberEpisodeReviews
+import br.com.gabryel.movieclub.db.tables.Seasons
+import br.com.gabryel.movieclub.db.tables.Series
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder.ASC
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.innerJoin
+import org.jetbrains.exposed.v1.core.like
+import org.jetbrains.exposed.v1.core.lowerCase
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -59,6 +66,29 @@ class ExposedEpisodeRepository : EpisodeRepository {
             .selectAll()
             .where { MeetingEpisodes.meetingId eq meetingId }
             .map(::toRow)
+    }
+
+    override fun searchByClub(clubId: Uuid, query: String, limit: Int): List<EpisodeSearchRow> = transaction {
+        val pattern = "%${query.lowercase()}%"
+        (ClubSeries innerJoin Series)
+            .innerJoin(Seasons, { Series.id }, { Seasons.seriesId })
+            .innerJoin(Episodes, { Seasons.id }, { Episodes.seasonId })
+            .selectAll()
+            .where {
+                (ClubSeries.clubId eq clubId) and (
+                    (Episodes.title.lowerCase() like pattern) or
+                        (Series.originalTitle.lowerCase() like pattern) or
+                        (ClubSeries.customTitle.lowerCase() like pattern)
+                )
+            }
+            .limit(limit)
+            .map { row ->
+                EpisodeSearchRow(
+                    episode = toRow(row),
+                    seasonNumber = row[Seasons.number],
+                    seriesTitle = row[ClubSeries.customTitle] ?: row[Series.originalTitle],
+                )
+            }
     }
 
     override fun assignToMeeting(episodeId: Uuid, meetingId: Uuid) {

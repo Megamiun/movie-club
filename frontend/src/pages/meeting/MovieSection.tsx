@@ -13,16 +13,19 @@ import {
   Select,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useState, type FormEvent } from 'react'
 import { moviesApi } from '../../api/movies'
 import { ApiError } from '../../api/client'
-import type { ClubMember, Movie, RatingScale } from '../../api/types'
+import type { ClubMember, Movie, RatingScale, TmdbSearchResult } from '../../api/types'
 import { AsyncState } from '../../components/AsyncState'
 import { RatingForm } from '../../components/RatingForm'
 import { ReviewsList } from '../../components/ReviewsList'
+import { TmdbSearchAutocomplete } from '../../components/TmdbSearchAutocomplete'
 import { useAsync } from '../../hooks/useAsync'
 import { memberName } from '../../utils/members'
 
@@ -36,6 +39,8 @@ export function MovieSection({
   members: ClubMember[]
 }) {
   const { data: movies, loading, error, reload } = useAsync(() => moviesApi.list(meetingId), [meetingId])
+  const [addMode, setAddMode] = useState<'search' | 'imdb'>('search')
+  const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
   const [imdbUrlOrId, setImdbUrlOrId] = useState('')
   const [watchLink, setWatchLink] = useState('')
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -44,8 +49,14 @@ export function MovieSection({
     event.preventDefault()
     setSubmitError(null)
     try {
-      await moviesApi.add(meetingId, imdbUrlOrId, watchLink || undefined)
-      setImdbUrlOrId('')
+      if (addMode === 'search') {
+        if (!selectedResult) return
+        await moviesApi.addByTmdbId(meetingId, selectedResult.tmdbId, watchLink || undefined)
+        setSelectedResult(null)
+      } else {
+        await moviesApi.add(meetingId, imdbUrlOrId, watchLink || undefined)
+        setImdbUrlOrId('')
+      }
       setWatchLink('')
       reload()
     } catch (err) {
@@ -74,15 +85,34 @@ export function MovieSection({
             {submitError}
           </Alert>
         )}
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={addMode}
+          onChange={(_, mode) => mode && setAddMode(mode)}
+          sx={{ mb: 1 }}
+        >
+          <ToggleButton value="search">Search by title</ToggleButton>
+          <ToggleButton value="imdb">IMDB URL/ID</ToggleButton>
+        </ToggleButtonGroup>
         <Stack direction="row" spacing={1}>
-          <TextField
-            label="IMDB URL or tt id"
-            size="small"
-            value={imdbUrlOrId}
-            onChange={(e) => setImdbUrlOrId(e.target.value)}
-            required
-            fullWidth
-          />
+          {addMode === 'search' ? (
+            <TmdbSearchAutocomplete
+              search={moviesApi.search}
+              value={selectedResult}
+              onChange={setSelectedResult}
+              label="Movie title"
+            />
+          ) : (
+            <TextField
+              label="IMDB URL or tt id"
+              size="small"
+              value={imdbUrlOrId}
+              onChange={(e) => setImdbUrlOrId(e.target.value)}
+              required
+              fullWidth
+            />
+          )}
           <TextField
             label="Watch link (optional)"
             size="small"

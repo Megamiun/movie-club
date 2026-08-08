@@ -12,21 +12,33 @@ import {
   TableHead,
   TableRow,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material'
 import { useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { moviesApi } from '../api/movies'
+import { seriesApi } from '../api/series'
 import { watchlistApi } from '../api/watchlist'
 import { ApiError } from '../api/client'
-import type { ClubMember, WatchlistEntry } from '../api/types'
+import type { ClubMember, TmdbSearchResult, WatchlistEntry } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { TmdbSearchAutocomplete } from '../components/TmdbSearchAutocomplete'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { memberName } from '../utils/members'
 
+const searchMoviesAndSeries = async (query: string): Promise<TmdbSearchResult[]> => {
+  const [movies, series] = await Promise.all([moviesApi.search(query), seriesApi.search(query)])
+  return [...movies, ...series]
+}
+
 export function WatchlistPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { data: entries, loading, error, reload } = useAsync(() => watchlistApi.list(club.id), [club.id])
+  const [addMode, setAddMode] = useState<'search' | 'manual'>('search')
+  const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
   const [title, setTitle] = useState('')
   const [imdbUrl, setImdbUrl] = useState('')
   const [notes, setNotes] = useState('')
@@ -36,9 +48,15 @@ export function WatchlistPage() {
     event.preventDefault()
     setSubmitError(null)
     try {
-      await watchlistApi.add(club.id, title, imdbUrl || undefined, notes || undefined)
-      setTitle('')
-      setImdbUrl('')
+      if (addMode === 'search') {
+        if (!selectedResult) return
+        await watchlistApi.add(club.id, selectedResult.title, undefined, notes || undefined)
+        setSelectedResult(null)
+      } else {
+        await watchlistApi.add(club.id, title, imdbUrl || undefined, notes || undefined)
+        setTitle('')
+        setImdbUrl('')
+      }
       setNotes('')
       reload()
     } catch (err) {
@@ -82,14 +100,35 @@ export function WatchlistPage() {
             {submitError}
           </Alert>
         )}
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={addMode}
+          onChange={(_, mode) => mode && setAddMode(mode)}
+          sx={{ mb: 1 }}
+        >
+          <ToggleButton value="search">Search by title</ToggleButton>
+          <ToggleButton value="manual">Enter manually</ToggleButton>
+        </ToggleButtonGroup>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-          <TextField label="Title" size="small" value={title} onChange={(e) => setTitle(e.target.value)} required />
-          <TextField
-            label="IMDB URL (optional)"
-            size="small"
-            value={imdbUrl}
-            onChange={(e) => setImdbUrl(e.target.value)}
-          />
+          {addMode === 'search' ? (
+            <TmdbSearchAutocomplete
+              search={searchMoviesAndSeries}
+              value={selectedResult}
+              onChange={setSelectedResult}
+              label="Title"
+            />
+          ) : (
+            <>
+              <TextField label="Title" size="small" value={title} onChange={(e) => setTitle(e.target.value)} required />
+              <TextField
+                label="IMDB URL (optional)"
+                size="small"
+                value={imdbUrl}
+                onChange={(e) => setImdbUrl(e.target.value)}
+              />
+            </>
+          )}
           <TextField label="Notes (optional)" size="small" value={notes} onChange={(e) => setNotes(e.target.value)} />
           <Button type="submit" variant="contained" startIcon={<AddIcon />}>
             Add

@@ -5,7 +5,27 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 internal data class AddSeriesRequest(
-    val imdbUrlOrId: String,
+    val imdbUrlOrId: String? = null,
+    val tmdbId: String? = null,
+)
+
+@Serializable
+internal data class SeriesSearchResultResponse(
+    val tmdbId: String,
+    val title: String,
+    val originalTitle: String,
+    val year: Int?,
+    val posterUrl: String?,
+)
+
+@Serializable
+internal data class EpisodeSearchResultResponse(
+    val episodeId: String,
+    val seasonId: String,
+    val seriesTitle: String,
+    val seasonNumber: Int,
+    val episodeNumber: Int,
+    val episodeTitle: String?,
 )
 
 @Serializable

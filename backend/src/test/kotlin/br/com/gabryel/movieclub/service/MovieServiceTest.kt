@@ -14,6 +14,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
+import br.com.gabryel.movieclub.service.tmdb.TmdbExternalIds
 import br.com.gabryel.movieclub.service.tmdb.TmdbMovieDetails
 import br.com.gabryel.movieclub.service.tmdb.TmdbMovieSummary
 import io.mockk.coEvery
@@ -66,6 +67,7 @@ class MovieServiceTest {
             title = "The Invisible Guest",
             releaseDate = "2017-01-06",
             runtime = 107,
+            externalIds = TmdbExternalIds(imdbId = "tt4857264"),
         )
 
         val created = movie()

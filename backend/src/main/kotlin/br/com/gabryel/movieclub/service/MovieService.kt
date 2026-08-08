@@ -12,6 +12,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.NotFoundException
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
+import br.com.gabryel.movieclub.service.tmdb.TmdbMovieSearchItem
 import br.com.gabryel.movieclub.service.tmdb.parseImdbId
 import kotlin.uuid.Uuid
 
@@ -21,6 +22,11 @@ class MovieService(
     private val clubService: ClubService,
     private val tmdbClient: TmdbClient,
 ) {
+    suspend fun searchMovies(query: String): List<TmdbMovieSearchItem> {
+        if (query.isBlank()) return emptyList()
+        return tmdbClient.searchMovies(query.trim())
+    }
+
     suspend fun addMovie(
         meetingId: Uuid,
         actingMemberId: Uuid,
@@ -33,9 +39,25 @@ class MovieService(
         val summary = tmdbClient.findByImdbId(imdbId)
             ?: throw BadRequestException("Could not find TMDB metadata for $imdbId")
 
-        val metadata = tmdbClient.getMovieDetails(summary.id).toMetadata(summary.id)
+        return createFromTmdb(meeting.id, actingMemberId, summary.id, watchLink)
+    }
 
-        return movieRepository.create(meeting.id, actingMemberId, imdbId, metadata, watchLink)
+    suspend fun addMovieByTmdbId(
+        meetingId: Uuid,
+        actingMemberId: Uuid,
+        tmdbId: Int,
+        watchLink: String? = null,
+    ): MovieRow {
+        val meeting = requireMeetingAccess(meetingId, actingMemberId)
+        return createFromTmdb(meeting.id, actingMemberId, tmdbId, watchLink)
+    }
+
+    private suspend fun createFromTmdb(meetingId: Uuid, actingMemberId: Uuid, tmdbId: Int, watchLink: String?): MovieRow {
+        val details = tmdbClient.getMovieDetails(tmdbId)
+        val imdbId = details.externalIds?.imdbId
+            ?: throw BadRequestException("TMDB movie $tmdbId has no linked IMDB id")
+
+        return movieRepository.create(meetingId, actingMemberId, imdbId, details.toMetadata(tmdbId), watchLink)
     }
 
     suspend fun refreshMetadata(movieId: Uuid, actingMemberId: Uuid): MovieRow {

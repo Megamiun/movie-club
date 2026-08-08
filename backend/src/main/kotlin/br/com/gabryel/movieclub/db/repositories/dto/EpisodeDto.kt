@@ -20,6 +20,14 @@ data class EpisodeRow(
     val metadataFetchedAt: Instant? = null,
 )
 
+/** One [EpisodeRow] plus the series/season context needed to label it in a search result -- the club-scoped
+ * series title (custom, if the club set one, else TMDB's original) and the season's number. */
+data class EpisodeSearchRow(
+    val episode: EpisodeRow,
+    val seasonNumber: Int,
+    val seriesTitle: String,
+)
+
 data class EpisodeReviewRow(
     val episodeId: Uuid,
     val memberId: Uuid,

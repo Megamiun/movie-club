@@ -3,18 +3,22 @@ package br.com.gabryel.movieclub.routing.series
 import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
+import br.com.gabryel.movieclub.db.repositories.dto.EpisodeSearchRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeasonReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeasonRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
+import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.routing.actingMemberId
 import br.com.gabryel.movieclub.routing.movie.AlternativeTitleResponse
 import br.com.gabryel.movieclub.routing.toDisplayTitlePreferenceOrBadRequest
+import br.com.gabryel.movieclub.routing.toIntOrBadRequest
 import br.com.gabryel.movieclub.routing.toUuidOrBadRequest
 import br.com.gabryel.movieclub.routing.uuidPathParam
 import br.com.gabryel.movieclub.service.EpisodeService
 import br.com.gabryel.movieclub.service.SeasonService
 import br.com.gabryel.movieclub.service.SeriesService
+import br.com.gabryel.movieclub.service.tmdb.TmdbTvSearchItem
 import io.ktor.http.HttpStatusCode.Companion.Created
 import io.ktor.server.auth.authenticate
 import io.ktor.server.request.receive
@@ -28,15 +32,35 @@ import io.ktor.server.routing.put
 
 fun Route.seriesRoutes(seriesService: SeriesService, seasonService: SeasonService, episodeService: EpisodeService) {
     authenticate("auth-jwt") {
+        get("/series/search") {
+            val query = call.request.queryParameters["q"].orEmpty()
+            val results = seriesService.searchSeries(query)
+            call.respond(results.map { it.toResponse() })
+        }
+
         post("/clubs/{clubId}/series") {
             val body = call.receive<AddSeriesRequest>()
-            val series = seriesService.addSeries(call.uuidPathParam("clubId"), call.actingMemberId(), body.imdbUrlOrId)
+            val clubId = call.uuidPathParam("clubId")
+            val actingMemberId = call.actingMemberId()
+            val series = when {
+                body.tmdbId != null ->
+                    seriesService.addSeriesByTmdbId(clubId, actingMemberId, body.tmdbId.toIntOrBadRequest())
+                body.imdbUrlOrId != null ->
+                    seriesService.addSeries(clubId, actingMemberId, body.imdbUrlOrId)
+                else -> throw BadRequestException("Either imdbUrlOrId or tmdbId is required")
+            }
             call.respond(Created, series.toResponse())
         }
 
         get("/clubs/{clubId}/series") {
             val series = seriesService.listSeries(call.uuidPathParam("clubId"), call.actingMemberId())
             call.respond(series.map { it.toResponse() })
+        }
+
+        get("/clubs/{clubId}/episodes/search") {
+            val query = call.request.queryParameters["q"].orEmpty()
+            val results = episodeService.searchEpisodes(call.uuidPathParam("clubId"), call.actingMemberId(), query)
+            call.respond(results.map { it.toResponse() })
         }
 
         get("/series/{seriesId}") {
@@ -175,6 +199,23 @@ private fun SeriesRow.toResponse() = SeriesResponse(
 )
 
 private fun AlternativeTitle.toResponse() = AlternativeTitleResponse(isoCode, title, type)
+
+private fun TmdbTvSearchItem.toResponse() = SeriesSearchResultResponse(
+    tmdbId = id.toString(),
+    title = name,
+    originalTitle = originalName,
+    year = year,
+    posterUrl = posterPath?.let { "https://image.tmdb.org/t/p/w92$it" },
+)
+
+private fun EpisodeSearchRow.toResponse() = EpisodeSearchResultResponse(
+    episodeId = episode.id.toString(),
+    seasonId = episode.seasonId.toString(),
+    seriesTitle = seriesTitle,
+    seasonNumber = seasonNumber,
+    episodeNumber = episode.number,
+    episodeTitle = episode.title,
+)
 
 private fun SeasonRow.toResponse() = SeasonResponse(id.toString(), seriesId.toString(), number, title)
 

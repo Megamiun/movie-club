@@ -1,10 +1,23 @@
 import { api } from './client'
-import type { Episode, EpisodeReview, Season, SeasonReview, Series, SeriesReview } from './types'
+import type {
+  Episode,
+  EpisodeReview,
+  EpisodeSearchResult,
+  Season,
+  SeasonReview,
+  Series,
+  SeriesReview,
+  TmdbSearchResult,
+} from './types'
 
 export const seriesApi = {
   list: (clubId: string) => api.get<Series[]>(`/clubs/${clubId}/series`),
 
+  search: (query: string) => api.get<TmdbSearchResult[]>(`/series/search?q=${encodeURIComponent(query)}`),
+
   add: (clubId: string, imdbUrlOrId: string) => api.post<Series>(`/clubs/${clubId}/series`, { imdbUrlOrId }),
+
+  addByTmdbId: (clubId: string, tmdbId: string) => api.post<Series>(`/clubs/${clubId}/series`, { tmdbId }),
 
   get: (seriesId: string) => api.get<Series>(`/series/${seriesId}`),
 
@@ -33,6 +46,9 @@ export const seasonsApi = {
 }
 
 export const episodesApi = {
+  search: (clubId: string, query: string) =>
+    api.get<EpisodeSearchResult[]>(`/clubs/${clubId}/episodes/search?q=${encodeURIComponent(query)}`),
+
   refreshMetadata: (episodeId: string) => api.post<Episode>(`/episodes/${episodeId}/refresh-metadata`),
 
   assignToMeeting: (episodeId: string, meetingId: string) =>

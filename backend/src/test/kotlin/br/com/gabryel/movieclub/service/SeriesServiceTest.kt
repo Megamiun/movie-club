@@ -17,6 +17,7 @@ import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbEpisodeDetails
+import br.com.gabryel.movieclub.service.tmdb.TmdbExternalIds
 import br.com.gabryel.movieclub.service.tmdb.TmdbSeasonDetails
 import br.com.gabryel.movieclub.service.tmdb.TmdbSeasonSummary
 import br.com.gabryel.movieclub.service.tmdb.TmdbTvDetails
@@ -59,7 +60,12 @@ class SeriesServiceTest {
             every { clubService.requireMembership(clubId, memberId) } returns membership()
             coEvery { tmdbClient.findTvByImdbId("tt0903747") } returns TmdbTvSummary(id = 1396)
             coEvery { tmdbClient.getTvDetails(1396) } returns
-                TmdbTvDetails(originalName = "Breaking Bad", name = "Breaking Bad", firstAirDate = "2008-01-20")
+                TmdbTvDetails(
+                    originalName = "Breaking Bad",
+                    name = "Breaking Bad",
+                    firstAirDate = "2008-01-20",
+                    externalIds = TmdbExternalIds(imdbId = "tt0903747"),
+                )
             val created = series()
             every {
                 seriesRepository.create(

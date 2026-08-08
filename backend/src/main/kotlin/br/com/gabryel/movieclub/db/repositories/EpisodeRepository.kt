@@ -2,6 +2,7 @@ package br.com.gabryel.movieclub.db.repositories
 
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
+import br.com.gabryel.movieclub.db.repositories.dto.EpisodeSearchRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbEpisodeMetadata
 import kotlin.uuid.Uuid
 
@@ -14,6 +15,10 @@ interface EpisodeRepository {
     fun listBySeason(seasonId: Uuid): List<EpisodeRow>
 
     fun listByMeeting(meetingId: Uuid): List<EpisodeRow>
+
+    /** Matches by episode title or by the parent series' title, scoped to series [clubId] follows -- used to pick
+     * an existing episode to assign to a meeting instead of requiring its raw id. */
+    fun searchByClub(clubId: Uuid, query: String, limit: Int = 20): List<EpisodeSearchRow>
 
     /** Schedules the global episode for [meetingId] -- idempotent, since multiple clubs (or repeated calls) may
      * each want the same episode assigned to their own meeting. */

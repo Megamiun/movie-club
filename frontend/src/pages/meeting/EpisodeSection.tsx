@@ -11,28 +11,37 @@ import {
   Chip,
   IconButton,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material'
 import { useState, type FormEvent } from 'react'
 import { episodesApi } from '../../api/series'
 import { ApiError } from '../../api/client'
-import type { Episode, RatingScale } from '../../api/types'
+import type { Episode, EpisodeSearchResult, RatingScale } from '../../api/types'
 import { AsyncState } from '../../components/AsyncState'
+import { EpisodeSearchAutocomplete } from '../../components/EpisodeSearchAutocomplete'
 import { RatingForm } from '../../components/RatingForm'
 import { useAsync } from '../../hooks/useAsync'
 
-export function EpisodeSection({ meetingId, scales }: { meetingId: string; scales: RatingScale[] }) {
+export function EpisodeSection({
+  meetingId,
+  clubId,
+  scales,
+}: {
+  meetingId: string
+  clubId: string
+  scales: RatingScale[]
+}) {
   const { data: episodes, loading, error, reload } = useAsync(() => episodesApi.listForMeeting(meetingId), [meetingId])
-  const [episodeId, setEpisodeId] = useState('')
+  const [selectedEpisode, setSelectedEpisode] = useState<EpisodeSearchResult | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const handleAssign = async (event: FormEvent) => {
     event.preventDefault()
+    if (!selectedEpisode) return
     setSubmitError(null)
     try {
-      await episodesApi.assignToMeeting(episodeId, meetingId)
-      setEpisodeId('')
+      await episodesApi.assignToMeeting(selectedEpisode.episodeId, meetingId)
+      setSelectedEpisode(null)
       reload()
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -61,14 +70,7 @@ export function EpisodeSection({ meetingId, scales }: { meetingId: string; scale
           </Alert>
         )}
         <Stack direction="row" spacing={1}>
-          <TextField
-            label="Episode ID"
-            size="small"
-            value={episodeId}
-            onChange={(e) => setEpisodeId(e.target.value)}
-            required
-            fullWidth
-          />
+          <EpisodeSearchAutocomplete clubId={clubId} value={selectedEpisode} onChange={setSelectedEpisode} />
           <Button type="submit" variant="contained">
             Assign to this meeting
           </Button>

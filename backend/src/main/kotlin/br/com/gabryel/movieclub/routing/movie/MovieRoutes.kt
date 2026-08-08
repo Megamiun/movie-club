@@ -3,11 +3,14 @@ package br.com.gabryel.movieclub.routing.movie
 import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
+import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.routing.actingMemberId
 import br.com.gabryel.movieclub.routing.toDisplayTitlePreferenceOrBadRequest
+import br.com.gabryel.movieclub.routing.toIntOrBadRequest
 import br.com.gabryel.movieclub.routing.toUuidOrBadRequest
 import br.com.gabryel.movieclub.routing.uuidPathParam
 import br.com.gabryel.movieclub.service.MovieService
+import br.com.gabryel.movieclub.service.tmdb.TmdbMovieSearchItem
 import io.ktor.http.HttpStatusCode.Companion.Created
 import io.ktor.http.HttpStatusCode.Companion.NoContent
 import io.ktor.server.auth.authenticate
@@ -22,11 +25,23 @@ import io.ktor.server.routing.put
 
 fun Route.movieRoutes(movieService: MovieService) {
     authenticate("auth-jwt") {
+        get("/movies/search") {
+            val query = call.request.queryParameters["q"].orEmpty()
+            val results = movieService.searchMovies(query)
+            call.respond(results.map { it.toResponse() })
+        }
+
         post("/meetings/{meetingId}/movies") {
             val body = call.receive<AddMovieRequest>()
             val actingMemberId = call.actingMemberId()
-            val movie =
-                movieService.addMovie(call.uuidPathParam("meetingId"), actingMemberId, body.imdbUrlOrId, body.watchLink)
+            val meetingId = call.uuidPathParam("meetingId")
+            val movie = when {
+                body.tmdbId != null ->
+                    movieService.addMovieByTmdbId(meetingId, actingMemberId, body.tmdbId.toIntOrBadRequest(), body.watchLink)
+                body.imdbUrlOrId != null ->
+                    movieService.addMovie(meetingId, actingMemberId, body.imdbUrlOrId, body.watchLink)
+                else -> throw BadRequestException("Either imdbUrlOrId or tmdbId is required")
+            }
             call.respond(Created, movie.toResponse())
         }
 
@@ -104,6 +119,14 @@ private fun MovieRow.toResponse() = MovieResponse(
 )
 
 private fun AlternativeTitle.toResponse() = AlternativeTitleResponse(isoCode, title, type)
+
+private fun TmdbMovieSearchItem.toResponse() = MovieSearchResultResponse(
+    tmdbId = id.toString(),
+    title = title,
+    originalTitle = originalTitle,
+    year = year,
+    posterUrl = posterPath?.let { "https://image.tmdb.org/t/p/w92$it" },
+)
 
 private fun MovieReviewRow.toResponse() = MovieReviewResponse(
     movieId = movieId.toString(),
