@@ -67,8 +67,8 @@ export function ImportPage() {
         </Alert>
       )}
 
-      <Stack spacing={3} maxWidth={640}>
-        <Stack direction="row" spacing={2} alignItems="center">
+      <Stack spacing={3} sx={{ maxWidth: 640 }}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
           <Select size="small" value={type} onChange={(e) => setType(e.target.value as ImportType)}>
             <MenuItem value="movies">Movies</MenuItem>
             <MenuItem value="series">Series</MenuItem>
@@ -150,15 +150,15 @@ export function ImportPage() {
           <Typography variant="subtitle1" gutterBottom>
             Result
           </Typography>
-          <Stack direction="row" spacing={1} mb={2}>
+          <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
             <Chip color="success" label={`Created: ${result.created}`} />
             <Chip color="info" label={`Updated: ${result.updated}`} />
             <Chip color="warning" label={`Skipped: ${result.skipped.length}`} />
             <Chip label={`Warnings: ${result.warnings.length}`} />
           </Stack>
           {result.skipped.length > 0 && (
-            <Box mb={2}>
-              <Typography variant="body2" fontWeight="bold">
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                 Skipped rows
               </Typography>
               {result.skipped.map((issue, i) => (
@@ -170,7 +170,7 @@ export function ImportPage() {
           )}
           {result.warnings.length > 0 && (
             <Box>
-              <Typography variant="body2" fontWeight="bold">
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                 Warnings
               </Typography>
               {result.warnings.map((issue, i) => (

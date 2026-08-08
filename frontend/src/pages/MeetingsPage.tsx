@@ -60,7 +60,7 @@ export function MeetingsPage() {
         </List>
       </AsyncState>
 
-      <Box component="form" onSubmit={handleCreate} mt={3}>
+      <Box component="form" onSubmit={handleCreate} sx={{ mt: 3 }}>
         <Typography variant="subtitle1" gutterBottom>
           New meeting
         </Typography>

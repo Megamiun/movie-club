@@ -13,7 +13,7 @@ export function AppLayout() {
   }
 
   return (
-    <Box display="flex" flexDirection="column" minHeight="100vh">
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <AppBar position="static">
         <Toolbar>
           <Typography

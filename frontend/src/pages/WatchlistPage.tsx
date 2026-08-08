@@ -75,13 +75,13 @@ export function WatchlistPage() {
         )}
       </AsyncState>
 
-      <Box component="form" onSubmit={handleAdd} mt={3}>
+      <Box component="form" onSubmit={handleAdd} sx={{ mt: 3 }}>
         {submitError && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {submitError}
           </Alert>
         )}
-        <Stack direction="row" spacing={1} flexWrap="wrap">
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
           <TextField label="Title" size="small" value={title} onChange={(e) => setTitle(e.target.value)} required />
           <TextField
             label="IMDB URL (optional)"

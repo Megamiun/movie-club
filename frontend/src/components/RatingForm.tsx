@@ -28,7 +28,7 @@ export function RatingForm({ scales, initialQualityOptionId, initialSentimentOpt
   }
 
   return (
-    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center">
+    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: 'center' }}>
       {quality && (
         <Select
           size="small"

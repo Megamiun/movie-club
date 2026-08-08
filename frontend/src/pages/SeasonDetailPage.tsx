@@ -94,8 +94,8 @@ export function SeasonDetailPage() {
             ))}
         </Stack>
 
-        <Box component="form" onSubmit={handleAddEpisode} mt={3}>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
+        <Box component="form" onSubmit={handleAddEpisode} sx={{ mt: 3 }}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             <TextField
               label="Number"
               type="number"
@@ -147,7 +147,7 @@ function EpisodeRow({ episode, scales, onChange }: { episode: Episode; scales: R
   return (
     <Accordion>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Stack direction="row" spacing={1} alignItems="center" flexGrow={1}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexGrow: 1 }}>
           <Typography sx={{ flexGrow: 1 }}>
             Ep. {episode.number}
             {episode.title ? ` — ${episode.title}` : ''}

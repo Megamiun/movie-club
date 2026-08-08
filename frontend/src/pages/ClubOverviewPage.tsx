@@ -116,7 +116,7 @@ function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => vo
           </TableBody>
         </Table>
       </Paper>
-      <Box component="form" onSubmit={handleAdd} display="flex" gap={1} mt={2}>
+      <Box component="form" onSubmit={handleAdd} sx={{ display: 'flex', gap: 1, mt: 2 }}>
         <TextField
           label="Member ID"
           size="small"
@@ -184,7 +184,7 @@ function RotationSection({ club }: { club: ClubDetail }) {
       <Paper sx={{ p: 2 }}>
         <Stack spacing={1}>
           {order.map((memberId, index) => (
-            <Stack key={memberId} direction="row" alignItems="center" spacing={1}>
+            <Stack key={memberId} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <Chip label={index + 1} size="small" />
               <Typography sx={{ fontFamily: 'monospace', flexGrow: 1 }}>{memberId}</Typography>
               <IconButton size="small" onClick={() => move(index, -1)} disabled={index === 0}>
@@ -219,7 +219,7 @@ function RatingScalesSection({ clubId }: { clubId: string }) {
               <Typography variant="subtitle2" gutterBottom>
                 {scale.type}
               </Typography>
-              <Stack direction="row" flexWrap="wrap" gap={1}>
+              <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
                 {scale.options
                   .sort((a, b) => a.position - b.position)
                   .map((option) => (

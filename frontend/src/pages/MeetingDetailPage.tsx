@@ -88,7 +88,7 @@ export function MeetingDetailPage() {
               </Alert>
             )}
 
-            <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center" my={2}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center', my: 2 }}>
               <TextField
                 label="New date"
                 type="date"

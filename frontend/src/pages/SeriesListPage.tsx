@@ -46,7 +46,7 @@ export function SeriesListPage() {
         </List>
       </AsyncState>
 
-      <Box component="form" onSubmit={handleAdd} mt={3}>
+      <Box component="form" onSubmit={handleAdd} sx={{ mt: 3 }}>
         {submitError && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {submitError}

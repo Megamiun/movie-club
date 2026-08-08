@@ -80,7 +80,7 @@ export function SeriesDetailPage() {
             <Typography variant="h4" gutterBottom>
               {series.customTitle ?? series.originalTitle}
             </Typography>
-            <Stack direction="row" spacing={1} mb={2}>
+            <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
               {series.year && <Chip size="small" label={series.year} />}
               {series.creator && <Chip size="small" label={`Created by ${series.creator}`} />}
               {series.tmdbRating && <Chip size="small" label={`TMDB ${series.tmdbRating}`} />}
@@ -92,7 +92,7 @@ export function SeriesDetailPage() {
               </Alert>
             )}
 
-            <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center" mb={3}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center', mb: 3 }}>
               <TextField
                 label="Custom title"
                 size="small"
@@ -136,7 +136,7 @@ export function SeriesDetailPage() {
                 ))}
             </List>
 
-            <Box component="form" onSubmit={handleAddSeason} mt={2}>
+            <Box component="form" onSubmit={handleAddSeason} sx={{ mt: 2 }}>
               <Stack direction="row" spacing={1}>
                 <TextField
                   label="Number"

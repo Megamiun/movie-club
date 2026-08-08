@@ -57,7 +57,7 @@ export function MovieSection({ meetingId, scales }: { meetingId: string; scales:
         </Stack>
       </AsyncState>
 
-      <Box component="form" onSubmit={handleAdd} mt={2}>
+      <Box component="form" onSubmit={handleAdd} sx={{ mt: 2 }}>
         {submitError && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {submitError}
@@ -135,7 +135,7 @@ function MovieItem({ movie, scales, onChange }: { movie: Movie; scales: RatingSc
   return (
     <Accordion>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Stack direction="row" spacing={1} alignItems="center" flexGrow={1}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexGrow: 1 }}>
           <Typography sx={{ flexGrow: 1 }}>{title}</Typography>
           {movie.year && <Chip size="small" label={movie.year} />}
           {movie.tmdbRating && <Chip size="small" label={`TMDB ${movie.tmdbRating}`} />}
@@ -154,7 +154,7 @@ function MovieItem({ movie, scales, onChange }: { movie: Movie; scales: RatingSc
             {movie.genre && movie.genre.length > 0 ? ` · Genre: ${movie.genre.join(', ')}` : ''}
           </Typography>
 
-          <Stack direction="row" spacing={1} flexWrap="wrap">
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             <TextField
               label="Custom title"
               size="small"

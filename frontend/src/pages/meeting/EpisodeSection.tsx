@@ -54,7 +54,7 @@ export function EpisodeSection({ meetingId, scales }: { meetingId: string; scale
         </Stack>
       </AsyncState>
 
-      <Box component="form" onSubmit={handleAssign} mt={2}>
+      <Box component="form" onSubmit={handleAssign} sx={{ mt: 2 }}>
         {submitError && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {submitError}
@@ -118,7 +118,7 @@ function EpisodeItem({
   return (
     <Accordion>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Stack direction="row" spacing={1} alignItems="center" flexGrow={1}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexGrow: 1 }}>
           <Typography sx={{ flexGrow: 1 }}>
             Ep. {episode.number}
             {episode.title ? ` — ${episode.title}` : ''}

@@ -29,7 +29,7 @@ export function ReviewsList({ reviews, scales }: { reviews: ReviewLike[]; scales
         const quality = labelFor(scales, 'QUALITY', r.qualityOptionId)
         const sentiment = labelFor(scales, 'SENTIMENT', r.sentimentOptionId)
         return (
-          <Stack key={r.memberId} direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <Stack key={r.memberId} direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
             <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
               {r.memberId}
             </Typography>

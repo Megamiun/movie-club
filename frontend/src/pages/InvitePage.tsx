@@ -30,7 +30,7 @@ export function InvitePage() {
     : ''
 
   return (
-    <Box maxWidth={480}>
+    <Box sx={{ maxWidth: 480 }}>
       <Typography variant="h4" gutterBottom>
         Invite a member
       </Typography>
@@ -57,7 +57,7 @@ export function InvitePage() {
           <Typography variant="body2" gutterBottom>
             Share this registration link:
           </Typography>
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <TextField value={registerUrl} fullWidth size="small" slotProps={{ input: { readOnly: true } }} />
             <IconButton onClick={() => navigator.clipboard.writeText(registerUrl)} title="Copy link">
               <ContentCopyIcon />
