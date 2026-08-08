@@ -2,6 +2,8 @@ package br.com.gabryel.movieclub.routing.watchlist
 
 import br.com.gabryel.movieclub.db.repositories.dto.WatchlistEntryRow
 import br.com.gabryel.movieclub.routing.actingMemberId
+import br.com.gabryel.movieclub.routing.toMediaItemTypeOrBadRequest
+import br.com.gabryel.movieclub.routing.toMoveDirectionOrBadRequest
 import br.com.gabryel.movieclub.routing.uuidPathParam
 import br.com.gabryel.movieclub.service.WatchlistService
 import io.ktor.http.HttpStatusCode.Companion.Created
@@ -22,8 +24,8 @@ fun Route.watchlistRoutes(watchlistService: WatchlistService) {
             val entry = watchlistService.addEntry(
                 call.uuidPathParam("clubId"),
                 call.actingMemberId(),
-                body.title,
-                body.imdbUrl,
+                body.type.toMediaItemTypeOrBadRequest(),
+                body.tmdbId,
                 body.notes,
             )
             call.respond(Created, entry.toResponse())
@@ -36,12 +38,16 @@ fun Route.watchlistRoutes(watchlistService: WatchlistService) {
 
         patch("/watchlist/{entryId}") {
             val body = call.receive<UpdateWatchlistEntryRequest>()
-            val entry = watchlistService.updateEntry(
+            val entry = watchlistService.updateEntry(call.uuidPathParam("entryId"), call.actingMemberId(), body.notes)
+            call.respond(entry.toResponse())
+        }
+
+        post("/watchlist/{entryId}/move") {
+            val body = call.receive<MoveWatchlistEntryRequest>()
+            val entry = watchlistService.moveEntry(
                 call.uuidPathParam("entryId"),
                 call.actingMemberId(),
-                body.title,
-                body.imdbUrl,
-                body.notes,
+                body.direction.toMoveDirectionOrBadRequest(),
             )
             call.respond(entry.toResponse())
         }
@@ -57,7 +63,14 @@ private fun WatchlistEntryRow.toResponse() = WatchlistEntryResponse(
     id = id.toString(),
     clubId = clubId.toString(),
     memberId = memberId.toString(),
+    mediaItemId = mediaItemId.toString(),
+    type = type.name,
     title = title,
-    imdbUrl = imdbUrl,
+    imdbId = imdbId,
+    year = year,
+    posterUrl = posterUrl,
+    tmdbRating = tmdbRating?.toPlainString(),
+    imdbRating = imdbRating?.toPlainString(),
     notes = notes,
+    position = position,
 )

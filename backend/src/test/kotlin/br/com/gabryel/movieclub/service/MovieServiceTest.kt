@@ -3,11 +3,14 @@ package br.com.gabryel.movieclub.service
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.CUSTOM
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
+import br.com.gabryel.movieclub.db.MediaItemType.MOVIE
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
+import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
 import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
+import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
@@ -36,13 +39,18 @@ class MovieServiceTest {
     private val clubService = mockk<ClubService>()
     private val tmdbClient = mockk<TmdbClient>()
     private val omdbClient = mockk<OmdbClient>()
-    private val movieService = MovieService(movieRepository, meetingRepository, clubService, tmdbClient, omdbClient)
+    private val mediaItemRepository = mockk<MediaItemRepository>()
+    private val movieService =
+        MovieService(movieRepository, meetingRepository, clubService, mediaItemRepository, tmdbClient, omdbClient)
 
     private val clubId = Uuid.random()
     private val memberId = Uuid.random()
     private val meetingId = Uuid.random()
 
     init {
+        every {
+            mediaItemRepository.findOrCreate(any(), any(), any(), any(), any(), any(), any(), any())
+        } returns mediaItem()
         coEvery { omdbClient.getImdbRating(any()) } returns null
     }
 
@@ -94,6 +102,7 @@ class MovieServiceTest {
                         it.originCountry == emptyList<String>() &&
                         it.tmdbRating == null
                 },
+                mediaItemId = any(),
             )
         } returns created
 
@@ -119,6 +128,7 @@ class MovieServiceTest {
                 chosenById = memberId,
                 imdbId = "tt4857264",
                 metadata = match { it.imdbRating == BigDecimal("8.2") },
+                mediaItemId = any(),
             )
         } returns created
 
@@ -192,6 +202,14 @@ class MovieServiceTest {
         genre = listOf("Drama", "Mystery", "Thriller"),
         originCountry = listOf("ES"),
         productionCountries = listOf("Spain"),
+        createdAt = Clock.System.now(),
+    )
+
+    private fun mediaItem() = MediaItemRow(
+        id = Uuid.random(),
+        type = MOVIE,
+        imdbId = "tt4857264",
+        title = "Contratiempo",
         createdAt = Clock.System.now(),
     )
 }

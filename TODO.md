@@ -14,11 +14,17 @@
 - [x] Watchlist "add episode" and "add movie" on the UI should use search by name from TMDB, or IMDB URL/ID
 - [ ] Admin panel to see all imported series, movies, and all users
 - [ ] When adding a movie/series/etc. that already exists, update the existing record with new/missing info instead of duplicating
+  - Movie/Series catalog rows already dedupe-and-refresh by `imdb_id` on add (`findOrCreateMovie`/`findOrCreateSeries`); the new shared `MediaItem` table (see CLAUDE.md) extends this same dedup-by-`imdb_id` behavior to anything referencing it (e.g. Watchlist). What's still open: per-context duplicate *adds* (see next item), not catalog-level duplication
 - [ ] Don't add repeated entries to meetings, watchlist, series and so on. 
-- [ ] Watchlist should be positional (orderable, positions can change)
-- [ ] Watchlist entries can show media details (year, rating, etc. from TMDB)
+- [x] Watchlist should be positional (orderable, positions can change)
+  - Position scoped per (club, MediaItem type); reorder via up/down arrows swapping with the adjacent same-type entry
+- [ ] Watchlist ordering should be able to be done also via drag and drop
+- [x] Watchlist entries can show media details (year, rating, etc. from TMDB)
+  - Entries reference a `MediaItem` directly (poster, title, year, IMDB/TMDB rating); adding is search-only (no freeform manual entry), since a MediaItem only ever exists from a successful TMDB lookup
 - [ ] Meetings pane should show film data similar to the CSV file (director, runtime, genre, etc.)
 - [ ] Everywhere a movie/series title is shown, add a clickable IMDB icon linking to its IMDB page
+  - Done for Watchlist entries; still open for movie/series/episode displays elsewhere (meetings, series pages)
 - [ ] Add a TMDB attribution notice ("This product uses the TMDB API but is not endorsed or certified by TMDB")
-- [ ] Separate Series and Movies watchlist in the UI
+- [x] Separate Series and Movies watchlist in the UI
 - [ ] Add a movie tab where you can search for movies outside a meeting, with a button to add to a meeting or to the wishlist
+- [ ] When adding a series episode to a meeting, try to suggest next episode of current series

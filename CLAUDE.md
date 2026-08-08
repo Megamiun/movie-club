@@ -56,6 +56,10 @@ enforces those automatically. This section is for conventions ktlint can't check
   class regardless of JUnit4 creating a new test instance per `@Test` method. This relies on Gradle running tests
   sequentially (the default): Exposed's no-arg `transaction {}` uses one process-wide "current" database, so parallel
   test classes would race on it.
+- Repositories never depend on other repositories, even across domains that reference each other (e.g. Movie and
+  MediaItem). Cross-entity orchestration — creating a MediaItem alongside a Movie catalog row, then linking them —
+  happens in the service layer, which already composes multiple repositories plus TmdbClient/OmdbClient. Keeps each
+  repository a simple, independently testable mapping onto its own table(s).
 
 ## Domain Model
 
@@ -80,6 +84,27 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Owns movies and series episodes
 - Meetings can be merged (move movies, delete empty one), postponed (change date), or split
 
+### MediaItem
+
+- Universal handle for anything sourced from TMDB — `type` (MOVIE|SERIES|EPISODE; EPISODE is reserved but not
+  populated yet, see below), deduplicated by `imdb_id`, plus `tmdb_id`, `title`, `year`, `poster_url` (an external
+  TMDB CDN URL string, unrelated to Movie/Series' own long-unused `poster_s3_key`), TMDB rating, and IMDB rating
+- Created *only* by a successful TMDB lookup (search result, or an IMDB id/URL resolved through TMDB) — never from
+  freeform/manually-typed input. This is a deliberate policy, not just today's implementation default: nothing
+  should ever reference a MediaItem that TMDB couldn't derive
+- Movie and Series catalog rows each carry a `media_item_id` pointing at their MediaItem, created/refreshed
+  alongside their own richer columns (director/runtime for Movie, creator for Series — those stay on Movie/Series
+  themselves; MediaItem isn't a replacement for the full catalog row, just a shared cross-type reference point)
+- Episode does **not** have a `media_item_id` yet: TMDB only exposes an episode's own `imdb_id` via a separate
+  per-episode `external_ids` call this app has never made (episodes are looked up by `(series, season, episode
+  number)`, not a standalone id). Wiring that up is its own follow-up, not bundled into MediaItem's introduction —
+  see the Episode TMDB lookup note below for why episode enrichment already tolerates missing external data
+- WatchlistEntry references a MediaItem directly instead of duplicating title/year/rating itself (see below)
+- IMDB's own rating is fetched separately from OMDb (`OmdbClient`, `OMDB_API_KEY`) since TMDB's API never exposes it
+  (only its own `vote_average`) — optional, silently no-ops when the key is unset, never blocks an add/refresh.
+  Wherever a rating is displayed, the UI prefers IMDB's over TMDB's, falling back cleanly for rows fetched before
+  OMDb was wired in
+
 ### Movie
 
 - Split into a **global catalog row** (deduplicated by `imdb_id`, shared by every club that picks the same real movie)
@@ -88,12 +113,15 @@ enforces those automatically. This section is for conventions ktlint can't check
   routes, reviews) — the catalog row is an internal implementation detail most code never sees directly.
 - Any member can add to any meeting; adding by `imdb_id` reuses the existing catalog row if another club (or an earlier
   meeting) already picked it, refetching nothing
-- Added via IMDB URL → extract `tt` ID → TMDB API fetch
+- Added via IMDB URL → extract `tt` ID → TMDB API fetch, or via title search (`GET /movies/search`, picks by
+  `tmdb_id`) — either path resolves through TMDB, so either way the catalog row also gets a linked MediaItem (see
+  above)
 - Cached TMDB metadata (on the catalog row): `original_title`, `alternative_titles` (list of per-country titles from
   TMDB, replaces the old single `english_title` — each entry has a country code, the title, and TMDB's own `type`
   classification like "working title"/"festival title", blank/omitted types stored as `null`), year, director, runtime,
   genre, `origin_country`, `production_countries` (a second, distinct country list — TMDB's full production-country
-  objects, not just origin codes), TMDB rating, poster (stored in S3), `metadata_fetched_at`.
+  objects, not just origin codes), TMDB rating, IMDB rating (via OMDb, see MediaItem above), poster (stored in S3),
+  `metadata_fetched_at`.
   `display_title_preference` (ORIGINAL|ENGLISH|CUSTOM, default ORIGINAL) lives on the pick row; resolving what "ENGLISH"
   means from `alternative_titles` isn't done server-side yet.
 - Metadata can be manually refreshed (for unreleased films with missing fields) — refreshing from any one pick updates
@@ -120,8 +148,12 @@ enforces those automatically. This section is for conventions ktlint can't check
   rating. This is the opposite of Movie's per-pick reviews, deliberately: Movie supports rewatch-and-re-review,
   Series/Season/Episode assume a linear, watched-once progression
 - Series cached TMDB metadata: `original_title`, `alternative_titles`, year, genre, `origin_country`,
-  `production_countries`, TMDB rating, creator, poster, `metadata_fetched_at` — no director/runtime (those are
-  per-episode, not per-series)
+  `production_countries`, TMDB rating, IMDB rating (via OMDb, see MediaItem above), creator, poster,
+  `metadata_fetched_at` — no director/runtime (those are per-episode, not per-series)
+- Adding a series through the UI (by IMDB URL or by `tmdb_id` via title search — `SeriesService.addSeries` /
+  `addSeriesByTmdbId`) immediately triggers `importSeasonsAndEpisodes` best-effort, instead of leaving Season/Episode
+  empty until someone visits `SeasonDetailPage` and adds them one at a time. CSV import already did this explicitly
+  (see Existing Data below) — this extends the same behavior to the manual-add path
 - Episode cached TMDB metadata: `air_date`, `overview`, `runtime`, director, TMDB rating, `metadata_fetched_at` — no
   title split (the CSV/user-entered `title` is the only one) and no genre/country/creator (those live at the series
   level)
@@ -138,6 +170,14 @@ enforces those automatically. This section is for conventions ktlint can't check
 ### WatchlistEntry
 
 - Personal per member per Club; visible to all club members
+- References a **MediaItem** directly (movie or series) instead of storing its own title/year/rating — added by
+  search only, no freeform/manual entry (see MediaItem above)
+- Ordered (`position`) within its MediaItem's `type` — the UI shows and reorders Movies and Series as two separate
+  lists, so position only needs to be meaningful within one type at a time, not club-wide. Reordering swaps an entry
+  with whichever one is immediately adjacent in that type's list. Any club member may reorder it (a shared,
+  collaboratively prioritized list); editing an entry's `notes` or deleting it stays owner-only
+  (`WatchlistService.requireOwnedEntry`)
+- `notes` is the only freeform field left on an entry — personal commentary, not media data
 
 ### RatingScale
 
@@ -182,7 +222,7 @@ enforces those automatically. This section is for conventions ktlint can't check
 
 ## Existing Data
 
-Sample CSVs in `samples/`:
+Sample CSVs in `samples/` (local reference data only — not tracked in git):
 
 - `Movie Club - Movies 2025.csv` / `2026.csv` / `2027.csv` — main schedule and ratings
 - `Movie Club - Series.csv` — series episodes with watch dates and ratings

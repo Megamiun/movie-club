@@ -3,13 +3,16 @@ package br.com.gabryel.movieclub.service
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.CUSTOM
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
+import br.com.gabryel.movieclub.db.MediaItemType.SERIES
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
+import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
+import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeasonRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
@@ -42,14 +45,25 @@ class SeriesServiceTest {
     private val omdbClient = mockk<OmdbClient>()
     private val seasonRepository = mockk<SeasonRepository>()
     private val episodeRepository = mockk<EpisodeRepository>()
-    private val seriesService =
-        SeriesService(seriesRepository, clubService, tmdbClient, omdbClient, seasonRepository, episodeRepository)
+    private val mediaItemRepository = mockk<MediaItemRepository>()
+    private val seriesService = SeriesService(
+        seriesRepository,
+        clubService,
+        mediaItemRepository,
+        tmdbClient,
+        omdbClient,
+        seasonRepository,
+        episodeRepository,
+    )
 
     private val clubId = Uuid.random()
     private val memberId = Uuid.random()
 
     init {
         coEvery { omdbClient.getImdbRating(any()) } returns null
+        every {
+            mediaItemRepository.findOrCreate(any(), any(), any(), any(), any(), any(), any(), any())
+        } returns mediaItem()
     }
 
     @Test
@@ -89,6 +103,7 @@ class SeriesServiceTest {
                             it.tmdbRating == null &&
                             it.creator == null
                     },
+                    mediaItemId = any(),
                 )
             } returns created
 
@@ -112,7 +127,7 @@ class SeriesServiceTest {
                     externalIds = TmdbExternalIds(imdbId = "tt0903747"),
                 )
             val created = series(id = seriesId, globalSeriesId = globalSeriesId)
-            every { seriesRepository.create(clubId, memberId, "tt0903747", any()) } returns created
+            every { seriesRepository.create(clubId, memberId, "tt0903747", any(), any()) } returns created
             every { seriesRepository.findById(seriesId) } returns created
 
             every { seasonRepository.listBySeries(globalSeriesId) } returns emptyList()
@@ -155,6 +170,7 @@ class SeriesServiceTest {
                     chosenById = memberId,
                     imdbId = "tt0903747",
                     metadata = match { it.imdbRating == BigDecimal("9.5") },
+                    mediaItemId = any(),
                 )
             } returns created
 
@@ -317,6 +333,14 @@ class SeriesServiceTest {
         originCountry = listOf("US"),
         productionCountries = listOf("United States of America"),
         creator = "Vince Gilligan",
+        createdAt = Clock.System.now(),
+    )
+
+    private fun mediaItem() = MediaItemRow(
+        id = Uuid.random(),
+        type = SERIES,
+        imdbId = "tt0903747",
+        title = "Breaking Bad",
         createdAt = Clock.System.now(),
     )
 }

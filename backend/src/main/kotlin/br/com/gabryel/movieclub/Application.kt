@@ -2,6 +2,7 @@ package br.com.gabryel.movieclub
 
 import br.com.gabryel.movieclub.db.repositories.exposed.ExposedClubRepository
 import br.com.gabryel.movieclub.db.repositories.exposed.ExposedEpisodeRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedMediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.exposed.ExposedMeetingRepository
 import br.com.gabryel.movieclub.db.repositories.exposed.ExposedMemberRepository
 import br.com.gabryel.movieclub.db.repositories.exposed.ExposedMovieRepository
@@ -54,11 +55,20 @@ fun Application.module() {
     val seriesRepository = ExposedSeriesRepository()
     val seasonRepository = ExposedSeasonRepository()
     val episodeRepository = ExposedEpisodeRepository()
+    val mediaItemRepository = ExposedMediaItemRepository()
     val tmdbClient = TmdbClient(config.propertyOrNull("tmdb.accessToken")?.getString().orEmpty())
     val omdbClient = OmdbClient(config.propertyOrNull("omdb.apiKey")?.getString().orEmpty())
     val meetingService = MeetingService(meetingRepository, movieRepository, clubService)
-    val movieService = MovieService(movieRepository, meetingRepository, clubService, tmdbClient, omdbClient)
-    val seriesService = SeriesService(seriesRepository, clubService, tmdbClient, omdbClient, seasonRepository, episodeRepository)
+    val movieService = MovieService(movieRepository, meetingRepository, clubService, mediaItemRepository, tmdbClient, omdbClient)
+    val seriesService = SeriesService(
+        seriesRepository,
+        clubService,
+        mediaItemRepository,
+        tmdbClient,
+        omdbClient,
+        seasonRepository,
+        episodeRepository,
+    )
     val seasonService = SeasonService(seasonRepository, seriesRepository, clubService)
     val episodeService = EpisodeService(
         episodeRepository,
@@ -69,7 +79,7 @@ fun Application.module() {
         tmdbClient,
     )
     val watchlistRepository = ExposedWatchlistRepository()
-    val watchlistService = WatchlistService(watchlistRepository, clubService)
+    val watchlistService = WatchlistService(watchlistRepository, clubService, mediaItemRepository, tmdbClient, omdbClient)
     val importService = ImportService(
         clubService,
         meetingRepository,
@@ -81,6 +91,7 @@ fun Application.module() {
         episodeRepository,
         episodeService,
         watchlistRepository,
+        watchlistService,
         ratingScaleRepository,
     )
 

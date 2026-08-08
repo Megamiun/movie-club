@@ -23,8 +23,14 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 class ExposedSeriesRepository : SeriesRepository {
-    override fun create(clubId: Uuid, chosenById: Uuid, imdbId: String, metadata: TmdbSeriesMetadata): SeriesRow = transaction {
-        val seriesId = findOrCreateSeries(imdbId, metadata)
+    override fun create(
+        clubId: Uuid,
+        chosenById: Uuid,
+        imdbId: String,
+        metadata: TmdbSeriesMetadata,
+        mediaItemId: Uuid?,
+    ): SeriesRow = transaction {
+        val seriesId = findOrCreateSeries(imdbId, metadata, mediaItemId)
         val pickId = ClubSeries
             .insert {
                 it[ClubSeries.clubId] = clubId
@@ -83,14 +89,14 @@ class ExposedSeriesRepository : SeriesRepository {
 
     /** Refreshes the shared global catalog row -- since multiple picks (even across clubs) can point at the same
      * `imdb_id`, this updates metadata for all of them at once, not just the given pick. */
-    override fun updateTmdbMetadata(seriesId: Uuid, metadata: TmdbSeriesMetadata): SeriesRow = transaction {
+    override fun updateTmdbMetadata(seriesId: Uuid, metadata: TmdbSeriesMetadata, mediaItemId: Uuid?): SeriesRow = transaction {
         val globalSeriesId = ClubSeries
             .selectAll()
             .where { ClubSeries.id eq seriesId }
             .map { it[ClubSeries.seriesId].value }
             .single()
         Series.update({ Series.id eq globalSeriesId }) {
-            it.applyTmdbMetadata(metadata)
+            it.applyTmdbMetadata(metadata, mediaItemId)
         }
         findById(seriesId)!!
     }
@@ -141,16 +147,16 @@ class ExposedSeriesRepository : SeriesRepository {
     /** Finds the global catalog row for [imdbId], creating it from [metadata] if this is the first time any club
      * has picked it; otherwise overwrites its TMDB data with [metadata] (harmless -- same `imdbId`, same canonical
      * TMDB response either way) so a refresh started from any one pick keeps the shared row current. */
-    private fun findOrCreateSeries(imdbId: String, metadata: TmdbSeriesMetadata): Uuid {
+    private fun findOrCreateSeries(imdbId: String, metadata: TmdbSeriesMetadata, mediaItemId: Uuid?): Uuid {
         val existing = Series.selectAll().where { Series.imdbId eq imdbId }.map { it[Series.id].value }.singleOrNull()
         if (existing != null) {
-            Series.update({ Series.id eq existing }) { it.applyTmdbMetadata(metadata) }
+            Series.update({ Series.id eq existing }) { it.applyTmdbMetadata(metadata, mediaItemId) }
             return existing
         }
         return Series.insert {
             it[Series.imdbId] = imdbId
             it[Series.createdAt] = Clock.System.now()
-            it.applyTmdbMetadata(metadata)
+            it.applyTmdbMetadata(metadata, mediaItemId)
         }[Series.id].value
     }
 
@@ -191,7 +197,7 @@ class ExposedSeriesRepository : SeriesRepository {
 /** Shared by [ExposedSeriesRepository.findOrCreateSeries] and [ExposedSeriesRepository.updateTmdbMetadata] -- both
  * set the same TMDB-sourced fields on the global [Series] row; `InsertStatement`/`UpdateStatement` both extend
  * `UpdateBuilder`, so one function works for either. */
-private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbSeriesMetadata) {
+private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbSeriesMetadata, mediaItemId: Uuid?) {
     this[Series.tmdbId] = metadata.tmdbId
     this[Series.originalTitle] = metadata.originalTitle
     this[Series.alternativeTitles] = metadata.alternativeTitles
@@ -203,4 +209,5 @@ private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbSeriesMetadata) {
     this[Series.imdbRating] = metadata.imdbRating
     this[Series.creator] = metadata.creator
     this[Series.metadataFetchedAt] = metadata.metadataFetchedAt
+    this[Series.mediaItemId] = mediaItemId
 }

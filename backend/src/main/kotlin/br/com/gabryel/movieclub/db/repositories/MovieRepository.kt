@@ -7,7 +7,14 @@ import br.com.gabryel.movieclub.db.repositories.dto.TmdbMovieMetadata
 import kotlin.uuid.Uuid
 
 interface MovieRepository {
-    fun create(meetingId: Uuid, chosenById: Uuid, imdbId: String, metadata: TmdbMovieMetadata, watchLink: String? = null): MovieRow
+    fun create(
+        meetingId: Uuid,
+        chosenById: Uuid,
+        imdbId: String,
+        metadata: TmdbMovieMetadata,
+        mediaItemId: Uuid? = null,
+        watchLink: String? = null,
+    ): MovieRow
 
     fun findById(id: Uuid): MovieRow?
 
@@ -21,7 +28,7 @@ interface MovieRepository {
 
     fun updateWatchLink(movieId: Uuid, watchLink: String? = null): MovieRow
 
-    fun updateTmdbMetadata(movieId: Uuid, metadata: TmdbMovieMetadata): MovieRow
+    fun updateTmdbMetadata(movieId: Uuid, metadata: TmdbMovieMetadata, mediaItemId: Uuid? = null): MovieRow
 
     fun delete(movieId: Uuid)
 

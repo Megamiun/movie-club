@@ -2,6 +2,7 @@ package br.com.gabryel.movieclub.service.csvimport
 
 import br.com.gabryel.movieclub.db.ClubRole.ADMIN
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
+import br.com.gabryel.movieclub.db.MediaItemType
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
@@ -26,6 +27,7 @@ import br.com.gabryel.movieclub.service.ClubService
 import br.com.gabryel.movieclub.service.EpisodeService
 import br.com.gabryel.movieclub.service.MovieService
 import br.com.gabryel.movieclub.service.SeriesService
+import br.com.gabryel.movieclub.service.WatchlistService
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.every
@@ -52,6 +54,7 @@ class ImportServiceTest {
     private val episodeRepository = mockk<EpisodeRepository>()
     private val episodeService = mockk<EpisodeService>()
     private val watchlistRepository = mockk<WatchlistRepository>()
+    private val watchlistService = mockk<WatchlistService>()
     private val ratingScaleRepository = mockk<RatingScaleRepository>()
     private val importService = ImportService(
         clubService,
@@ -64,6 +67,7 @@ class ImportServiceTest {
         episodeRepository,
         episodeService,
         watchlistRepository,
+        watchlistService,
         ratingScaleRepository,
     )
 
@@ -298,13 +302,9 @@ class ImportServiceTest {
         }
 
     @Test
-    fun `importReserve creates entries and skips ones already present`() {
+    fun `importReserve creates entries and skips ones already present`(): Unit = runBlocking {
         val csv = "Movies,,Series,\nPerson A,Person B,Person A,Person B\nDune,,,"
-        every {
-            watchlistRepository.listByClub(clubId)
-        } returns listOf(
-            WatchlistEntryRow(Uuid.random(), clubId, personA, "Dune", createdAt = Clock.System.now()),
-        )
+        every { watchlistRepository.listByClub(clubId) } returns listOf(watchlistEntry(memberId = personA))
 
         val result = importService.importReserve(clubId, actingMemberId, csv.byteInputStream(), mappings)
 
@@ -313,18 +313,44 @@ class ImportServiceTest {
     }
 
     @Test
-    fun `importReserve creates a new entry that is not already present`() {
+    fun `importReserve creates a new entry that is not already present`(): Unit = runBlocking {
         val csv = "Movies,,Series,\nPerson A,Person B,Person A,Person B\nDune,,,"
         every { watchlistRepository.listByClub(clubId) } returns emptyList()
-        every {
-            watchlistRepository.create(clubId, personA, "Dune")
-        } returns WatchlistEntryRow(Uuid.random(), clubId, personA, "Dune", createdAt = Clock.System.now())
+        coEvery {
+            watchlistService.addEntryByTitleSearch(clubId, personA, MediaItemType.MOVIE, "Dune")
+        } returns watchlistEntry(memberId = personA)
 
         val result = importService.importReserve(clubId, actingMemberId, csv.byteInputStream(), mappings)
 
         assertEquals(1, result.created)
         assertTrue(result.skipped.isEmpty())
     }
+
+    @Test
+    fun `importReserve warns when TMDB has no match for the title`(): Unit = runBlocking {
+        val csv = "Movies,,Series,\nPerson A,Person B,Person A,Person B\nDune,,,"
+        every { watchlistRepository.listByClub(clubId) } returns emptyList()
+        coEvery {
+            watchlistService.addEntryByTitleSearch(clubId, personA, MediaItemType.MOVIE, "Dune")
+        } returns null
+
+        val result = importService.importReserve(clubId, actingMemberId, csv.byteInputStream(), mappings)
+
+        assertEquals(0, result.created)
+        assertTrue(result.warnings.any { it.reason.contains("Could not find TMDB metadata") })
+    }
+
+    private fun watchlistEntry(memberId: Uuid, title: String = "Dune") = WatchlistEntryRow(
+        id = Uuid.random(),
+        clubId = clubId,
+        memberId = memberId,
+        mediaItemId = Uuid.random(),
+        type = MediaItemType.MOVIE,
+        title = title,
+        imdbId = "tt1160419",
+        position = 0,
+        createdAt = Clock.System.now(),
+    )
 
     private lateinit var bomOptionId: Uuid
     private lateinit var gosteiOptionId: Uuid

@@ -7,7 +7,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
 import kotlin.uuid.Uuid
 
 interface SeriesRepository {
-    fun create(clubId: Uuid, chosenById: Uuid, imdbId: String, metadata: TmdbSeriesMetadata): SeriesRow
+    fun create(clubId: Uuid, chosenById: Uuid, imdbId: String, metadata: TmdbSeriesMetadata, mediaItemId: Uuid? = null): SeriesRow
 
     fun findById(id: Uuid): SeriesRow?
 
@@ -22,7 +22,7 @@ interface SeriesRepository {
 
     fun updateDisplayTitle(seriesId: Uuid, customTitle: String? = null, preference: DisplayTitlePreference): SeriesRow
 
-    fun updateTmdbMetadata(seriesId: Uuid, metadata: TmdbSeriesMetadata): SeriesRow
+    fun updateTmdbMetadata(seriesId: Uuid, metadata: TmdbSeriesMetadata, mediaItemId: Uuid? = null): SeriesRow
 
     fun upsertReview(
         seriesId: Uuid,

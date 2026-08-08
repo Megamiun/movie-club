@@ -32,6 +32,10 @@ fun parseImdbId(input: String): String =
 /** Maps a TMDB `vote_average` (0-10, arbitrary precision) onto our `tmdb_rating DECIMAL(4,1)` column. */
 fun Double.toRatingScale(): BigDecimal = BigDecimal.valueOf(this).setScale(1, RoundingMode.HALF_UP)
 
+/** Expands a TMDB `poster_path` (e.g. `/abc123.jpg`) into a full, directly-loadable image URL at a size suited to
+ * list/thumbnail display -- not the full-size original, which is unnecessarily large for that use. */
+fun String.toTmdbPosterUrl(): String = "https://image.tmdb.org/t/p/w154$this"
+
 @Serializable
 data class TmdbFindResponse(
     @SerialName("movie_results") val movieResults: List<TmdbMovieSummary> = emptyList(),

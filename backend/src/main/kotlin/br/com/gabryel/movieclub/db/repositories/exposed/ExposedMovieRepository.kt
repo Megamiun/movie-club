@@ -28,9 +28,10 @@ class ExposedMovieRepository : MovieRepository {
         chosenById: Uuid,
         imdbId: String,
         metadata: TmdbMovieMetadata,
+        mediaItemId: Uuid?,
         watchLink: String?,
     ): MovieRow = transaction {
-        val movieId = findOrCreateMovie(imdbId, metadata)
+        val movieId = findOrCreateMovie(imdbId, metadata, mediaItemId)
         val pickId = MeetingMovies.insert {
             it[MeetingMovies.meetingId] = meetingId
             it[MeetingMovies.movieId] = movieId
@@ -91,14 +92,14 @@ class ExposedMovieRepository : MovieRepository {
 
     /** Refreshes the shared global catalog row -- since multiple picks (even across clubs) can point at the same
      * `imdb_id`, this updates metadata for all of them at once, not just the given pick. */
-    override fun updateTmdbMetadata(movieId: Uuid, metadata: TmdbMovieMetadata): MovieRow = transaction {
+    override fun updateTmdbMetadata(movieId: Uuid, metadata: TmdbMovieMetadata, mediaItemId: Uuid?): MovieRow = transaction {
         val globalMovieId = MeetingMovies
             .selectAll()
             .where { MeetingMovies.id eq movieId }
             .map { it[MeetingMovies.movieId].value }
             .single()
         Movies.update({ Movies.id eq globalMovieId }) {
-            it.applyTmdbMetadata(metadata)
+            it.applyTmdbMetadata(metadata, mediaItemId)
         }
         findById(movieId)!!
     }
@@ -158,7 +159,7 @@ class ExposedMovieRepository : MovieRepository {
     /** Finds the global catalog row for [imdbId], creating it from [metadata] if this is the first time any club
      * has picked it; otherwise overwrites its TMDB data with [metadata] (harmless -- same `imdbId`, same canonical
      * TMDB response either way) so a refresh started from any one pick keeps the shared row current. */
-    private fun findOrCreateMovie(imdbId: String, metadata: TmdbMovieMetadata): Uuid {
+    private fun findOrCreateMovie(imdbId: String, metadata: TmdbMovieMetadata, mediaItemId: Uuid?): Uuid {
         val existing = Movies
             .selectAll()
             .where { Movies.imdbId eq imdbId }
@@ -166,14 +167,14 @@ class ExposedMovieRepository : MovieRepository {
             .singleOrNull()
 
         if (existing != null) {
-            Movies.update({ Movies.id eq existing }) { it.applyTmdbMetadata(metadata) }
+            Movies.update({ Movies.id eq existing }) { it.applyTmdbMetadata(metadata, mediaItemId) }
             return existing
         }
 
         return Movies.insert {
             it[Movies.imdbId] = imdbId
             it[Movies.createdAt] = Clock.System.now()
-            it.applyTmdbMetadata(metadata)
+            it.applyTmdbMetadata(metadata, mediaItemId)
         }[Movies.id].value
     }
 
@@ -215,7 +216,7 @@ class ExposedMovieRepository : MovieRepository {
 /** Shared by [ExposedMovieRepository.findOrCreateMovie] and [ExposedMovieRepository.updateTmdbMetadata] -- both set
  * the same TMDB-sourced fields on the global [Movies] row; `InsertStatement`/`UpdateStatement` both extend
  * `UpdateBuilder`, so one function works for either. */
-private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbMovieMetadata) {
+private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbMovieMetadata, mediaItemId: Uuid?) {
     this[Movies.tmdbId] = metadata.tmdbId
     this[Movies.originalTitle] = metadata.originalTitle
     this[Movies.alternativeTitles] = metadata.alternativeTitles
@@ -228,4 +229,5 @@ private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbMovieMetadata) {
     this[Movies.tmdbRating] = metadata.tmdbRating
     this[Movies.imdbRating] = metadata.imdbRating
     this[Movies.metadataFetchedAt] = metadata.metadataFetchedAt
+    this[Movies.mediaItemId] = mediaItemId
 }

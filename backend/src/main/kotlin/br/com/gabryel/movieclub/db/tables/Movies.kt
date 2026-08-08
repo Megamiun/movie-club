@@ -25,5 +25,6 @@ object Movies : UuidTable("movies") {
 
     val posterS3Key = varchar("poster_s3_key", 512).nullable()
     val metadataFetchedAt = timestamp("metadata_fetched_at").nullable()
+    val mediaItemId = reference("media_item_id", MediaItems).nullable()
     val createdAt = timestamp("created_at")
 }

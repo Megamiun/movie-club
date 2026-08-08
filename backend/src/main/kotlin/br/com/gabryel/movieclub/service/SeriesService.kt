@@ -2,24 +2,31 @@ package br.com.gabryel.movieclub.service
 
 import br.com.gabryel.movieclub.db.DisplayTitlePreference
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.CUSTOM
+import br.com.gabryel.movieclub.db.MediaItemType.SERIES
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
+import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
+import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.NotFoundException
 import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
+import br.com.gabryel.movieclub.service.tmdb.TmdbTvDetails
 import br.com.gabryel.movieclub.service.tmdb.TmdbTvSearchItem
 import br.com.gabryel.movieclub.service.tmdb.parseImdbId
+import br.com.gabryel.movieclub.service.tmdb.toTmdbPosterUrl
+import java.math.BigDecimal
 import kotlin.uuid.Uuid
 
 class SeriesService(
     private val seriesRepository: SeriesRepository,
     private val clubService: ClubService,
+    private val mediaItemRepository: MediaItemRepository,
     private val tmdbClient: TmdbClient,
     private val omdbClient: OmdbClient,
     private val seasonRepository: SeasonRepository,
@@ -54,8 +61,10 @@ class SeriesService(
         val imdbId = details.externalIds?.imdbId
             ?: throw BadRequestException("TMDB series $tmdbId has no linked IMDB id")
 
-        val metadata = details.toMetadata(tmdbId).copy(imdbRating = omdbClient.getImdbRating(imdbId))
-        val series = seriesRepository.create(clubId, actingMemberId, imdbId, metadata)
+        val imdbRating = omdbClient.getImdbRating(imdbId)
+        val metadata = details.toMetadata(tmdbId).copy(imdbRating = imdbRating)
+        val mediaItem = linkMediaItem(details, tmdbId, imdbId, metadata, imdbRating)
+        val series = seriesRepository.create(clubId, actingMemberId, imdbId, metadata, mediaItem)
         runCatching { importSeasonsAndEpisodes(series.id, actingMemberId) }
         return series
     }
@@ -65,11 +74,30 @@ class SeriesService(
         val summary = tmdbClient.findTvByImdbId(series.imdbId)
             ?: throw BadRequestException("Could not find TMDB metadata for ${series.imdbId}")
 
-        val metadata = tmdbClient.getTvDetails(summary.id).toMetadata(summary.id)
-            .copy(imdbRating = omdbClient.getImdbRating(series.imdbId))
+        val details = tmdbClient.getTvDetails(summary.id)
+        val imdbRating = omdbClient.getImdbRating(series.imdbId)
+        val metadata = details.toMetadata(summary.id).copy(imdbRating = imdbRating)
+        val mediaItem = linkMediaItem(details, summary.id, series.imdbId, metadata, imdbRating)
 
-        return seriesRepository.updateTmdbMetadata(seriesId, metadata)
+        return seriesRepository.updateTmdbMetadata(seriesId, metadata, mediaItem)
     }
+
+    private fun linkMediaItem(
+        details: TmdbTvDetails,
+        tmdbId: Int,
+        imdbId: String,
+        metadata: TmdbSeriesMetadata,
+        imdbRating: BigDecimal?,
+    ): Uuid = mediaItemRepository.findOrCreate(
+        type = SERIES,
+        imdbId = imdbId,
+        title = details.originalName,
+        tmdbId = tmdbId.toString(),
+        year = details.year,
+        posterUrl = details.posterPath?.toTmdbPosterUrl(),
+        tmdbRating = metadata.tmdbRating,
+        imdbRating = imdbRating,
+    ).id
 
     /** Bulk-imports every season/episode TMDB knows about for this series -- unlike [refreshMetadata] (which only
      * touches the series' own top-level fields), this populates the full Season/Episode catalog, including

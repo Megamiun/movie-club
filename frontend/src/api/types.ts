@@ -174,9 +174,16 @@ export interface WatchlistEntry {
   id: string
   clubId: string
   memberId: string
+  mediaItemId: string
+  type: 'MOVIE' | 'SERIES' | 'EPISODE'
   title: string
-  imdbUrl: string | null
+  imdbId: string
+  year: number | null
+  posterUrl: string | null
+  tmdbRating: string | null
+  imdbRating: string | null
   notes: string | null
+  position: number
 }
 
 export interface ImportRowIssue {

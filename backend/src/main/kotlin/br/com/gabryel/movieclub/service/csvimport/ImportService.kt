@@ -1,5 +1,6 @@
 package br.com.gabryel.movieclub.service.csvimport
 
+import br.com.gabryel.movieclub.db.MediaItemType
 import br.com.gabryel.movieclub.db.RatingScaleType
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
@@ -17,6 +18,7 @@ import br.com.gabryel.movieclub.service.ClubService
 import br.com.gabryel.movieclub.service.EpisodeService
 import br.com.gabryel.movieclub.service.MovieService
 import br.com.gabryel.movieclub.service.SeriesService
+import br.com.gabryel.movieclub.service.WatchlistService
 import java.io.InputStream
 import kotlin.uuid.Uuid
 
@@ -49,6 +51,7 @@ class ImportService(
     private val episodeRepository: EpisodeRepository,
     private val episodeService: EpisodeService,
     private val watchlistRepository: WatchlistRepository,
+    private val watchlistService: WatchlistService,
     private val ratingScaleRepository: RatingScaleRepository,
 ) {
     suspend fun importMovies(
@@ -106,7 +109,7 @@ class ImportService(
                         alternativeTitles = emptyList(),
                     )
                     val inserted =
-                        movieRepository.create(meeting.id, chosenById, imdbId, placeholderMetadata, row.watchLink)
+                        movieRepository.create(meeting.id, chosenById, imdbId, placeholderMetadata, watchLink = row.watchLink)
 
                     runCatching { movieService.refreshMetadata(inserted.id, actingMemberId) }.getOrElse {
                         warnings.add(ImportRowIssue(row.rowNumber, "TMDB refresh failed: ${it.message}"))
@@ -289,7 +292,7 @@ class ImportService(
         return ImportResult(created, 0, skipped, warnings)
     }
 
-    fun importReserve(
+    suspend fun importReserve(
         clubId: Uuid,
         actingMemberId: Uuid,
         input: InputStream,
@@ -306,6 +309,7 @@ class ImportService(
 
         var created = 0
         val skipped = mutableListOf<ImportRowIssue>()
+        val warnings = mutableListOf<ImportRowIssue>()
         val existingByClub = watchlistRepository.listByClub(clubId)
 
         rows.forEachIndexed { index, row ->
@@ -314,12 +318,20 @@ class ImportService(
             if (alreadyExists) {
                 skipped.add(ImportRowIssue(index + 1, "already imported"))
             } else {
-                watchlistRepository.create(clubId, memberId, row.title)
-                created++
+                val type = when (row.category) {
+                    WatchlistCategory.MOVIE -> MediaItemType.MOVIE
+                    WatchlistCategory.SERIES -> MediaItemType.SERIES
+                }
+                val added = watchlistService.addEntryByTitleSearch(clubId, memberId, type, row.title)
+                if (added != null) {
+                    created++
+                } else {
+                    warnings.add(ImportRowIssue(index + 1, "Could not find TMDB metadata for '${row.title}'"))
+                }
             }
         }
 
-        return ImportResult(created, 0, skipped, emptyList())
+        return ImportResult(created, 0, skipped, warnings)
     }
 
     private fun loadScalesWithOptions(clubId: Uuid): Map<RatingScaleType, Map<String, Uuid>> =
