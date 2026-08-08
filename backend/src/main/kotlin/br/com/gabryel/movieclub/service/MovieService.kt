@@ -66,6 +66,9 @@ class MovieService(
         val imdbId = details.externalIds?.imdbId
             ?: throw BadRequestException("TMDB movie $tmdbId has no linked IMDB id")
 
+        if (movieRepository.findByMeetingAndImdbId(meetingId, imdbId) != null)
+            throw BadRequestException("This movie has already been added to this meeting")
+
         val imdbRating = omdbClient.getImdbRating(imdbId)
         val metadata = details.toMetadata(tmdbId).copy(imdbRating = imdbRating)
         val mediaItem = linkMediaItem(details, tmdbId, imdbId, metadata, imdbRating)

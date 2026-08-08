@@ -13,9 +13,10 @@
 - [x] Club start screen should be a list of next meetings; configs and club data should be last tab
 - [x] Watchlist "add episode" and "add movie" on the UI should use search by name from TMDB, or IMDB URL/ID
 - [ ] Admin panel to see all imported series, movies, and all users
-- [ ] When adding a movie/series/etc. that already exists, update the existing record with new/missing info instead of duplicating
-  - Movie/Series catalog rows already dedupe-and-refresh by `imdb_id` on add (`findOrCreateMovie`/`findOrCreateSeries`); the new shared `MediaItem` table (see CLAUDE.md) extends this same dedup-by-`imdb_id` behavior to anything referencing it (e.g. Watchlist). What's still open: per-context duplicate *adds* (see next item), not catalog-level duplication
-- [ ] Don't add repeated entries to meetings, watchlist, series and so on. 
+- [x] When adding a movie/series/etc. that already exists, update the existing record with new/missing info instead of duplicating
+  - Movie/Series catalog rows already dedupe-and-refresh by `imdb_id` on add (`findOrCreateMovie`/`findOrCreateSeries`); the shared `MediaItem` table (see CLAUDE.md) extends this same dedup-by-`imdb_id` behavior to anything referencing it (e.g. Watchlist)
+- [x] Don't add repeated entries to meetings, watchlist, series and so on.
+  - `MovieService`/`SeriesService`/`WatchlistService` now reject a second add of the same `imdb_id`/MediaItem within its natural scope: same meeting for a movie pick (rewatch at a *different* meeting is still allowed, by design), same club for a series pick, same (club, member) for a watchlist entry. CSV import already had its own equivalent "already imported" skip logic
 - [x] Watchlist should be positional (orderable, positions can change)
   - Position scoped per (club, MediaItem type); reorder via up/down arrows swapping with the adjacent same-type entry
 - [ ] Watchlist ordering should be able to be done also via drag and drop

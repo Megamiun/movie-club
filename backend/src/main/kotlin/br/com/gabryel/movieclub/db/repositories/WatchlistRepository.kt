@@ -10,6 +10,8 @@ interface WatchlistRepository {
 
     fun findById(id: Uuid): WatchlistEntryRow?
 
+    fun findByClubMemberAndMediaItem(clubId: Uuid, memberId: Uuid, mediaItemId: Uuid): WatchlistEntryRow?
+
     fun listByClub(clubId: Uuid): List<WatchlistEntryRow>
 
     fun update(id: Uuid, notes: String? = null): WatchlistEntryRow

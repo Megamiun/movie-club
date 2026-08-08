@@ -61,6 +61,9 @@ class SeriesService(
         val imdbId = details.externalIds?.imdbId
             ?: throw BadRequestException("TMDB series $tmdbId has no linked IMDB id")
 
+        if (seriesRepository.findByClubAndImdbId(clubId, imdbId) != null)
+            throw BadRequestException("This series has already been added to this club")
+
         val imdbRating = omdbClient.getImdbRating(imdbId)
         val metadata = details.toMetadata(tmdbId).copy(imdbRating = imdbRating)
         val mediaItem = linkMediaItem(details, tmdbId, imdbId, metadata, imdbRating)

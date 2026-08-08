@@ -43,6 +43,10 @@ class WatchlistService(
             SERIES -> fetchSeriesMediaItem(id)
             EPISODE -> throw BadRequestException("Episodes cannot be added to the watchlist yet")
         }
+
+        if (watchlistRepository.findByClubMemberAndMediaItem(clubId, actingMemberId, mediaItem.id) != null)
+            throw BadRequestException("This is already in your watchlist")
+
         return watchlistRepository.create(clubId, actingMemberId, mediaItem.id, notes)
     }
 

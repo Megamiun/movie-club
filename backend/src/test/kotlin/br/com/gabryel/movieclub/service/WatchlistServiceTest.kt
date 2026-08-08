@@ -40,6 +40,7 @@ class WatchlistServiceTest {
 
     init {
         coEvery { omdbClient.getImdbRating(any()) } returns null
+        every { watchlistRepository.findByClubMemberAndMediaItem(any(), any(), any()) } returns null
     }
 
     @Test
@@ -67,6 +68,24 @@ class WatchlistServiceTest {
             every { watchlistRepository.create(clubId, memberId, item.id, null) } returns expected
 
             assertEquals(expected, watchlistService.addEntry(clubId, memberId, MOVIE, "438631"))
+        }
+
+    @Test
+    fun `addEntry throws BadRequestException when this member already has the media item in their watchlist`(): Unit =
+        runBlocking {
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+            coEvery { tmdbClient.getMovieDetails(438631) } returns TmdbMovieDetails(
+                originalTitle = "Dune",
+                title = "Dune",
+                externalIds = TmdbExternalIds(imdbId = "tt1160419"),
+            )
+            val item = mediaItem()
+            every {
+                mediaItemRepository.findOrCreate(MOVIE, "tt1160419", "Dune", "438631", null, null, null, null)
+            } returns item
+            every { watchlistRepository.findByClubMemberAndMediaItem(clubId, memberId, item.id) } returns entry(mediaItemId = item.id)
+
+            assertFailsWith<BadRequestException> { watchlistService.addEntry(clubId, memberId, MOVIE, "438631") }
         }
 
     @Test

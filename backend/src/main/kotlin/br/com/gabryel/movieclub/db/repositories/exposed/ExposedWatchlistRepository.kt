@@ -46,6 +46,19 @@ class ExposedWatchlistRepository : WatchlistRepository {
             .singleOrNull()
     }
 
+    override fun findByClubMemberAndMediaItem(clubId: Uuid, memberId: Uuid, mediaItemId: Uuid): WatchlistEntryRow? =
+        transaction {
+            joined()
+                .selectAll()
+                .where {
+                    (WatchlistEntries.clubId eq clubId) and
+                        (WatchlistEntries.memberId eq memberId) and
+                        (WatchlistEntries.mediaItemId eq mediaItemId)
+                }
+                .map(::toRow)
+                .singleOrNull()
+        }
+
     override fun listByClub(clubId: Uuid): List<WatchlistEntryRow> = transaction {
         joined()
             .selectAll()

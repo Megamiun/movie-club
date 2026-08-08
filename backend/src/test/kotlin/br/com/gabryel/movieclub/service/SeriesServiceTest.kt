@@ -64,6 +64,7 @@ class SeriesServiceTest {
         every {
             mediaItemRepository.findOrCreate(any(), any(), any(), any(), any(), any(), any(), any())
         } returns mediaItem()
+        every { seriesRepository.findByClubAndImdbId(any(), any()) } returns null
     }
 
     @Test
@@ -108,6 +109,22 @@ class SeriesServiceTest {
             } returns created
 
             assertEquals(created, seriesService.addSeries(clubId, memberId, "tt0903747"))
+        }
+
+    @Test
+    fun `addSeries throws BadRequestException when the series is already in this club`(): Unit =
+        runBlocking {
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+            coEvery { tmdbClient.findTvByImdbId("tt0903747") } returns TmdbTvSummary(id = 1396)
+            coEvery { tmdbClient.getTvDetails(1396) } returns
+                TmdbTvDetails(
+                    originalName = "Breaking Bad",
+                    name = "Breaking Bad",
+                    externalIds = TmdbExternalIds(imdbId = "tt0903747"),
+                )
+            every { seriesRepository.findByClubAndImdbId(clubId, "tt0903747") } returns series()
+
+            assertFailsWith<BadRequestException> { seriesService.addSeries(clubId, memberId, "tt0903747") }
         }
 
     @Test

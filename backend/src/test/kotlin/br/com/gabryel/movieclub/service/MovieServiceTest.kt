@@ -51,6 +51,7 @@ class MovieServiceTest {
         every {
             mediaItemRepository.findOrCreate(any(), any(), any(), any(), any(), any(), any(), any())
         } returns mediaItem()
+        every { movieRepository.findByMeetingAndImdbId(any(), any()) } returns null
         coEvery { omdbClient.getImdbRating(any()) } returns null
     }
 
@@ -107,6 +108,21 @@ class MovieServiceTest {
         } returns created
 
         assertEquals(created, movieService.addMovie(meetingId, memberId, "https://www.imdb.com/title/tt4857264/"))
+    }
+
+    @Test
+    fun `addMovie throws BadRequestException when the movie is already in this meeting`(): Unit = runBlocking {
+        every { meetingRepository.findById(meetingId) } returns meeting()
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        coEvery { tmdbClient.findByImdbId("tt4857264") } returns TmdbMovieSummary(id = 411088)
+        coEvery { tmdbClient.getMovieDetails(411088) } returns TmdbMovieDetails(
+            originalTitle = "Contratiempo",
+            title = "The Invisible Guest",
+            externalIds = TmdbExternalIds(imdbId = "tt4857264"),
+        )
+        every { movieRepository.findByMeetingAndImdbId(meetingId, "tt4857264") } returns movie()
+
+        assertFailsWith<BadRequestException> { movieService.addMovie(meetingId, memberId, "tt4857264") }
     }
 
     @Test
