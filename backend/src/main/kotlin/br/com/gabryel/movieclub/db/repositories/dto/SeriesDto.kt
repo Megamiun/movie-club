@@ -26,6 +26,7 @@ data class SeriesRow(
     val originCountry: List<String>? = null,
     val productionCountries: List<String>? = null,
     val tmdbRating: BigDecimal? = null,
+    val imdbRating: BigDecimal? = null,
     val creator: String? = null,
     val posterS3Key: String? = null,
     val metadataFetchedAt: Instant? = null,
@@ -42,7 +43,8 @@ data class SeriesReviewRow(
     val comment: String? = null,
 )
 
-/** Every non-user-entered field the global `series` catalog row stores -- same rationale as [TmdbMovieMetadata]. See
+/** Every non-user-entered field the global `series` catalog row stores -- same rationale as [TmdbMovieMetadata],
+ * including [imdbRating] being sourced from OMDb rather than TMDB. See
  * [br.com.gabryel.movieclub.service.tmdb.TmdbTvDetails.toMetadata] for how TMDB's response becomes one. */
 data class TmdbSeriesMetadata(
     val tmdbId: String? = null,
@@ -53,6 +55,7 @@ data class TmdbSeriesMetadata(
     val originCountry: List<String>? = null,
     val productionCountries: List<String>? = null,
     val tmdbRating: BigDecimal? = null,
+    val imdbRating: BigDecimal? = null,
     val creator: String? = null,
     val metadataFetchedAt: Instant? = null,
 )

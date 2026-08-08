@@ -44,11 +44,11 @@ function App() {
               <Route path="/seasons/:seasonId" element={<SeasonDetailPage />} />
 
               <Route path="/clubs/:clubId" element={<ClubLayout />}>
-                <Route index element={<ClubOverviewPage />} />
-                <Route path="meetings" element={<MeetingsPage />} />
+                <Route index element={<MeetingsPage />} />
                 <Route path="series" element={<SeriesListPage />} />
                 <Route path="watchlist" element={<WatchlistPage />} />
                 <Route path="import" element={<ImportPage />} />
+                <Route path="overview" element={<ClubOverviewPage />} />
               </Route>
             </Route>
 

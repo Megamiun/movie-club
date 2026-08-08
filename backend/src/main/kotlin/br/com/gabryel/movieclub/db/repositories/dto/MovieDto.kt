@@ -26,6 +26,7 @@ data class MovieRow(
     val originCountry: List<String>? = null,
     val productionCountries: List<String>? = null,
     val tmdbRating: BigDecimal? = null,
+    val imdbRating: BigDecimal? = null,
     val posterS3Key: String? = null,
     val watchLink: String? = null,
     val metadataFetchedAt: Instant? = null,
@@ -43,7 +44,9 @@ data class MovieReviewRow(
 /** Every non-user-entered field the global `movies` catalog row stores -- always constructed as a whole (even when
  * some fields are null, e.g. a CSV-imported row before its TMDB refresh succeeds), never assembled field by field
  * at the call site. See [br.com.gabryel.movieclub.service.tmdb.TmdbMovieDetails.toMetadata] for how TMDB's
- * response becomes one.
+ * response becomes one. [imdbRating] is the one field here NOT sourced from TMDB -- TMDB's API has no IMDB rating,
+ * so it's fetched separately from OMDb (see [br.com.gabryel.movieclub.service.omdb.OmdbClient]) and merged in
+ * alongside the rest before this reaches the repository.
  */
 data class TmdbMovieMetadata(
     val tmdbId: String? = null,
@@ -56,5 +59,6 @@ data class TmdbMovieMetadata(
     val originCountry: List<String>? = null,
     val productionCountries: List<String>? = null,
     val tmdbRating: BigDecimal? = null,
+    val imdbRating: BigDecimal? = null,
     val metadataFetchedAt: Instant? = null,
 )

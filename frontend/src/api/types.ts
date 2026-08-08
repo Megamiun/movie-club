@@ -1,6 +1,7 @@
 export interface Member {
   id: string
   name: string
+  username: string
   email: string
 }
 
@@ -93,6 +94,7 @@ export interface Movie {
   originCountry: string[] | null
   productionCountries: string[] | null
   tmdbRating: string | null
+  imdbRating: string | null
   posterS3Key: string | null
   watchLink: string | null
 }
@@ -120,6 +122,7 @@ export interface Series {
   originCountry: string[] | null
   productionCountries: string[] | null
   tmdbRating: string | null
+  imdbRating: string | null
   creator: string | null
   posterS3Key: string | null
 }

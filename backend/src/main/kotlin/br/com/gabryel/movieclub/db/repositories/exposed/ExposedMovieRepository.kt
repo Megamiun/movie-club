@@ -196,6 +196,7 @@ class ExposedMovieRepository : MovieRepository {
         originCountry = row[Movies.originCountry],
         productionCountries = row[Movies.productionCountries],
         tmdbRating = row[Movies.tmdbRating],
+        imdbRating = row[Movies.imdbRating],
         posterS3Key = row[Movies.posterS3Key],
         watchLink = row[MeetingMovies.watchLink],
         metadataFetchedAt = row[Movies.metadataFetchedAt],
@@ -225,5 +226,6 @@ private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbMovieMetadata) {
     this[Movies.originCountry] = metadata.originCountry
     this[Movies.productionCountries] = metadata.productionCountries
     this[Movies.tmdbRating] = metadata.tmdbRating
+    this[Movies.imdbRating] = metadata.imdbRating
     this[Movies.metadataFetchedAt] = metadata.metadataFetchedAt
 }

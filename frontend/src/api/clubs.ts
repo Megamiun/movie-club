@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { Club, ClubDetail, ClubMember, RatingScale } from './types'
+import type { Club, ClubDetail, ClubMember, RatingOption, RatingScale } from './types'
 
 export const clubsApi = {
   list: () => api.get<Club[]>('/clubs'),
@@ -20,4 +20,10 @@ export const clubsApi = {
     api.put<void>(`/clubs/${clubId}/rotation`, { memberIds }),
 
   getRatingScales: (clubId: string) => api.get<RatingScale[]>(`/clubs/${clubId}/rating-scales`),
+
+  updateRatingOption: (clubId: string, optionId: string, body: { label?: string; color?: string }) =>
+    api.patch<RatingOption>(`/clubs/${clubId}/rating-options/${optionId}`, body),
+
+  updateRatingOptionOrder: (clubId: string, scaleId: string, optionIds: string[]) =>
+    api.put<void>(`/clubs/${clubId}/rating-scales/${scaleId}/order`, { optionIds }),
 }

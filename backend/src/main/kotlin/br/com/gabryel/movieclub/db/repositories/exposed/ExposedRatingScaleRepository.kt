@@ -13,6 +13,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
 
 class ExposedRatingScaleRepository : RatingScaleRepository {
@@ -71,6 +72,21 @@ class ExposedRatingScaleRepository : RatingScaleRepository {
             .where { (RatingOptions.scaleId eq scaleId) and (RatingOptions.label eq label) }
             .map(::toOptionRow)
             .singleOrNull()
+    }
+
+    override fun updateOption(id: Uuid, label: String, color: String): RatingOptionRow = transaction {
+        RatingOptions.update({ RatingOptions.id eq id }) {
+            it[RatingOptions.label] = label
+            it[RatingOptions.color] = color
+        }
+        findOptionById(id)!!
+    }
+
+    override fun updateOptionPosition(id: Uuid, position: Int): RatingOptionRow = transaction {
+        RatingOptions.update({ RatingOptions.id eq id }) {
+            it[RatingOptions.position] = position
+        }
+        findOptionById(id)!!
     }
 
     private fun toScaleRow(row: ResultRow) = RatingScaleRow(

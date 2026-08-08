@@ -108,6 +108,29 @@ fun Route.clubRoutes(clubService: ClubService) {
                 },
             )
         }
+
+        patch("/clubs/{clubId}/rating-options/{optionId}") {
+            val body = call.receive<UpdateRatingOptionRequest>()
+            val option = clubService.updateRatingOption(
+                call.uuidPathParam("clubId"),
+                call.actingMemberId(),
+                call.uuidPathParam("optionId"),
+                body.label,
+                body.color,
+            )
+            call.respond(RatingOptionResponse(option.id.toString(), option.label, option.position, option.color))
+        }
+
+        put("/clubs/{clubId}/rating-scales/{scaleId}/order") {
+            val body = call.receive<UpdateRatingOptionOrderRequest>()
+            clubService.updateRatingOptionOrder(
+                call.uuidPathParam("clubId"),
+                call.actingMemberId(),
+                call.uuidPathParam("scaleId"),
+                body.optionIds.map { it.toUuidOrBadRequest() },
+            )
+            call.respond(NoContent)
+        }
     }
 }
 

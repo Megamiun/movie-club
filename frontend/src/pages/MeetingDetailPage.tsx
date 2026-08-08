@@ -65,7 +65,7 @@ export function MeetingDetailPage() {
     setActionError(null)
     try {
       await meetingsApi.remove(meetingId)
-      navigate(`/clubs/${meeting.clubId}/meetings`)
+      navigate(`/clubs/${meeting.clubId}`)
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
@@ -76,7 +76,7 @@ export function MeetingDetailPage() {
       <AsyncState loading={loading} error={error}>
         {meeting && (
           <>
-            <Button component={RouterLink} to={`/clubs/${meeting.clubId}/meetings`} sx={{ mb: 2 }}>
+            <Button component={RouterLink} to={`/clubs/${meeting.clubId}`} sx={{ mb: 2 }}>
               &larr; Back to meetings
             </Button>
             <Typography variant="h4" gutterBottom>

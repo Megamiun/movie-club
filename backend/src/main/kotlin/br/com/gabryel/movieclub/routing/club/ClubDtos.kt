@@ -58,3 +58,14 @@ internal data class RatingScaleResponse(
     val type: String,
     val options: List<RatingOptionResponse>,
 )
+
+@Serializable
+internal data class UpdateRatingOptionRequest(
+    val label: String? = null,
+    val color: String? = null,
+)
+
+@Serializable
+internal data class UpdateRatingOptionOrderRequest(
+    val optionIds: List<String>,
+)

@@ -1,14 +1,24 @@
 # TODO
 
-- [ ] Allow user to be invited by email
-- [ ] Add a unique username to user
+- [x] Allow user to be invited by email
+- [x] Add a unique username to user
 - [x] On import, show an autocomplete dropdown of available members instead of member id
-- [ ] Check what are the notes in the watchlist
-- [ ] Use my token for the docker compose too
+- [x] Check what are the notes in the watchlist
+- [x] Use my token for the docker compose too
 - [x] Add a series and movies search on the site
 - [x] On creating meeting, add an autocomplete dropdown for members of the club
 - [x] Member ids should not be visible usually, use names
 - [x] Add member to club should search by name or email instead of raw member id
-- [ ] Allow editing scale text, colors, and order easily
-- [ ] Club start screen should be a list of next meetings; configs and club data should be last tab
+- [x] Allow editing scale text, colors, and order easily
+- [x] Club start screen should be a list of next meetings; configs and club data should be last tab
 - [x] Watchlist "add episode" and "add movie" on the UI should use search by name from TMDB, or IMDB URL/ID
+- [ ] Admin panel to see all imported series, movies, and all users
+- [ ] When adding a movie/series/etc. that already exists, update the existing record with new/missing info instead of duplicating
+- [ ] Don't add repeated entries to meetings, watchlist, series and so on. 
+- [ ] Watchlist should be positional (orderable, positions can change)
+- [ ] Watchlist entries can show media details (year, rating, etc. from TMDB)
+- [ ] Meetings pane should show film data similar to the CSV file (director, runtime, genre, etc.)
+- [ ] Everywhere a movie/series title is shown, add a clickable IMDB icon linking to its IMDB page
+- [ ] Add a TMDB attribution notice ("This product uses the TMDB API but is not endorsed or certified by TMDB")
+- [ ] Separate Series and Movies watchlist in the UI
+- [ ] Add a movie tab where you can search for movies outside a meeting, with a button to add to a meeting or to the wishlist

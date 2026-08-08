@@ -50,6 +50,7 @@ internal data class SeriesResponse(
     val originCountry: List<String>?,
     val productionCountries: List<String>?,
     val tmdbRating: String?,
+    val imdbRating: String?,
     val creator: String?,
     val posterS3Key: String?,
 )

@@ -11,7 +11,7 @@ interface StoredSession {
 interface AuthContextValue {
   member: Member | null
   login: (email: string, password: string) => Promise<void>
-  register: (inviteToken: string, name: string, password: string) => Promise<void>
+  register: (inviteToken: string, name: string, username: string, password: string) => Promise<void>
   logout: () => void
 }
 
@@ -54,8 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await authApi.login(email, password)
         applySession(response)
       },
-      register: async (inviteToken, name, password) => {
-        const response = await authApi.register(inviteToken, name, password)
+      register: async (inviteToken, name, username, password) => {
+        const response = await authApi.register(inviteToken, name, username, password)
         applySession(response)
       },
       logout: () => applySession(null),

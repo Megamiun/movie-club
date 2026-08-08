@@ -36,12 +36,12 @@ class MemberServiceTest {
     }
 
     @Test
-    fun `invite returns token when email is new`() {
+    fun `invite returns the invited member when email is new`() {
         val invited = invitedMember()
         every { memberRepository.findByEmail(invited.email) } returns null
         every { memberRepository.invite(invited.email) } returns invited
 
-        assertEquals(invited.inviteToken, memberService.invite(invited.email))
+        assertEquals(invited, memberService.invite(invited.email))
     }
 
     @Test
@@ -54,7 +54,7 @@ class MemberServiceTest {
 
     @Test
     fun `register throws BadRequestException for malformed invite token`() {
-        assertFailsWith<BadRequestException> { memberService.register("not-a-uuid", "Name", "pass") }
+        assertFailsWith<BadRequestException> { memberService.register("not-a-uuid", "Name", "username", "pass") }
     }
 
     @Test
@@ -62,7 +62,18 @@ class MemberServiceTest {
         val token = Uuid.random()
         every { memberRepository.findByInviteToken(token) } returns null
 
-        assertFailsWith<ForbiddenException> { memberService.register(token.toString(), "Name", "pass") }
+        assertFailsWith<ForbiddenException> { memberService.register(token.toString(), "Name", "username", "pass") }
+    }
+
+    @Test
+    fun `register throws ConflictException when username already taken`() {
+        val token = Uuid.random()
+        val invited = invitedMember(inviteToken = token)
+        every { memberRepository.findByInviteToken(token) } returns invited
+        every { memberRepository.findByUsername("username") } returns registeredMember()
+
+        assertFailsWith<ConflictException> { memberService.register(token.toString(), "Name", "username", "pass") }
+        verify(exactly = 0) { memberRepository.completeRegistration(any(), any(), any(), any()) }
     }
 
     @Test
@@ -71,10 +82,11 @@ class MemberServiceTest {
         val invited = invitedMember(inviteToken = token)
         val registered = registeredMember(id = invited.id)
         every { memberRepository.findByInviteToken(token) } returns invited
+        every { memberRepository.findByUsername("username") } returns null
         every { passwordService.hash("pass") } returns "hashed"
-        every { memberRepository.completeRegistration(invited.id, "Name", "hashed") } returns registered
+        every { memberRepository.completeRegistration(invited.id, "Name", "username", "hashed") } returns registered
 
-        assertEquals(registered, memberService.register(token.toString(), "Name", "pass"))
+        assertEquals(registered, memberService.register(token.toString(), "Name", "username", "pass"))
     }
 
     @Test
@@ -118,6 +130,7 @@ class MemberServiceTest {
         id: Uuid = Uuid.random(),
         email: String = "user@example.com",
         name: String = "Test User",
+        username: String = "test_user",
         passwordHash: String = "hashed",
-    ) = RegisteredMember(id, email, name, passwordHash)
+    ) = RegisteredMember(id, email, name, username, passwordHash)
 }

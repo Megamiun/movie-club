@@ -34,6 +34,14 @@ class ExposedMemberRepository : MemberRepository {
             .singleOrNull()
     }
 
+    override fun findByUsername(username: String): MemberRow? = transaction {
+        Members
+            .selectAll()
+            .where { Members.username eq username }
+            .mapNotNull(::toRow)
+            .singleOrNull()
+    }
+
     override fun findByInviteToken(token: Uuid): InvitedMember? = transaction {
         Members
             .selectAll()
@@ -66,29 +74,32 @@ class ExposedMemberRepository : MemberRepository {
         )
     }
 
-    override fun completeRegistration(id: Uuid, name: String, passwordHash: String): RegisteredMember = transaction {
-        Members.update({ Members.id eq id }) {
-            it[Members.name] = name
-            it[Members.passwordHash] = passwordHash
-            it[Members.inviteToken] = null
+    override fun completeRegistration(id: Uuid, name: String, username: String, passwordHash: String): RegisteredMember =
+        transaction {
+            Members.update({ Members.id eq id }) {
+                it[Members.name] = name
+                it[Members.username] = username
+                it[Members.passwordHash] = passwordHash
+                it[Members.inviteToken] = null
+            }
+            Members
+                .selectAll()
+                .where { Members.id eq id }
+                .mapNotNull(::toRow)
+                .filterIsInstance<RegisteredMember>()
+                .single()
         }
-        Members
-            .selectAll()
-            .where { Members.id eq id }
-            .mapNotNull(::toRow)
-            .filterIsInstance<RegisteredMember>()
-            .single()
-    }
 
     private fun toRow(row: ResultRow): MemberRow? {
         val id = row[Members.id].value
         val email = row[Members.email]
         val inviteToken = row[Members.inviteToken]
         val name = row[Members.name]
+        val username = row[Members.username]
         val passwordHash = row[Members.passwordHash]
         return when {
             inviteToken != null -> InvitedMember(id, email, inviteToken)
-            name != null && passwordHash != null -> RegisteredMember(id, email, name, passwordHash)
+            name != null && username != null && passwordHash != null -> RegisteredMember(id, email, name, username, passwordHash)
             else -> null
         }
     }

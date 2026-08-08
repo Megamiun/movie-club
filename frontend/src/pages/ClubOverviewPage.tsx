@@ -16,13 +16,15 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TextField,
   Typography,
 } from '@mui/material'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { authApi } from '../api/auth'
 import { clubsApi } from '../api/clubs'
 import { ApiError } from '../api/client'
-import type { ClubDetail, MemberSummary } from '../api/types'
+import type { ClubDetail, MemberSummary, RatingOption, RatingScale } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { MemberSearchAutocomplete } from '../components/MemberSearchAutocomplete'
 import { useAsync } from '../hooks/useAsync'
@@ -44,6 +46,7 @@ export function ClubOverviewPage() {
 function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => void }) {
   const [selectedMember, setSelectedMember] = useState<MemberSummary | null>(null)
   const [role, setRole] = useState('MEMBER')
+  const [inviteEmail, setInviteEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const handleAdd = async (event: FormEvent) => {
@@ -53,6 +56,19 @@ function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => vo
     try {
       await clubsApi.addMember(club.id, selectedMember.id, role)
       setSelectedMember(null)
+      refresh()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  const handleInviteAndAdd = async (event: FormEvent) => {
+    event.preventDefault()
+    setError(null)
+    try {
+      const invited = await authApi.invite(inviteEmail)
+      await clubsApi.addMember(club.id, invited.memberId, role)
+      setInviteEmail('')
       refresh()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -134,6 +150,22 @@ function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => vo
           Add member
         </Button>
       </Box>
+      <Box component="form" onSubmit={handleInviteAndAdd} sx={{ display: 'flex', gap: 1, mt: 1, alignItems: 'center' }}>
+        <Typography variant="body2" color="text.secondary">
+          Not on the platform yet?
+        </Typography>
+        <TextField
+          label="Email to invite"
+          type="email"
+          size="small"
+          value={inviteEmail}
+          onChange={(e) => setInviteEmail(e.target.value)}
+          required
+        />
+        <Button type="submit" variant="text">
+          Invite &amp; add
+        </Button>
+      </Box>
     </Box>
   )
 }
@@ -207,7 +239,7 @@ function RotationSection({ club }: { club: ClubDetail }) {
 }
 
 function RatingScalesSection({ clubId }: { clubId: string }) {
-  const { data: scales, loading, error } = useAsync(() => clubsApi.getRatingScales(clubId), [clubId])
+  const { data: scales, loading, error, reload } = useAsync(() => clubsApi.getRatingScales(clubId), [clubId])
 
   return (
     <Box>
@@ -217,26 +249,126 @@ function RatingScalesSection({ clubId }: { clubId: string }) {
       <AsyncState loading={loading} error={error}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
           {scales?.map((scale) => (
-            <Paper key={scale.id} sx={{ p: 2, flex: 1 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                {scale.type}
-              </Typography>
-              <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
-                {scale.options
-                  .sort((a, b) => a.position - b.position)
-                  .map((option) => (
-                    <Chip
-                      key={option.id}
-                      label={option.label}
-                      sx={{ bgcolor: option.color, color: '#fff' }}
-                      size="small"
-                    />
-                  ))}
-              </Stack>
-            </Paper>
+            <RatingScaleCard key={scale.id} clubId={clubId} scale={scale} onChange={reload} />
           ))}
         </Stack>
       </AsyncState>
     </Box>
+  )
+}
+
+function RatingScaleCard({
+  clubId,
+  scale,
+  onChange,
+}: {
+  clubId: string
+  scale: RatingScale
+  onChange: () => void
+}) {
+  const sortedOptions = [...scale.options].sort((a, b) => a.position - b.position)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleMove = async (index: number, direction: -1 | 1) => {
+    const target = index + direction
+    if (target < 0 || target >= sortedOptions.length) return
+    const reordered = [...sortedOptions]
+    ;[reordered[index], reordered[target]] = [reordered[target], reordered[index]]
+    setError(null)
+    try {
+      await clubsApi.updateRatingOptionOrder(
+        clubId,
+        scale.id,
+        reordered.map((o) => o.id),
+      )
+      onChange()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  return (
+    <Paper sx={{ p: 2, flex: 1 }}>
+      <Typography variant="subtitle2" gutterBottom>
+        {scale.type}
+      </Typography>
+      {error && (
+        <Alert severity="error" sx={{ mb: 1 }}>
+          {error}
+        </Alert>
+      )}
+      <Stack spacing={1}>
+        {sortedOptions.map((option, index) => (
+          <RatingOptionEditor
+            key={option.id}
+            clubId={clubId}
+            option={option}
+            canMoveUp={index > 0}
+            canMoveDown={index < sortedOptions.length - 1}
+            onMove={(direction) => handleMove(index, direction)}
+            onChange={onChange}
+          />
+        ))}
+      </Stack>
+    </Paper>
+  )
+}
+
+function RatingOptionEditor({
+  clubId,
+  option,
+  canMoveUp,
+  canMoveDown,
+  onMove,
+  onChange,
+}: {
+  clubId: string
+  option: RatingOption
+  canMoveUp: boolean
+  canMoveDown: boolean
+  onMove: (direction: -1 | 1) => void
+  onChange: () => void
+}) {
+  const [label, setLabel] = useState(option.label)
+  const [color, setColor] = useState(option.color)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleBlurSave = async () => {
+    if (label === option.label && color === option.color) return
+    setError(null)
+    try {
+      await clubsApi.updateRatingOption(clubId, option.id, { label, color })
+      onChange()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  return (
+    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+      <Box
+        component="input"
+        type="color"
+        value={color}
+        onChange={(e) => setColor(e.target.value)}
+        onBlur={handleBlurSave}
+        sx={{ width: 32, height: 32, border: 'none', p: 0, background: 'none', cursor: 'pointer' }}
+      />
+      <TextField
+        size="small"
+        variant="standard"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onBlur={handleBlurSave}
+        sx={{ flexGrow: 1 }}
+      />
+      <IconButton size="small" onClick={() => onMove(-1)} disabled={!canMoveUp}>
+        <ArrowUpwardIcon fontSize="small" />
+      </IconButton>
+      <IconButton size="small" onClick={() => onMove(1)} disabled={!canMoveDown}>
+        <ArrowDownwardIcon fontSize="small" />
+      </IconButton>
+      {error && <Alert severity="error">{error}</Alert>}
+    </Stack>
   )
 }

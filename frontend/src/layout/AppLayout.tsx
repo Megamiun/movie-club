@@ -27,7 +27,7 @@ export function AppLayout() {
           {member && (
             <>
               <Typography variant="body2" sx={{ mr: 2 }}>
-                {member.name}
+                {member.name} (@{member.username})
               </Typography>
               <Button color="inherit" component={RouterLink} to="/invite" size="small" sx={{ mr: 1 }}>
                 Invite

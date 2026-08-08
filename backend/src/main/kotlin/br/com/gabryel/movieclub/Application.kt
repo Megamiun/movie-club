@@ -27,6 +27,7 @@ import br.com.gabryel.movieclub.service.WatchlistService
 import br.com.gabryel.movieclub.service.auth.Argon2PasswordService
 import br.com.gabryel.movieclub.service.auth.JwtService
 import br.com.gabryel.movieclub.service.csvimport.ImportService
+import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import io.ktor.server.application.Application
 import io.ktor.server.netty.EngineMain
@@ -54,9 +55,10 @@ fun Application.module() {
     val seasonRepository = ExposedSeasonRepository()
     val episodeRepository = ExposedEpisodeRepository()
     val tmdbClient = TmdbClient(config.propertyOrNull("tmdb.accessToken")?.getString().orEmpty())
+    val omdbClient = OmdbClient(config.propertyOrNull("omdb.apiKey")?.getString().orEmpty())
     val meetingService = MeetingService(meetingRepository, movieRepository, clubService)
-    val movieService = MovieService(movieRepository, meetingRepository, clubService, tmdbClient)
-    val seriesService = SeriesService(seriesRepository, clubService, tmdbClient, seasonRepository, episodeRepository)
+    val movieService = MovieService(movieRepository, meetingRepository, clubService, tmdbClient, omdbClient)
+    val seriesService = SeriesService(seriesRepository, clubService, tmdbClient, omdbClient, seasonRepository, episodeRepository)
     val seasonService = SeasonService(seasonRepository, seriesRepository, clubService)
     val episodeService = EpisodeService(
         episodeRepository,

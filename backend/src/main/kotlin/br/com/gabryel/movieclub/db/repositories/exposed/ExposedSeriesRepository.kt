@@ -172,6 +172,7 @@ class ExposedSeriesRepository : SeriesRepository {
         originCountry = row[Series.originCountry],
         productionCountries = row[Series.productionCountries],
         tmdbRating = row[Series.tmdbRating],
+        imdbRating = row[Series.imdbRating],
         creator = row[Series.creator],
         posterS3Key = row[Series.posterS3Key],
         metadataFetchedAt = row[Series.metadataFetchedAt],
@@ -199,6 +200,7 @@ private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbSeriesMetadata) {
     this[Series.originCountry] = metadata.originCountry
     this[Series.productionCountries] = metadata.productionCountries
     this[Series.tmdbRating] = metadata.tmdbRating
+    this[Series.imdbRating] = metadata.imdbRating
     this[Series.creator] = metadata.creator
     this[Series.metadataFetchedAt] = metadata.metadataFetchedAt
 }

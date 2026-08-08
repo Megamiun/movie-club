@@ -3,11 +3,14 @@ package br.com.gabryel.movieclub.service
 import br.com.gabryel.movieclub.db.ClubRole
 import br.com.gabryel.movieclub.db.ClubRole.ADMIN
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
+import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.repositories.ClubRepository
 import br.com.gabryel.movieclub.db.repositories.MemberRepository
 import br.com.gabryel.movieclub.db.repositories.RatingScaleRepository
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.ClubRow
+import br.com.gabryel.movieclub.db.repositories.dto.RatingOptionRow
+import br.com.gabryel.movieclub.db.repositories.dto.RatingScaleRow
 import br.com.gabryel.movieclub.db.repositories.dto.RegisteredMember
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
@@ -179,10 +182,86 @@ class ClubServiceTest {
         verify { clubRepository.updateRotationOrder(clubId, memberA, 1) }
     }
 
+    @Test
+    fun `updateRatingOption throws ForbiddenException when acting member is not admin`() {
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = MEMBER)
+
+        assertFailsWith<ForbiddenException> {
+            clubService.updateRatingOption(clubId, memberId, Uuid.random(), label = "New label")
+        }
+    }
+
+    @Test
+    fun `updateRatingOption throws BadRequestException when option belongs to another club`() {
+        val optionId = Uuid.random()
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = ADMIN)
+        every { ratingScaleRepository.findOptionById(optionId) } returns ratingOption(optionId, scaleId = Uuid.random())
+        every { ratingScaleRepository.findScales(clubId) } returns emptyList()
+
+        assertFailsWith<BadRequestException> {
+            clubService.updateRatingOption(clubId, memberId, optionId, label = "New label")
+        }
+    }
+
+    @Test
+    fun `updateRatingOption keeps existing label or color when only one is given`() {
+        val scaleId = Uuid.random()
+        val optionId = Uuid.random()
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = ADMIN)
+        every { ratingScaleRepository.findOptionById(optionId) } returns
+            ratingOption(optionId, scaleId = scaleId, label = "Old label", color = "#111111")
+        every { ratingScaleRepository.findScales(clubId) } returns listOf(RatingScaleRow(scaleId, clubId, QUALITY))
+        every { ratingScaleRepository.updateOption(optionId, "Old label", "#222222") } returns
+            ratingOption(optionId, scaleId = scaleId, label = "Old label", color = "#222222")
+
+        val result = clubService.updateRatingOption(clubId, memberId, optionId, color = "#222222")
+
+        assertEquals("#222222", result.color)
+        verify { ratingScaleRepository.updateOption(optionId, "Old label", "#222222") }
+    }
+
+    @Test
+    fun `updateRatingOptionOrder throws BadRequestException when option set does not match`() {
+        val scaleId = Uuid.random()
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = ADMIN)
+        every { ratingScaleRepository.findScales(clubId) } returns listOf(RatingScaleRow(scaleId, clubId, QUALITY))
+        every { ratingScaleRepository.findOptions(scaleId) } returns listOf(ratingOption(Uuid.random(), scaleId))
+
+        assertFailsWith<BadRequestException> {
+            clubService.updateRatingOptionOrder(clubId, memberId, scaleId, listOf(Uuid.random(), Uuid.random()))
+        }
+    }
+
+    @Test
+    fun `updateRatingOptionOrder applies new positions when option set matches exactly`() {
+        val scaleId = Uuid.random()
+        val optionA = Uuid.random()
+        val optionB = Uuid.random()
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = ADMIN)
+        every { ratingScaleRepository.findScales(clubId) } returns listOf(RatingScaleRow(scaleId, clubId, QUALITY))
+        every { ratingScaleRepository.findOptions(scaleId) } returns
+            listOf(ratingOption(optionA, scaleId, position = 0), ratingOption(optionB, scaleId, position = 1))
+        every { ratingScaleRepository.updateOptionPosition(optionB, 0) } returns ratingOption(optionB, scaleId, position = 0)
+        every { ratingScaleRepository.updateOptionPosition(optionA, 1) } returns ratingOption(optionA, scaleId, position = 1)
+
+        clubService.updateRatingOptionOrder(clubId, memberId, scaleId, listOf(optionB, optionA))
+
+        verify { ratingScaleRepository.updateOptionPosition(optionB, 0) }
+        verify { ratingScaleRepository.updateOptionPosition(optionA, 1) }
+    }
+
     private fun clubRow() = ClubRow(clubId, "Movie Club", Clock.System.now())
 
     private fun membership(memberId: Uuid = this.memberId, role: ClubRole = MEMBER, rotationOrder: Int = 0) =
         ClubMembershipRow(clubId, memberId, role, rotationOrder, Clock.System.now())
 
-    private fun registeredMember(id: Uuid) = RegisteredMember(id, "member@example.com", "Member Name", "hash")
+    private fun registeredMember(id: Uuid) = RegisteredMember(id, "member@example.com", "Member Name", "member_name", "hash")
+
+    private fun ratingOption(
+        id: Uuid,
+        scaleId: Uuid,
+        label: String = "Label",
+        position: Int = 0,
+        color: String = "#111111",
+    ) = RatingOptionRow(id, scaleId, label, position, color)
 }

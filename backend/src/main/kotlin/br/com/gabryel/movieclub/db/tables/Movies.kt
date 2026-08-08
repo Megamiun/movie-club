@@ -21,6 +21,7 @@ object Movies : UuidTable("movies") {
     val originCountry = array("origin_country", VarCharColumnType(255)).nullable()
     val productionCountries = array("production_countries", VarCharColumnType(255)).nullable()
     val tmdbRating = decimal("tmdb_rating", precision = 4, scale = 1).nullable()
+    val imdbRating = decimal("imdb_rating", precision = 4, scale = 1).nullable()
 
     val posterS3Key = varchar("poster_s3_key", 512).nullable()
     val metadataFetchedAt = timestamp("metadata_fetched_at").nullable()

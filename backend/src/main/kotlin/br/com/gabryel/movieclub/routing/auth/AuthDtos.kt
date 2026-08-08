@@ -9,6 +9,7 @@ internal data class InviteRequest(
 
 @Serializable
 internal data class InviteResponse(
+    val memberId: String,
     val inviteToken: String,
 )
 
@@ -16,6 +17,7 @@ internal data class InviteResponse(
 internal data class RegisterRequest(
     val inviteToken: String,
     val name: String,
+    val username: String,
     val password: String,
 )
 
@@ -35,5 +37,6 @@ internal data class AuthResponse(
 internal data class MemberResponse(
     val id: String,
     val name: String,
+    val username: String,
     val email: String,
 )

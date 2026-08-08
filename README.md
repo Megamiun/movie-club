@@ -79,6 +79,7 @@ All defined in [.env.example](.env.example):
 | `DATABASE_URL` / `DATABASE_USER` / `DATABASE_PASSWORD`                          | Postgres connection. Defaults match `docker compose up db`.                                                                             |
 | `JWT_SECRET`                                                                    | Signing secret for auth tokens. Change for anything beyond local dev.                                                                   |
 | `TMDB_API_KEY` / `TMDB_ACCESS_TOKEN`                                            | From [TMDB's API settings](https://www.themoviedb.org/settings/api). The access token (v4, Bearer) is what's actually used for lookups. |
+| `OMDB_API_KEY`                                                                  | From [OMDb's API key page](https://www.omdbapi.com/apikey.aspx) (free tier). Used only to fetch IMDB's own rating — TMDB doesn't expose it. Optional: lookups are silently skipped when unset. |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `S3_BUCKET_NAME` | Reserved for poster storage — the S3 SDK is a dependency but no code uses it yet.                                                       |
 | `VITE_API_BASE_URL`                                                             | Backend URL baked into the frontend build. See the note above.                                                                          |
 

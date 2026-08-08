@@ -194,6 +194,7 @@ private fun SeriesRow.toResponse() = SeriesResponse(
     originCountry = originCountry,
     productionCountries = productionCountries,
     tmdbRating = tmdbRating?.toPlainString(),
+    imdbRating = imdbRating?.toPlainString(),
     creator = creator,
     posterS3Key = posterS3Key,
 )

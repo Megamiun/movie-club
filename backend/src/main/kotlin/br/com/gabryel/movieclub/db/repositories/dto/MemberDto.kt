@@ -20,6 +20,7 @@ data class RegisteredMember(
     override val id: Uuid,
     override val email: String,
     val name: String,
+    val username: String,
     val passwordHash: String,
 ) : MemberRow() {
     override val displayName: String get() = name

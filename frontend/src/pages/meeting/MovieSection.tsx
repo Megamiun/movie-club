@@ -28,6 +28,7 @@ import { ReviewsList } from '../../components/ReviewsList'
 import { TmdbSearchAutocomplete } from '../../components/TmdbSearchAutocomplete'
 import { useAsync } from '../../hooks/useAsync'
 import { memberName } from '../../utils/members'
+import { ratingLabel } from '../../utils/rating'
 
 export function MovieSection({
   meetingId,
@@ -189,7 +190,7 @@ function MovieItem({
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexGrow: 1 }}>
           <Typography sx={{ flexGrow: 1 }}>{title}</Typography>
           {movie.year && <Chip size="small" label={movie.year} />}
-          {movie.tmdbRating && <Chip size="small" label={`TMDB ${movie.tmdbRating}`} />}
+          {ratingLabel(movie) && <Chip size="small" label={ratingLabel(movie)} />}
         </Stack>
       </AccordionSummary>
       <AccordionDetails>

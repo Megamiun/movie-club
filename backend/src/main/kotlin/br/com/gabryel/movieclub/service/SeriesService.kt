@@ -11,6 +11,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.NotFoundException
+import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbTvSearchItem
 import br.com.gabryel.movieclub.service.tmdb.parseImdbId
@@ -20,6 +21,7 @@ class SeriesService(
     private val seriesRepository: SeriesRepository,
     private val clubService: ClubService,
     private val tmdbClient: TmdbClient,
+    private val omdbClient: OmdbClient,
     private val seasonRepository: SeasonRepository,
     private val episodeRepository: EpisodeRepository,
 ) {
@@ -42,12 +44,20 @@ class SeriesService(
         return createFromTmdb(clubId, actingMemberId, tmdbId)
     }
 
+    /** Populates the full Season/Episode catalog right away (see [importSeasonsAndEpisodes]) so a newly added
+     * series shows up with all its seasons/episodes instead of the empty list the old manual-add-per-season flow
+     * left behind. Best-effort like [EpisodeService.addEpisode]'s metadata enrichment -- a TMDB hiccup here
+     * shouldn't fail the add itself, since [importSeasonsAndEpisodes] is safe to re-run later (e.g. from the
+     * series page) to pick up whatever didn't come through. */
     private suspend fun createFromTmdb(clubId: Uuid, actingMemberId: Uuid, tmdbId: Int): SeriesRow {
         val details = tmdbClient.getTvDetails(tmdbId)
         val imdbId = details.externalIds?.imdbId
             ?: throw BadRequestException("TMDB series $tmdbId has no linked IMDB id")
 
-        return seriesRepository.create(clubId, actingMemberId, imdbId, details.toMetadata(tmdbId))
+        val metadata = details.toMetadata(tmdbId).copy(imdbRating = omdbClient.getImdbRating(imdbId))
+        val series = seriesRepository.create(clubId, actingMemberId, imdbId, metadata)
+        runCatching { importSeasonsAndEpisodes(series.id, actingMemberId) }
+        return series
     }
 
     suspend fun refreshMetadata(seriesId: Uuid, actingMemberId: Uuid): SeriesRow {
@@ -56,6 +66,7 @@ class SeriesService(
             ?: throw BadRequestException("Could not find TMDB metadata for ${series.imdbId}")
 
         val metadata = tmdbClient.getTvDetails(summary.id).toMetadata(summary.id)
+            .copy(imdbRating = omdbClient.getImdbRating(series.imdbId))
 
         return seriesRepository.updateTmdbMetadata(seriesId, metadata)
     }

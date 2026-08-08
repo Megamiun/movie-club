@@ -9,6 +9,7 @@ import { ApiError } from '../api/client'
 import { AsyncState } from '../components/AsyncState'
 import { RatingForm } from '../components/RatingForm'
 import { useAsync } from '../hooks/useAsync'
+import { ratingLabel } from '../utils/rating'
 
 export function SeriesDetailPage() {
   const { seriesId } = useParams<{ seriesId: string }>()
@@ -83,7 +84,7 @@ export function SeriesDetailPage() {
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
               {series.year && <Chip size="small" label={series.year} />}
               {series.creator && <Chip size="small" label={`Created by ${series.creator}`} />}
-              {series.tmdbRating && <Chip size="small" label={`TMDB ${series.tmdbRating}`} />}
+              {ratingLabel(series) && <Chip size="small" label={ratingLabel(series)} />}
             </Stack>
 
             {actionError && (

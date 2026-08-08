@@ -19,4 +19,8 @@ interface RatingScaleRepository {
     fun findOptionById(id: Uuid): RatingOptionRow?
 
     fun findOptionByLabel(scaleId: Uuid, label: String): RatingOptionRow?
+
+    fun updateOption(id: Uuid, label: String, color: String): RatingOptionRow
+
+    fun updateOptionPosition(id: Uuid, position: Int): RatingOptionRow
 }

@@ -11,6 +11,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.NotFoundException
+import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbMovieSearchItem
 import br.com.gabryel.movieclub.service.tmdb.parseImdbId
@@ -21,6 +22,7 @@ class MovieService(
     private val meetingRepository: MeetingRepository,
     private val clubService: ClubService,
     private val tmdbClient: TmdbClient,
+    private val omdbClient: OmdbClient,
 ) {
     suspend fun searchMovies(query: String): List<TmdbMovieSearchItem> {
         if (query.isBlank()) return emptyList()
@@ -57,7 +59,8 @@ class MovieService(
         val imdbId = details.externalIds?.imdbId
             ?: throw BadRequestException("TMDB movie $tmdbId has no linked IMDB id")
 
-        return movieRepository.create(meetingId, actingMemberId, imdbId, details.toMetadata(tmdbId), watchLink)
+        val metadata = details.toMetadata(tmdbId).copy(imdbRating = omdbClient.getImdbRating(imdbId))
+        return movieRepository.create(meetingId, actingMemberId, imdbId, metadata, watchLink)
     }
 
     suspend fun refreshMetadata(movieId: Uuid, actingMemberId: Uuid): MovieRow {
@@ -66,6 +69,7 @@ class MovieService(
             ?: throw BadRequestException("Could not find TMDB metadata for ${movie.imdbId}")
 
         val metadata = tmdbClient.getMovieDetails(summary.id).toMetadata(summary.id)
+            .copy(imdbRating = omdbClient.getImdbRating(movie.imdbId))
 
         return movieRepository.updateTmdbMetadata(movieId, metadata)
     }

@@ -13,6 +13,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
+import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbExternalIds
 import br.com.gabryel.movieclub.service.tmdb.TmdbMovieDetails
@@ -22,6 +23,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
+import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -33,11 +35,16 @@ class MovieServiceTest {
     private val meetingRepository = mockk<MeetingRepository>()
     private val clubService = mockk<ClubService>()
     private val tmdbClient = mockk<TmdbClient>()
-    private val movieService = MovieService(movieRepository, meetingRepository, clubService, tmdbClient)
+    private val omdbClient = mockk<OmdbClient>()
+    private val movieService = MovieService(movieRepository, meetingRepository, clubService, tmdbClient, omdbClient)
 
     private val clubId = Uuid.random()
     private val memberId = Uuid.random()
     private val meetingId = Uuid.random()
+
+    init {
+        coEvery { omdbClient.getImdbRating(any()) } returns null
+    }
 
     @Test
     fun `addMovie throws BadRequestException for an unparseable imdb id`(): Unit = runBlocking {
@@ -91,6 +98,31 @@ class MovieServiceTest {
         } returns created
 
         assertEquals(created, movieService.addMovie(meetingId, memberId, "https://www.imdb.com/title/tt4857264/"))
+    }
+
+    @Test
+    fun `addMovie merges in the IMDB rating fetched from OMDb`() = runBlocking {
+        every { meetingRepository.findById(meetingId) } returns meeting()
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        coEvery { tmdbClient.findByImdbId("tt4857264") } returns TmdbMovieSummary(id = 411088)
+        coEvery { tmdbClient.getMovieDetails(411088) } returns TmdbMovieDetails(
+            originalTitle = "Contratiempo",
+            title = "The Invisible Guest",
+            externalIds = TmdbExternalIds(imdbId = "tt4857264"),
+        )
+        coEvery { omdbClient.getImdbRating("tt4857264") } returns BigDecimal("8.2")
+
+        val created = movie()
+        every {
+            movieRepository.create(
+                meetingId = meetingId,
+                chosenById = memberId,
+                imdbId = "tt4857264",
+                metadata = match { it.imdbRating == BigDecimal("8.2") },
+            )
+        } returns created
+
+        assertEquals(created, movieService.addMovie(meetingId, memberId, "tt4857264"))
     }
 
     @Test

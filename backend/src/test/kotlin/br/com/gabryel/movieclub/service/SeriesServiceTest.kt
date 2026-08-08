@@ -15,6 +15,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
+import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbEpisodeDetails
 import br.com.gabryel.movieclub.service.tmdb.TmdbExternalIds
@@ -27,6 +28,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.runBlocking
+import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -37,13 +39,18 @@ class SeriesServiceTest {
     private val seriesRepository = mockk<SeriesRepository>()
     private val clubService = mockk<ClubService>()
     private val tmdbClient = mockk<TmdbClient>()
+    private val omdbClient = mockk<OmdbClient>()
     private val seasonRepository = mockk<SeasonRepository>()
     private val episodeRepository = mockk<EpisodeRepository>()
     private val seriesService =
-        SeriesService(seriesRepository, clubService, tmdbClient, seasonRepository, episodeRepository)
+        SeriesService(seriesRepository, clubService, tmdbClient, omdbClient, seasonRepository, episodeRepository)
 
     private val clubId = Uuid.random()
     private val memberId = Uuid.random()
+
+    init {
+        coEvery { omdbClient.getImdbRating(any()) } returns null
+    }
 
     @Test
     fun `addSeries throws BadRequestException when TMDB has no match`(): Unit =
@@ -82,6 +89,72 @@ class SeriesServiceTest {
                             it.tmdbRating == null &&
                             it.creator == null
                     },
+                )
+            } returns created
+
+            assertEquals(created, seriesService.addSeries(clubId, memberId, "tt0903747"))
+        }
+
+    @Test
+    fun `addSeries also imports the full season and episode catalog`(): Unit =
+        runBlocking {
+            val seriesId = Uuid.random()
+            val globalSeriesId = Uuid.random()
+            val seasonId = Uuid.random()
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+            coEvery { tmdbClient.findTvByImdbId("tt0903747") } returns TmdbTvSummary(id = 1396)
+            coEvery { tmdbClient.getTvDetails(1396) } returns
+                TmdbTvDetails(
+                    originalName = "Breaking Bad",
+                    name = "Breaking Bad",
+                    firstAirDate = "2008-01-20",
+                    seasons = listOf(TmdbSeasonSummary(1)),
+                    externalIds = TmdbExternalIds(imdbId = "tt0903747"),
+                )
+            val created = series(id = seriesId, globalSeriesId = globalSeriesId)
+            every { seriesRepository.create(clubId, memberId, "tt0903747", any()) } returns created
+            every { seriesRepository.findById(seriesId) } returns created
+
+            every { seasonRepository.listBySeries(globalSeriesId) } returns emptyList()
+            every { seasonRepository.create(globalSeriesId, 1) } returns SeasonRow(seasonId, globalSeriesId, 1)
+            coEvery { tmdbClient.getSeasonDetails(1396, 1) } returns TmdbSeasonDetails(
+                seasonNumber = 1,
+                episodes = listOf(TmdbEpisodeDetails(name = "Pilot", episodeNumber = 1)),
+            )
+            every { episodeRepository.listBySeason(seasonId) } returns emptyList()
+            every {
+                episodeRepository.create(seasonId, 1, "Pilot")
+            } returns EpisodeRow(Uuid.random(), seasonId, 1, title = "Pilot")
+            every { episodeRepository.updateTmdbMetadata(any(), any()) } answers {
+                firstArg<Uuid>().let { id -> EpisodeRow(id, seasonId, 1) }
+            }
+
+            seriesService.addSeries(clubId, memberId, "tt0903747")
+
+            verify { seasonRepository.create(globalSeriesId, 1) }
+            verify { episodeRepository.create(seasonId, 1, "Pilot") }
+        }
+
+    @Test
+    fun `addSeries merges in the IMDB rating fetched from OMDb`(): Unit =
+        runBlocking {
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+            coEvery { tmdbClient.findTvByImdbId("tt0903747") } returns TmdbTvSummary(id = 1396)
+            coEvery { tmdbClient.getTvDetails(1396) } returns
+                TmdbTvDetails(
+                    originalName = "Breaking Bad",
+                    name = "Breaking Bad",
+                    externalIds = TmdbExternalIds(imdbId = "tt0903747"),
+                )
+            coEvery { omdbClient.getImdbRating("tt0903747") } returns BigDecimal("9.5")
+
+            val created = series()
+            every {
+                seriesRepository.create(
+                    clubId = clubId,
+                    chosenById = memberId,
+                    imdbId = "tt0903747",
+                    metadata = match { it.imdbRating == BigDecimal("9.5") },
                 )
             } returns created
 

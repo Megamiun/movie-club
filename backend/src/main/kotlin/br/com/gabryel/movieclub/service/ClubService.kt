@@ -148,6 +148,37 @@ class ClubService(
         if (scale.type != expectedType) throw BadRequestException("Rating option is not a ${expectedType.name} option")
     }
 
+    fun updateRatingOption(
+        clubId: Uuid,
+        actingMemberId: Uuid,
+        optionId: Uuid,
+        label: String? = null,
+        color: String? = null,
+    ): RatingOptionRow {
+        requireAdmin(clubId, actingMemberId)
+        val option = requireClubOption(clubId, optionId)
+        return ratingScaleRepository.updateOption(optionId, label ?: option.label, color ?: option.color)
+    }
+
+    fun updateRatingOptionOrder(clubId: Uuid, actingMemberId: Uuid, scaleId: Uuid, orderedOptionIds: List<Uuid>) {
+        requireAdmin(clubId, actingMemberId)
+        if (ratingScaleRepository.findScales(clubId).none { it.id == scaleId })
+            throw BadRequestException("Rating scale does not belong to this club")
+
+        val currentIds = ratingScaleRepository.findOptions(scaleId).map { it.id }.toSet()
+        if (orderedOptionIds.toSet() != currentIds || orderedOptionIds.size != currentIds.size)
+            throw BadRequestException("Order must include every option exactly once")
+
+        orderedOptionIds.forEachIndexed { index, optionId -> ratingScaleRepository.updateOptionPosition(optionId, index) }
+    }
+
+    private fun requireClubOption(clubId: Uuid, optionId: Uuid): RatingOptionRow {
+        val option = ratingScaleRepository.findOptionById(optionId) ?: throw NotFoundException("Rating option not found")
+        val ownsScale = ratingScaleRepository.findScales(clubId).any { it.id == option.scaleId }
+        if (!ownsScale) throw BadRequestException("Rating option does not belong to this club")
+        return option
+    }
+
     private fun ClubMembershipRow.toDetail() = ClubMemberDetail(memberId, resolveMemberName(memberId), role, rotationOrder)
 
     private fun resolveMemberName(memberId: Uuid): String =

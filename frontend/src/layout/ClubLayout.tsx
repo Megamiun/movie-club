@@ -6,11 +6,11 @@ import { useAsync } from '../hooks/useAsync'
 import { clubsApi } from '../api/clubs'
 
 const TABS = [
-  { path: '', label: 'Overview' },
-  { path: 'meetings', label: 'Meetings' },
+  { path: '', label: 'Meetings' },
   { path: 'series', label: 'Series' },
   { path: 'watchlist', label: 'Watchlist' },
   { path: 'import', label: 'Import' },
+  { path: 'overview', label: 'Overview' },
 ]
 
 export function ClubLayout() {

@@ -114,6 +114,7 @@ private fun MovieRow.toResponse() = MovieResponse(
     originCountry = originCountry,
     productionCountries = productionCountries,
     tmdbRating = tmdbRating?.toPlainString(),
+    imdbRating = imdbRating?.toPlainString(),
     posterS3Key = posterS3Key,
     watchLink = watchLink,
 )

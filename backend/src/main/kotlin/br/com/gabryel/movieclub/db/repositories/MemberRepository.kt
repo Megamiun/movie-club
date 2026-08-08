@@ -10,11 +10,13 @@ interface MemberRepository {
 
     fun findByEmail(email: String): MemberRow?
 
+    fun findByUsername(username: String): MemberRow?
+
     fun findByInviteToken(token: Uuid): InvitedMember?
 
     fun search(query: String, limit: Int = 10): List<MemberRow>
 
     fun invite(email: String): InvitedMember
 
-    fun completeRegistration(id: Uuid, name: String, passwordHash: String): RegisteredMember
+    fun completeRegistration(id: Uuid, name: String, username: String, passwordHash: String): RegisteredMember
 }

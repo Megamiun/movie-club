@@ -10,6 +10,7 @@ export function RegisterPage() {
   const [searchParams] = useSearchParams()
   const [inviteToken, setInviteToken] = useState(searchParams.get('token') ?? '')
   const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -19,7 +20,7 @@ export function RegisterPage() {
     setSubmitting(true)
     setError(null)
     try {
-      await register(inviteToken, name, password)
+      await register(inviteToken, name, username, password)
       navigate('/clubs', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -48,6 +49,14 @@ export function RegisterPage() {
           required
         />
         <TextField label="Name" fullWidth margin="normal" value={name} onChange={(e) => setName(e.target.value)} required />
+        <TextField
+          label="Username"
+          fullWidth
+          margin="normal"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+        />
         <TextField
           label="Password"
           type="password"

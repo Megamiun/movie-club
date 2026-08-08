@@ -12,12 +12,12 @@ import io.ktor.server.routing.post
 fun Route.authRoutes(jwtService: JwtService, memberService: MemberService) {
     post("/auth/register") {
         val body = call.receive<RegisterRequest>()
-        val member = memberService.register(body.inviteToken, body.name, body.password)
+        val member = memberService.register(body.inviteToken, body.name, body.username, body.password)
         call.respond(
             Created,
             AuthResponse(
                 token = jwtService.generate(member.id),
-                member = MemberResponse(member.id.toString(), member.name, member.email),
+                member = MemberResponse(member.id.toString(), member.name, member.username, member.email),
             ),
         )
     }
@@ -28,7 +28,7 @@ fun Route.authRoutes(jwtService: JwtService, memberService: MemberService) {
         call.respond(
             AuthResponse(
                 token = jwtService.generate(member.id),
-                member = MemberResponse(member.id.toString(), member.name, member.email),
+                member = MemberResponse(member.id.toString(), member.name, member.username, member.email),
             ),
         )
     }
@@ -36,8 +36,8 @@ fun Route.authRoutes(jwtService: JwtService, memberService: MemberService) {
     authenticate("auth-jwt") {
         post("/auth/invite") {
             val body = call.receive<InviteRequest>()
-            val inviteToken = memberService.invite(body.email)
-            call.respond(Created, InviteResponse(inviteToken.toString()))
+            val invited = memberService.invite(body.email)
+            call.respond(Created, InviteResponse(invited.id.toString(), invited.inviteToken.toString()))
         }
     }
 }
