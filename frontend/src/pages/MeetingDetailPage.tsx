@@ -7,6 +7,7 @@ import { clubsApi } from '../api/clubs'
 import { ApiError } from '../api/client'
 import { AsyncState } from '../components/AsyncState'
 import { useAsync } from '../hooks/useAsync'
+import { memberName } from '../utils/members'
 import { MovieSection } from './meeting/MovieSection'
 import { EpisodeSection } from './meeting/EpisodeSection'
 
@@ -14,6 +15,9 @@ export function MeetingDetailPage() {
   const { meetingId } = useParams<{ meetingId: string }>()
   const navigate = useNavigate()
   const { data: meeting, loading, error, reload } = useAsync(() => meetingsApi.get(meetingId!), [meetingId])
+  const { data: club } = useAsync(() => (meeting ? clubsApi.get(meeting.clubId) : Promise.resolve(null)), [
+    meeting?.clubId,
+  ])
   const { data: scales } = useAsync(() => (meeting ? clubsApi.getRatingScales(meeting.clubId) : Promise.resolve([])), [
     meeting?.clubId,
   ])
@@ -79,7 +83,9 @@ export function MeetingDetailPage() {
               Meeting — {meeting.date}
             </Typography>
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              {meeting.assignedMemberId ? `Assigned to ${meeting.assignedMemberId}` : 'Shared / merged meeting'}
+              {meeting.assignedMemberId
+                ? `Assigned to ${memberName(club?.members ?? [], meeting.assignedMemberId)}`
+                : 'Shared / merged meeting'}
             </Typography>
 
             {actionError && (
@@ -118,7 +124,7 @@ export function MeetingDetailPage() {
             </Stack>
 
             <Divider sx={{ my: 3 }} />
-            <MovieSection meetingId={meeting.id} scales={scales ?? []} />
+            <MovieSection meetingId={meeting.id} scales={scales ?? []} members={club?.members ?? []} />
             <Divider sx={{ my: 3 }} />
             <EpisodeSection meetingId={meeting.id} scales={scales ?? []} />
           </>

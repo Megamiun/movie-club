@@ -5,6 +5,7 @@ import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.dto.RatingScaleRow
 import br.com.gabryel.movieclub.db.repositories.exposed.ExposedClubRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedMemberRepository
 import br.com.gabryel.movieclub.db.repositories.exposed.ExposedRatingScaleRepository
 import br.com.gabryel.movieclub.db.tables.ClubMembers
 import br.com.gabryel.movieclub.db.tables.Clubs
@@ -53,7 +54,7 @@ class ClubRepositoryIntegrationTest {
     @Test
     fun `createClub commits club, admin membership, and both rating scales together`() {
         val creatorId = insertTestMember()
-        val clubService = ClubService(clubRepository, ExposedRatingScaleRepository())
+        val clubService = ClubService(clubRepository, ExposedRatingScaleRepository(), ExposedMemberRepository())
 
         val club = clubService.createClub(TEST_CLUB_NAME, creatorId)
 
@@ -72,7 +73,7 @@ class ClubRepositoryIntegrationTest {
     fun `createClub rolls back everything when scale seeding fails partway through`() {
         val creatorId = insertTestMember()
         val failingScales = FailingAfterFirstScale(ExposedRatingScaleRepository())
-        val clubService = ClubService(clubRepository, failingScales)
+        val clubService = ClubService(clubRepository, failingScales, ExposedMemberRepository())
 
         assertFailsWith<IllegalStateException> { clubService.createClub(TEST_CLUB_NAME, creatorId) }
 

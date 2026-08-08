@@ -22,6 +22,20 @@ class MemberServiceTest {
     private val memberService = MemberService(memberRepository, passwordService)
 
     @Test
+    fun `search returns empty list for blank query without hitting the repository`() {
+        assertEquals(emptyList(), memberService.search("   "))
+        verify(exactly = 0) { memberRepository.search(any()) }
+    }
+
+    @Test
+    fun `search trims the query and delegates to the repository`() {
+        val member = registeredMember()
+        every { memberRepository.search("ana") } returns listOf(member)
+
+        assertEquals(listOf(member), memberService.search("  ana  "))
+    }
+
+    @Test
     fun `invite returns token when email is new`() {
         val invited = invitedMember()
         every { memberRepository.findByEmail(invited.email) } returns null

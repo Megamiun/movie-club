@@ -16,17 +16,18 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { clubsApi } from '../api/clubs'
 import { ApiError } from '../api/client'
-import type { ClubDetail } from '../api/types'
+import type { ClubDetail, MemberSummary } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { MemberSearchAutocomplete } from '../components/MemberSearchAutocomplete'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
+import { memberName } from '../utils/members'
 
 export function ClubOverviewPage() {
   const { club, reload } = useOutletContext<ClubOutletContext>()
@@ -41,16 +42,17 @@ export function ClubOverviewPage() {
 }
 
 function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => void }) {
-  const [memberId, setMemberId] = useState('')
+  const [selectedMember, setSelectedMember] = useState<MemberSummary | null>(null)
   const [role, setRole] = useState('MEMBER')
   const [error, setError] = useState<string | null>(null)
 
   const handleAdd = async (event: FormEvent) => {
     event.preventDefault()
+    if (!selectedMember) return
     setError(null)
     try {
-      await clubsApi.addMember(club.id, memberId, role)
-      setMemberId('')
+      await clubsApi.addMember(club.id, selectedMember.id, role)
+      setSelectedMember(null)
       refresh()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -89,7 +91,7 @@ function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => vo
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Member ID</TableCell>
+              <TableCell>Name</TableCell>
               <TableCell>Role</TableCell>
               <TableCell>Rotation position</TableCell>
               <TableCell align="right" />
@@ -98,7 +100,7 @@ function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => vo
           <TableBody>
             {club.members.map((m) => (
               <TableRow key={m.memberId}>
-                <TableCell sx={{ fontFamily: 'monospace' }}>{m.memberId}</TableCell>
+                <TableCell>{m.name}</TableCell>
                 <TableCell>
                   <Select size="small" value={m.role} onChange={(e) => handleRoleChange(m.memberId, e.target.value)}>
                     <MenuItem value="ADMIN">ADMIN</MenuItem>
@@ -117,11 +119,11 @@ function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => vo
         </Table>
       </Paper>
       <Box component="form" onSubmit={handleAdd} sx={{ display: 'flex', gap: 1, mt: 2 }}>
-        <TextField
-          label="Member ID"
-          size="small"
-          value={memberId}
-          onChange={(e) => setMemberId(e.target.value)}
+        <MemberSearchAutocomplete
+          value={selectedMember}
+          onChange={setSelectedMember}
+          excludeMemberIds={club.members.map((m) => m.memberId)}
+          label="Add member"
           required
         />
         <Select size="small" value={role} onChange={(e) => setRole(e.target.value)}>
@@ -186,7 +188,7 @@ function RotationSection({ club }: { club: ClubDetail }) {
           {order.map((memberId, index) => (
             <Stack key={memberId} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <Chip label={index + 1} size="small" />
-              <Typography sx={{ fontFamily: 'monospace', flexGrow: 1 }}>{memberId}</Typography>
+              <Typography sx={{ flexGrow: 1 }}>{memberName(club.members, memberId)}</Typography>
               <IconButton size="small" onClick={() => move(index, -1)} disabled={index === 0}>
                 <ArrowUpwardIcon fontSize="small" />
               </IconButton>

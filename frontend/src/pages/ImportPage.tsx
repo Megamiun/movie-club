@@ -24,6 +24,7 @@ import { useOutletContext } from 'react-router-dom'
 import { importApi } from '../api/importApi'
 import { ApiError } from '../api/client'
 import type { ImportMemberMapping, ImportResult, ImportType } from '../api/types'
+import { MemberAutocomplete } from '../components/MemberAutocomplete'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 
 export function ImportPage() {
@@ -95,7 +96,7 @@ export function ImportPage() {
               <TableRow>
                 <TableCell>Choice initial</TableCell>
                 <TableCell>CSV display name</TableCell>
-                <TableCell>Member ID</TableCell>
+                <TableCell>Member</TableCell>
                 <TableCell align="right" />
               </TableRow>
             </TableHead>
@@ -119,11 +120,11 @@ export function ImportPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <TextField
-                      size="small"
+                    <MemberAutocomplete
+                      members={club.members}
+                      value={mapping.memberId || null}
+                      onChange={(memberId) => updateMapping(index, { memberId: memberId ?? '' })}
                       variant="standard"
-                      value={mapping.memberId}
-                      onChange={(e) => updateMapping(index, { memberId: e.target.value })}
                     />
                   </TableCell>
                   <TableCell align="right">

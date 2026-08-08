@@ -4,6 +4,7 @@ import br.com.gabryel.movieclub.routing.auth.authRoutes
 import br.com.gabryel.movieclub.routing.club.clubRoutes
 import br.com.gabryel.movieclub.routing.import.importRoutes
 import br.com.gabryel.movieclub.routing.meeting.meetingRoutes
+import br.com.gabryel.movieclub.routing.member.memberRoutes
 import br.com.gabryel.movieclub.routing.movie.movieRoutes
 import br.com.gabryel.movieclub.routing.series.seriesRoutes
 import br.com.gabryel.movieclub.routing.watchlist.watchlistRoutes
@@ -40,6 +41,7 @@ fun Application.configureRouting(
         }
 
         authRoutes(jwtService, memberService)
+        memberRoutes(memberService)
         clubRoutes(clubService)
         meetingRoutes(meetingService)
         movieRoutes(movieService)

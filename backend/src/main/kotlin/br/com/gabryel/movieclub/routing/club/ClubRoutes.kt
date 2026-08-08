@@ -48,7 +48,12 @@ fun Route.clubRoutes(clubService: ClubService) {
             )
             call.respond(
                 Created,
-                ClubMemberResponse(membership.memberId.toString(), membership.role.name, membership.rotationOrder),
+                ClubMemberResponse(
+                    membership.memberId.toString(),
+                    membership.name,
+                    membership.role.name,
+                    membership.rotationOrder,
+                ),
             )
         }
 
@@ -63,7 +68,12 @@ fun Route.clubRoutes(clubService: ClubService) {
                 body.role.toClubRoleOrBadRequest(),
             )
             call.respond(
-                ClubMemberResponse(membership.memberId.toString(), membership.role.name, membership.rotationOrder),
+                ClubMemberResponse(
+                    membership.memberId.toString(),
+                    membership.name,
+                    membership.role.name,
+                    membership.rotationOrder,
+                ),
             )
         }
 
@@ -104,7 +114,7 @@ fun Route.clubRoutes(clubService: ClubService) {
 private fun ClubDetail.toDetailResponse() = ClubDetailResponse(
     id = id.toString(),
     name = name,
-    members = members.map { ClubMemberResponse(it.memberId.toString(), it.role.name, it.rotationOrder) },
+    members = members.map { ClubMemberResponse(it.memberId.toString(), it.name, it.role.name, it.rotationOrder) },
 )
 
 private fun String.toClubRoleOrBadRequest() = ClubRole.entries

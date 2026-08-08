@@ -19,13 +19,22 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useState, type FormEvent } from 'react'
 import { moviesApi } from '../../api/movies'
 import { ApiError } from '../../api/client'
-import type { Movie, RatingScale } from '../../api/types'
+import type { ClubMember, Movie, RatingScale } from '../../api/types'
 import { AsyncState } from '../../components/AsyncState'
 import { RatingForm } from '../../components/RatingForm'
 import { ReviewsList } from '../../components/ReviewsList'
 import { useAsync } from '../../hooks/useAsync'
+import { memberName } from '../../utils/members'
 
-export function MovieSection({ meetingId, scales }: { meetingId: string; scales: RatingScale[] }) {
+export function MovieSection({
+  meetingId,
+  scales,
+  members,
+}: {
+  meetingId: string
+  scales: RatingScale[]
+  members: ClubMember[]
+}) {
   const { data: movies, loading, error, reload } = useAsync(() => moviesApi.list(meetingId), [meetingId])
   const [imdbUrlOrId, setImdbUrlOrId] = useState('')
   const [watchLink, setWatchLink] = useState('')
@@ -53,7 +62,9 @@ export function MovieSection({ meetingId, scales }: { meetingId: string; scales:
       <AsyncState loading={loading} error={error}>
         <Stack spacing={1}>
           {movies?.length === 0 && <Typography color="text.secondary">No movies picked yet.</Typography>}
-          {movies?.map((movie) => <MovieItem key={movie.id} movie={movie} scales={scales} onChange={reload} />)}
+          {movies?.map((movie) => (
+            <MovieItem key={movie.id} movie={movie} scales={scales} members={members} onChange={reload} />
+          ))}
         </Stack>
       </AsyncState>
 
@@ -88,7 +99,17 @@ export function MovieSection({ meetingId, scales }: { meetingId: string; scales:
   )
 }
 
-function MovieItem({ movie, scales, onChange }: { movie: Movie; scales: RatingScale[]; onChange: () => void }) {
+function MovieItem({
+  movie,
+  scales,
+  members,
+  onChange,
+}: {
+  movie: Movie
+  scales: RatingScale[]
+  members: ClubMember[]
+  onChange: () => void
+}) {
   const { data: reviews, reload: reloadReviews } = useAsync(() => moviesApi.listReviews(movie.id), [movie.id])
   const [customTitle, setCustomTitle] = useState(movie.customTitle ?? '')
   const [preference, setPreference] = useState(movie.displayTitlePreference)
@@ -149,7 +170,8 @@ function MovieItem({ movie, scales, onChange }: { movie: Movie; scales: RatingSc
         )}
         <Stack spacing={2}>
           <Typography variant="body2" color="text.secondary">
-            Chosen by {movie.chosenById} &middot; Director: {movie.director ?? '—'} &middot; Runtime:{' '}
+            Chosen by {memberName(members, movie.chosenById)} &middot; Director: {movie.director ?? '—'} &middot;
+            Runtime:{' '}
             {movie.runtimeMinutes ? `${movie.runtimeMinutes}min` : '—'}
             {movie.genre && movie.genre.length > 0 ? ` · Genre: ${movie.genre.join(', ')}` : ''}
           </Typography>
@@ -183,7 +205,7 @@ function MovieItem({ movie, scales, onChange }: { movie: Movie; scales: RatingSc
             onSave={handleRate}
           />
 
-          <ReviewsList reviews={reviews ?? []} scales={scales} />
+          <ReviewsList reviews={reviews ?? []} scales={scales} members={members} />
         </Stack>
       </AccordionDetails>
     </Accordion>

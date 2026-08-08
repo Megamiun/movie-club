@@ -1,6 +1,7 @@
 package br.com.gabryel.movieclub.service
 
 import br.com.gabryel.movieclub.db.repositories.MemberRepository
+import br.com.gabryel.movieclub.db.repositories.dto.MemberRow
 import br.com.gabryel.movieclub.db.repositories.dto.RegisteredMember
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ConflictException
@@ -10,6 +11,11 @@ import br.com.gabryel.movieclub.service.auth.PasswordService
 import kotlin.uuid.Uuid
 
 class MemberService(private val memberRepository: MemberRepository, private val passwordService: PasswordService) {
+    fun search(query: String): List<MemberRow> {
+        if (query.isBlank()) return emptyList()
+        return memberRepository.search(query.trim())
+    }
+
     fun invite(email: String): Uuid {
         if (memberRepository.findByEmail(email) != null)
             throw ConflictException("Email already exists")

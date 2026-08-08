@@ -12,6 +12,8 @@ interface MemberRepository {
 
     fun findByInviteToken(token: Uuid): InvitedMember?
 
+    fun search(query: String, limit: Int = 10): List<MemberRow>
+
     fun invite(email: String): InvitedMember
 
     fun completeRegistration(id: Uuid, name: String, passwordHash: String): RegisteredMember

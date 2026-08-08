@@ -4,9 +4,11 @@ import br.com.gabryel.movieclub.db.ClubRole
 import br.com.gabryel.movieclub.db.ClubRole.ADMIN
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.repositories.ClubRepository
+import br.com.gabryel.movieclub.db.repositories.MemberRepository
 import br.com.gabryel.movieclub.db.repositories.RatingScaleRepository
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.ClubRow
+import br.com.gabryel.movieclub.db.repositories.dto.RegisteredMember
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
@@ -22,7 +24,8 @@ import kotlin.uuid.Uuid
 class ClubServiceTest {
     private val clubRepository = mockk<ClubRepository>()
     private val ratingScaleRepository = mockk<RatingScaleRepository>()
-    private val clubService = ClubService(clubRepository, ratingScaleRepository)
+    private val memberRepository = mockk<MemberRepository>()
+    private val clubService = ClubService(clubRepository, ratingScaleRepository, memberRepository)
 
     private val clubId = Uuid.random()
     private val memberId = Uuid.random()
@@ -99,10 +102,13 @@ class ClubServiceTest {
             membership(rotationOrder = 1),
         )
 
-        val expected = membership(memberId = targetId, role = MEMBER, rotationOrder = 2)
-        every { clubRepository.addMember(clubId, targetId, MEMBER, 2) } returns expected
+        val addedMembership = membership(memberId = targetId, role = MEMBER, rotationOrder = 2)
+        every { clubRepository.addMember(clubId, targetId, MEMBER, 2) } returns addedMembership
+        every { memberRepository.findById(targetId) } returns registeredMember(targetId)
 
-        assertEquals(expected, clubService.addMember(clubId, memberId, targetId))
+        val result = clubService.addMember(clubId, memberId, targetId)
+        assertEquals(targetId, result.memberId)
+        assertEquals(2, result.rotationOrder)
     }
 
     @Test
@@ -122,10 +128,12 @@ class ClubServiceTest {
         every { clubRepository.findMembership(clubId, memberId) } returns membership(role = ADMIN)
         every { clubRepository.findMembership(clubId, targetId) } returns membership(memberId = targetId, role = ADMIN)
         every { clubRepository.countAdmins(clubId) } returns 2
-        val expected = membership(memberId = targetId, role = MEMBER)
-        every { clubRepository.updateRole(clubId, targetId, MEMBER) } returns expected
+        every { clubRepository.updateRole(clubId, targetId, MEMBER) } returns membership(memberId = targetId, role = MEMBER)
+        every { memberRepository.findById(targetId) } returns registeredMember(targetId)
 
-        assertEquals(expected, clubService.changeRole(clubId, memberId, targetId, MEMBER))
+        val result = clubService.changeRole(clubId, memberId, targetId, MEMBER)
+        assertEquals(targetId, result.memberId)
+        assertEquals(MEMBER, result.role)
     }
 
     @Test
@@ -175,4 +183,6 @@ class ClubServiceTest {
 
     private fun membership(memberId: Uuid = this.memberId, role: ClubRole = MEMBER, rotationOrder: Int = 0) =
         ClubMembershipRow(clubId, memberId, role, rotationOrder, Clock.System.now())
+
+    private fun registeredMember(id: Uuid) = RegisteredMember(id, "member@example.com", "Member Name", "hash")
 }

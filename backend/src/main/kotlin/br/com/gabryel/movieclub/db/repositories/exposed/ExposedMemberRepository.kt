@@ -7,6 +7,9 @@ import br.com.gabryel.movieclub.db.repositories.dto.RegisteredMember
 import br.com.gabryel.movieclub.db.tables.Members
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.like
+import org.jetbrains.exposed.v1.core.lowerCase
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -38,6 +41,15 @@ class ExposedMemberRepository : MemberRepository {
             .mapNotNull(::toRow)
             .filterIsInstance<InvitedMember>()
             .singleOrNull()
+    }
+
+    override fun search(query: String, limit: Int): List<MemberRow> = transaction {
+        val pattern = "%${query.lowercase()}%"
+        Members
+            .selectAll()
+            .where { (Members.email.lowerCase() like pattern) or (Members.name.lowerCase() like pattern) }
+            .limit(limit)
+            .mapNotNull(::toRow)
     }
 
     override fun invite(email: String): InvitedMember = transaction {

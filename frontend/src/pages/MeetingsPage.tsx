@@ -15,23 +15,25 @@ import { Link as RouterLink, useOutletContext } from 'react-router-dom'
 import { meetingsApi } from '../api/meetings'
 import { ApiError } from '../api/client'
 import { AsyncState } from '../components/AsyncState'
+import { MemberAutocomplete } from '../components/MemberAutocomplete'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
+import { memberName } from '../utils/members'
 
 export function MeetingsPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { data: meetings, loading, error, reload } = useAsync(() => meetingsApi.list(club.id), [club.id])
   const [date, setDate] = useState('')
-  const [assignedMemberId, setAssignedMemberId] = useState('')
+  const [assignedMemberId, setAssignedMemberId] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault()
     setSubmitError(null)
     try {
-      await meetingsApi.create(club.id, date, assignedMemberId || undefined)
+      await meetingsApi.create(club.id, date, assignedMemberId ?? undefined)
       setDate('')
-      setAssignedMemberId('')
+      setAssignedMemberId(null)
       reload()
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -53,7 +55,11 @@ export function MeetingsPage() {
             <ListItemButton key={meeting.id} component={RouterLink} to={`/meetings/${meeting.id}`} divider>
               <ListItemText
                 primary={meeting.date}
-                secondary={meeting.assignedMemberId ? `Assigned: ${meeting.assignedMemberId}` : 'Shared / merged'}
+                secondary={
+                  meeting.assignedMemberId
+                    ? `Assigned: ${memberName(club.members, meeting.assignedMemberId)}`
+                    : 'Shared / merged'
+                }
               />
             </ListItemButton>
           ))}
@@ -79,11 +85,11 @@ export function MeetingsPage() {
             slotProps={{ inputLabel: { shrink: true } }}
             required
           />
-          <TextField
-            label="Assigned member ID (optional)"
-            size="small"
+          <MemberAutocomplete
+            members={club.members}
             value={assignedMemberId}
-            onChange={(e) => setAssignedMemberId(e.target.value)}
+            onChange={setAssignedMemberId}
+            label="Assigned member (optional)"
           />
           <Button type="submit" variant="contained" startIcon={<AddIcon />}>
             Create

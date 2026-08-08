@@ -18,10 +18,11 @@ import { useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { watchlistApi } from '../api/watchlist'
 import { ApiError } from '../api/client'
-import type { WatchlistEntry } from '../api/types'
+import type { ClubMember, WatchlistEntry } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
+import { memberName } from '../utils/members'
 
 export function WatchlistPage() {
   const { club } = useOutletContext<ClubOutletContext>()
@@ -64,7 +65,7 @@ export function WatchlistPage() {
           </TableHead>
           <TableBody>
             {entries?.map((entry) => (
-              <EntryRow key={entry.id} entry={entry} onChange={reload} />
+              <EntryRow key={entry.id} entry={entry} members={club.members} onChange={reload} />
             ))}
           </TableBody>
         </Table>
@@ -99,7 +100,15 @@ export function WatchlistPage() {
   )
 }
 
-function EntryRow({ entry, onChange }: { entry: WatchlistEntry; onChange: () => void }) {
+function EntryRow({
+  entry,
+  members,
+  onChange,
+}: {
+  entry: WatchlistEntry
+  members: ClubMember[]
+  onChange: () => void
+}) {
   const [title, setTitle] = useState(entry.title)
   const [notes, setNotes] = useState(entry.notes ?? '')
   const [error, setError] = useState<string | null>(null)
@@ -147,7 +156,7 @@ function EntryRow({ entry, onChange }: { entry: WatchlistEntry; onChange: () => 
       <TableCell>
         <TextField variant="standard" value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={handleBlurSave} />
       </TableCell>
-      <TableCell sx={{ fontFamily: 'monospace' }}>{entry.memberId}</TableCell>
+      <TableCell>{memberName(members, entry.memberId)}</TableCell>
       <TableCell align="right">
         {error && <Alert severity="error">{error}</Alert>}
         <IconButton size="small" onClick={handleDelete} title="Remove">

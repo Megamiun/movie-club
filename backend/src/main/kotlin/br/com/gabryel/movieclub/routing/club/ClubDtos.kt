@@ -16,6 +16,7 @@ internal data class ClubResponse(
 @Serializable
 internal data class ClubMemberResponse(
     val memberId: String,
+    val name: String,
     val role: String,
     val rotationOrder: Int,
 )

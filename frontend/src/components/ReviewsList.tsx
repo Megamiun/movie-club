@@ -1,5 +1,6 @@
 import { Chip, Stack, Typography } from '@mui/material'
-import type { RatingScale } from '../api/types'
+import type { ClubMember, RatingScale } from '../api/types'
+import { memberName } from '../utils/members'
 
 interface ReviewLike {
   memberId: string
@@ -14,7 +15,15 @@ function labelFor(scales: RatingScale[], type: string, optionId: string | null) 
   return scale?.options.find((o) => o.id === optionId)?.label ?? optionId
 }
 
-export function ReviewsList({ reviews, scales }: { reviews: ReviewLike[]; scales: RatingScale[] }) {
+export function ReviewsList({
+  reviews,
+  scales,
+  members,
+}: {
+  reviews: ReviewLike[]
+  scales: RatingScale[]
+  members: ClubMember[]
+}) {
   if (reviews.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
@@ -30,8 +39,8 @@ export function ReviewsList({ reviews, scales }: { reviews: ReviewLike[]; scales
         const sentiment = labelFor(scales, 'SENTIMENT', r.sentimentOptionId)
         return (
           <Stack key={r.memberId} direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-              {r.memberId}
+            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+              {memberName(members, r.memberId)}
             </Typography>
             {quality && <Chip size="small" label={quality} />}
             {sentiment && <Chip size="small" label={sentiment} variant="outlined" />}

@@ -7,6 +7,7 @@ import br.com.gabryel.movieclub.db.RatingScaleType
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.ClubRepository
+import br.com.gabryel.movieclub.db.repositories.MemberRepository
 import br.com.gabryel.movieclub.db.repositories.RatingScaleRepository
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.ClubRow
@@ -22,7 +23,14 @@ data class ClubDetail(
     val id: Uuid,
     val name: String,
     val createdAt: Instant,
-    val members: List<ClubMembershipRow>,
+    val members: List<ClubMemberDetail>,
+)
+
+data class ClubMemberDetail(
+    val memberId: Uuid,
+    val name: String,
+    val role: ClubRole,
+    val rotationOrder: Int,
 )
 
 data class RatingScaleWithOptions(
@@ -42,6 +50,7 @@ private val DEFAULT_RATING_COLORS = listOf("#2E7D32", "#7CB342", "#C0CA33", "#FD
 class ClubService(
     private val clubRepository: ClubRepository,
     private val ratingScaleRepository: RatingScaleRepository,
+    private val memberRepository: MemberRepository,
 ) {
     fun requireMembership(clubId: Uuid, memberId: Uuid): ClubMembershipRow =
         clubRepository.findMembership(clubId, memberId)
@@ -59,7 +68,7 @@ class ClubService(
         seedScale(club.id, QUALITY, DEFAULT_QUALITY_LABELS)
         seedScale(club.id, SENTIMENT, DEFAULT_SENTIMENT_LABELS)
 
-        ClubDetail(club.id, club.name, club.createdAt, clubRepository.listMembers(club.id))
+        ClubDetail(club.id, club.name, club.createdAt, clubRepository.listMembers(club.id).map { it.toDetail() })
     }
 
     private fun seedScale(clubId: Uuid, type: RatingScaleType, labels: List<String>) {
@@ -72,7 +81,7 @@ class ClubService(
     fun getClub(clubId: Uuid, actingMemberId: Uuid): ClubDetail {
         val club = clubRepository.findById(clubId) ?: throw NotFoundException("Club not found")
         requireMembership(clubId, actingMemberId)
-        return ClubDetail(club.id, club.name, club.createdAt, clubRepository.listMembers(clubId))
+        return ClubDetail(club.id, club.name, club.createdAt, clubRepository.listMembers(clubId).map { it.toDetail() })
     }
 
     fun listMyClubs(memberId: Uuid): List<ClubRow> = clubRepository.listClubsForMember(memberId)
@@ -82,16 +91,16 @@ class ClubService(
         actingMemberId: Uuid,
         targetMemberId: Uuid,
         role: ClubRole = MEMBER,
-    ): ClubMembershipRow {
+    ): ClubMemberDetail {
         requireAdmin(clubId, actingMemberId)
         if (clubRepository.findMembership(clubId, targetMemberId) != null)
             throw BadRequestException("Member already belongs to this club")
 
         val nextRotationOrder = (clubRepository.listMembers(clubId).maxOfOrNull { it.rotationOrder } ?: -1) + 1
-        return clubRepository.addMember(clubId, targetMemberId, role, nextRotationOrder)
+        return clubRepository.addMember(clubId, targetMemberId, role, nextRotationOrder).toDetail()
     }
 
-    fun changeRole(clubId: Uuid, actingMemberId: Uuid, targetMemberId: Uuid, newRole: ClubRole): ClubMembershipRow {
+    fun changeRole(clubId: Uuid, actingMemberId: Uuid, targetMemberId: Uuid, newRole: ClubRole): ClubMemberDetail {
         requireAdmin(clubId, actingMemberId)
         val target = clubRepository.findMembership(clubId, targetMemberId)
             ?: throw NotFoundException("Member not found in this club")
@@ -99,7 +108,7 @@ class ClubService(
         if (target.role == ADMIN && newRole != ADMIN && clubRepository.countAdmins(clubId) <= 1)
             throw BadRequestException("Club must have at least one admin")
 
-        return clubRepository.updateRole(clubId, targetMemberId, newRole)
+        return clubRepository.updateRole(clubId, targetMemberId, newRole).toDetail()
     }
 
     fun removeMember(clubId: Uuid, actingMemberId: Uuid, targetMemberId: Uuid) {
@@ -138,4 +147,9 @@ class ClubService(
             ?: throw BadRequestException("Rating option does not belong to this club")
         if (scale.type != expectedType) throw BadRequestException("Rating option is not a ${expectedType.name} option")
     }
+
+    private fun ClubMembershipRow.toDetail() = ClubMemberDetail(memberId, resolveMemberName(memberId), role, rotationOrder)
+
+    private fun resolveMemberName(memberId: Uuid): String =
+        memberRepository.findById(memberId)?.displayName ?: memberId.toString()
 }

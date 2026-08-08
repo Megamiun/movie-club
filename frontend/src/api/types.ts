@@ -16,8 +16,15 @@ export interface Club {
 
 export interface ClubMember {
   memberId: string
+  name: string
   role: string
   rotationOrder: number
+}
+
+export interface MemberSummary {
+  id: string
+  name: string
+  email: string
 }
 
 export interface ClubDetail {

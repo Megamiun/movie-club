@@ -44,8 +44,9 @@ fun Application.module() {
 
     configureDatabase()
 
-    val memberService = MemberService(ExposedMemberRepository(), Argon2PasswordService())
-    val clubService = ClubService(ExposedClubRepository(), ExposedRatingScaleRepository())
+    val memberRepository = ExposedMemberRepository()
+    val memberService = MemberService(memberRepository, Argon2PasswordService())
+    val clubService = ClubService(ExposedClubRepository(), ExposedRatingScaleRepository(), memberRepository)
     val ratingScaleRepository = ExposedRatingScaleRepository()
     val meetingRepository = ExposedMeetingRepository()
     val movieRepository = ExposedMovieRepository()
