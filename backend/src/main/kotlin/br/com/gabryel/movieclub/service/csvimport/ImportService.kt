@@ -9,9 +9,9 @@ import br.com.gabryel.movieclub.db.repositories.MovieRepository
 import br.com.gabryel.movieclub.db.repositories.RatingScaleRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
-import br.com.gabryel.movieclub.db.repositories.TmdbMovieMetadata
-import br.com.gabryel.movieclub.db.repositories.TmdbSeriesMetadata
 import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
+import br.com.gabryel.movieclub.db.repositories.dto.TmdbMovieMetadata
+import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.service.ClubService
 import br.com.gabryel.movieclub.service.EpisodeService
@@ -102,29 +102,16 @@ class ImportService(
                     // originalTitle is NOT NULL, but nothing here can supply it -- the best-effort refresh below
                     // fetches everything (title included) from TMDB, so this is only a placeholder until then
                     val placeholderMetadata = TmdbMovieMetadata(
-                        tmdbId = null,
                         originalTitle = imdbId,
-                        englishTitle = null,
-                        year = null,
-                        director = null,
-                        runtimeMinutes = null,
-                        genre = null,
-                        country = null,
-                        tmdbRating = null,
-                        metadataFetchedAt = null,
+                        alternativeTitles = emptyList(),
                     )
                     val inserted =
                         movieRepository.create(meeting.id, chosenById, imdbId, placeholderMetadata, row.watchLink)
-                    runCatching { movieService.refreshMetadata(inserted.id, actingMemberId) }
-                        .getOrElse {
-                            warnings.add(
-                                ImportRowIssue(
-                                    row.rowNumber,
-                                    "TMDB refresh failed: ${it.message}",
-                                ),
-                            )
-                            inserted
-                        }
+
+                    runCatching { movieService.refreshMetadata(inserted.id, actingMemberId) }.getOrElse {
+                        warnings.add(ImportRowIssue(row.rowNumber, "TMDB refresh failed: ${it.message}"))
+                        inserted
+                    }
                 }
 
                 applyRatings(
@@ -134,7 +121,7 @@ class ImportService(
                     warnings,
                     row.rowNumber,
                 ) { memberId, quality, sentiment ->
-                    movieRepository.upsertReview(movie.id, memberId, quality, sentiment, null)
+                    movieRepository.upsertReview(movie.id, memberId, quality, sentiment)
                 }
             }
         }
@@ -155,6 +142,7 @@ class ImportService(
             displayNames = blocks.flatMap { it.header.ratingsByDisplayName.keys }.toSet(),
             mappings = mappings,
         )
+
         val initialToMember = mappings.byInitial()
         val nameToMember = mappings.byDisplayName()
         val scalesByType = loadScalesWithOptions(clubId)
@@ -163,7 +151,7 @@ class ImportService(
         val skipped = mutableListOf<ImportRowIssue>()
         val warnings = mutableListOf<ImportRowIssue>()
 
-        blocks.forEach block@{ block ->
+        blocks.forEach { block ->
             val header = block.header
             val imdbId = header.imdbId
             if (imdbId == null) {
@@ -175,42 +163,32 @@ class ImportService(
                         "Missing IMDB Id for series '${header.title}' -- add the IMDB Id column to import",
                     ),
                 )
-                return@block
+                return@forEach
             }
             val chosenById = initialToMember[header.choiceInitial]
             if (chosenById == null) {
                 skipped.add(ImportRowIssue(header.rowNumber, "Unmapped Choice initial '${header.choiceInitial}'"))
-                return@block
+                return@forEach
             }
 
-            val existingSeries = seriesRepository.listByClub(clubId).find { it.imdbId == imdbId }
+            val existingSeries = seriesRepository.findByClubAndImdbId(clubId, imdbId)
             val series = if (existingSeries != null) {
                 skipped.add(ImportRowIssue(header.rowNumber, "already imported"))
                 existingSeries
             } else {
                 created++
                 val csvMetadata = TmdbSeriesMetadata(
-                    tmdbId = null,
                     originalTitle = header.title,
-                    englishTitle = null,
-                    year = null,
-                    genre = null,
-                    country = null,
-                    tmdbRating = null,
-                    creator = null,
-                    metadataFetchedAt = null,
+                    alternativeTitles = emptyList(),
                 )
+
                 val inserted = seriesRepository.create(clubId, chosenById, imdbId, csvMetadata)
-                runCatching { seriesService.refreshMetadata(inserted.id, actingMemberId) }
-                    .getOrElse {
-                        warnings.add(
-                            ImportRowIssue(
-                                header.rowNumber,
-                                "TMDB refresh failed: ${it.message}",
-                            ),
-                        )
-                        inserted
-                    }
+                runCatching { seriesService.refreshMetadata(inserted.id, actingMemberId) }.getOrElse {
+                    warnings.add(
+                        ImportRowIssue(header.rowNumber, "TMDB refresh failed: ${it.message}"),
+                    )
+                    inserted
+                }
             }
 
             applyRatings(
@@ -220,14 +198,37 @@ class ImportService(
                 warnings,
                 header.rowNumber,
             ) { memberId, quality, sentiment ->
-                seriesRepository.upsertReview(series.id, memberId, quality, sentiment, null)
+                seriesRepository.upsertReview(series.globalSeriesId, memberId, quality, sentiment)
             }
 
-            block.seasons.forEach { seasonBlock ->
-                val existingSeason =
-                    seasonRepository.listBySeries(series.id).find { it.number == seasonBlock.header.number }
-                val season =
-                    existingSeason ?: seasonRepository.create(series.id, seasonBlock.header.number).also { created++ }
+            // Best effort: pulls the entire season/episode catalog for this series from TMDB up front, so CSV rows
+            // below are matched against real (season, episode) numbers instead of defining the catalog themselves.
+            // If TMDB matching fails (series not found, etc.), fall back to creating seasons/episodes from the CSV
+            // alone, exactly as before this existed.
+            val bulkImported = runCatching { seriesService.importSeasonsAndEpisodes(series.id, actingMemberId) }
+                .onSuccess { created += it }
+                .onFailure {
+                    warnings.add(
+                        ImportRowIssue(header.rowNumber, "Could not import full series from TMDB: ${it.message}"),
+                    )
+                }
+                .isSuccess
+
+            block.seasons.forEach seasonBlock@{ seasonBlock ->
+                val existingSeason = seasonRepository
+                    .listBySeries(series.globalSeriesId).find { it.number == seasonBlock.header.number }
+
+                val season = existingSeason ?: if (bulkImported) {
+                    warnings.add(
+                        ImportRowIssue(
+                            seasonBlock.header.rowNumber,
+                            "Season ${seasonBlock.header.number} not found in TMDB for this series",
+                        ),
+                    )
+                    return@seasonBlock
+                } else {
+                    seasonRepository.create(series.globalSeriesId, seasonBlock.header.number).also { created++ }
+                }
 
                 applyRatings(
                     seasonBlock.header.ratingsByDisplayName,
@@ -236,35 +237,41 @@ class ImportService(
                     warnings,
                     seasonBlock.header.rowNumber,
                 ) { memberId, quality, sentiment ->
-                    seasonRepository.upsertReview(season.id, memberId, quality, sentiment, null)
+                    seasonRepository.upsertReview(season.id, memberId, quality, sentiment)
                 }
 
-                seasonBlock.episodes.forEach { episodeRow ->
+                seasonBlock.episodes.forEach episodeRow@{ episodeRow ->
                     val existingEpisode =
                         episodeRepository.listBySeason(season.id).find { it.number == episodeRow.number }
+
                     val meetingId = episodeRow.date?.let { date ->
-                        (
-                            meetingRepository.findByClubAndDate(clubId, date) ?: meetingRepository.create(
-                                clubId,
-                                date,
-                                null,
-                            )
-                        ).id
+                        (meetingRepository.findByClubAndDate(clubId, date) ?: meetingRepository.create(clubId, date))
+                            .id
                     }
-                    val episode = existingEpisode ?: run {
-                        val inserted = episodeRepository.create(season.id, episodeRow.number, episodeRow.title, meetingId)
+
+                    val episode = existingEpisode ?: if (bulkImported) {
+                        warnings.add(
+                            ImportRowIssue(
+                                episodeRow.rowNumber,
+                                "Episode ${episodeRow.number} not found in TMDB for season ${seasonBlock.header.number}",
+                            ),
+                        )
+                        return@episodeRow
+                    } else {
+                        val inserted = episodeRepository.create(season.id, episodeRow.number, episodeRow.title)
                         created++
-                        runCatching { episodeService.refreshMetadata(inserted.id, actingMemberId) }
-                            .getOrElse {
-                                warnings.add(
-                                    ImportRowIssue(
-                                        episodeRow.rowNumber,
-                                        "TMDB refresh failed: ${it.message}",
-                                    ),
-                                )
-                                inserted
-                            }
+                        runCatching { episodeService.refreshMetadata(inserted.id, actingMemberId) }.getOrElse {
+                            warnings.add(
+                                ImportRowIssue(episodeRow.rowNumber, "TMDB refresh failed: ${it.message}"),
+                            )
+                            inserted
+                        }
                     }
+
+                    // Runs unconditionally (not just on first creation) -- under bulk import, an episode is
+                    // typically already "found" (pre-created by importSeasonsAndEpisodes), so this is the only
+                    // place a CSV row's meeting assignment actually gets applied. assignToMeeting is idempotent.
+                    if (meetingId != null) episodeRepository.assignToMeeting(episode.id, meetingId)
 
                     applyRatings(
                         episodeRow.ratingsByDisplayName,
@@ -273,18 +280,9 @@ class ImportService(
                         warnings,
                         episodeRow.rowNumber,
                     ) { memberId, quality, sentiment ->
-                        episodeRepository.upsertReview(episode.id, memberId, quality, sentiment, null)
+                        episodeRepository.upsertReview(episode.id, memberId, quality, sentiment)
                     }
                 }
-            }
-
-            block.standaloneFilms.forEach { film ->
-                warnings.add(
-                    ImportRowIssue(
-                        film.rowNumber,
-                        "Standalone film '${film.title}' has no usable date to attach a Meeting to -- skipped, not imported",
-                    ),
-                )
             }
         }
 
@@ -336,6 +334,7 @@ class ImportService(
     ) {
         val missingInitials = initials - mappings.map { it.choiceInitial }.toSet()
         val missingNames = displayNames - mappings.map { it.csvDisplayName }.toSet()
+
         if (missingInitials.isNotEmpty() || missingNames.isNotEmpty())
             throw BadRequestException("Unmapped identities in CSV: initials=$missingInitials, displayNames=$missingNames")
     }
@@ -349,7 +348,9 @@ class ImportService(
         upsert: (memberId: Uuid, qualityOptionId: Uuid?, sentimentOptionId: Uuid?) -> Unit,
     ) {
         ratingsByDisplayName.forEach { (displayName, pair) ->
-            if (pair.qualityLabel == null && pair.sentimentLabel == null) return@forEach
+            if (pair.qualityLabel == null && pair.sentimentLabel == null)
+                return@forEach
+
             val memberId = nameToMember[displayName]
             if (memberId == null) {
                 warnings.add(ImportRowIssue(rowNumber, "Unmapped rating column '$displayName'"))
@@ -357,25 +358,19 @@ class ImportService(
             }
 
             val qualityOptionId = pair.qualityLabel?.let { label ->
-                scalesByType[QUALITY]?.get(label)
-                    ?: run {
-                        warnings.add(ImportRowIssue(rowNumber, "Unknown quality label '$label'"))
-                        null
-                    }
+                scalesByType[QUALITY]?.get(label) ?: run {
+                    warnings.add(ImportRowIssue(rowNumber, "Unknown quality label '$label'"))
+                    null
+                }
             }
             val sentimentOptionId = pair.sentimentLabel?.let { label ->
-                scalesByType[SENTIMENT]?.get(label)
-                    ?: run {
-                        warnings.add(ImportRowIssue(rowNumber, "Unknown sentiment label '$label'"))
-                        null
-                    }
+                scalesByType[SENTIMENT]?.get(label) ?: run {
+                    warnings.add(ImportRowIssue(rowNumber, "Unknown sentiment label '$label'"))
+                    null
+                }
             }
             if (qualityOptionId != null || sentimentOptionId != null)
-                upsert(
-                    memberId,
-                    qualityOptionId,
-                    sentimentOptionId,
-                )
+                upsert(memberId, qualityOptionId, sentimentOptionId)
         }
     }
 

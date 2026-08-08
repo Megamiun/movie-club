@@ -5,6 +5,7 @@ import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVRecord
 import java.io.InputStream
 import java.io.InputStreamReader
+import kotlin.text.Charsets.UTF_8
 
 data class SeriesHeaderRow(
     val rowNumber: Int,
@@ -65,7 +66,8 @@ object SeriesCsvParser {
             .setHeader()
             .setSkipHeaderRecord(true)
             .build()
-            .parse(InputStreamReader(input, Charsets.UTF_8))
+            .parse(InputStreamReader(input, UTF_8))
+
         val header = parser.headerNames
         val ratingColumnPairs = detectRatingColumnPairs(header)
         val imdbIdColumn = header.firstOrNull { it == "IMDB Id" }
@@ -108,7 +110,6 @@ object SeriesCsvParser {
                     currentSeason =
                         SeasonBuilder(SeasonHeaderRow(record.recordNumber.toInt(), number, ratingsFor(record)))
                 }
-
                 EPISODE_NUMBER_REGEX.matches(choice) -> {
                     // Some series (e.g. The Peripheral, Cowboy Bebop) never have a "Season N" row at all --
                     // their episodes follow the series header directly. Treat that as an implicit season 1
@@ -116,6 +117,7 @@ object SeriesCsvParser {
                     if (currentSeason == null) {
                         currentSeason = SeasonBuilder(SeasonHeaderRow(record.recordNumber.toInt(), 1, emptyMap()))
                     }
+
                     val date = parseDdMmYyyyOrNull(dateCell) ?: lastDate
                     lastDate = date ?: lastDate
                     currentSeason?.episodes?.add(
@@ -128,19 +130,6 @@ object SeriesCsvParser {
                         ),
                     )
                 }
-
-                choice == "Film" -> {
-                    if (title != null) {
-                        currentSeries?.standaloneFilms?.add(
-                            StandaloneFilmRow(
-                                record.recordNumber.toInt(),
-                                title,
-                                parseDdMmYyyyOrNull(dateCell),
-                            ),
-                        )
-                    }
-                }
-
                 choice.isNotEmpty() && title != null -> {
                     flushSeries()
                     val imdbId = imdbIdColumn?.let { naToNull(record.getOrEmpty(it)) }
@@ -154,23 +143,17 @@ object SeriesCsvParser {
                         ),
                     )
                 }
-
-                else -> Unit // separator row, or a dangling "next pick not decided yet" placeholder -- skip, not an error
             }
         }
         flushSeries()
         return results
     }
 
-    private class SeasonBuilder(
-        val header: SeasonHeaderRow,
-    ) {
+    private class SeasonBuilder(val header: SeasonHeaderRow) {
         val episodes = mutableListOf<EpisodeCsvRow>()
     }
 
-    private class SeriesBuilder(
-        val header: SeriesHeaderRow,
-    ) {
+    private class SeriesBuilder(val header: SeriesHeaderRow) {
         val seasons = mutableListOf<SeasonBlock>()
         val standaloneFilms = mutableListOf<StandaloneFilmRow>()
     }

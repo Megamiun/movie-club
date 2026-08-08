@@ -3,16 +3,17 @@ package br.com.gabryel.movieclub.service
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
-import br.com.gabryel.movieclub.db.repositories.EpisodeReviewRow
-import br.com.gabryel.movieclub.db.repositories.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
-import br.com.gabryel.movieclub.db.repositories.SeasonRow
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
+import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
+import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
+import br.com.gabryel.movieclub.db.repositories.dto.SeasonRow
+import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.exception.BadRequestException
+import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
-import br.com.gabryel.movieclub.service.tmdb.toMetadata
 import kotlin.uuid.Uuid
 
 class EpisodeService(
@@ -25,7 +26,9 @@ class EpisodeService(
 ) {
     /** Unlike [br.com.gabryel.movieclub.service.MovieService.addMovie]/`SeriesService.addSeries`, TMDB enrichment
      * here is always best-effort: an episode has no id of its own to look up by, only the parent series' `tmdbId`
-     * (which may not exist yet if the series hasn't been matched), so a lookup failure never blocks creation. */
+     * (which may not exist yet if the series hasn't been matched), so a lookup failure never blocks creation.
+     * [meetingId], if given, is assigned via [EpisodeRepository.assignToMeeting] right away -- a convenience for
+     * the common "add and schedule in one step" case (e.g. CSV import). */
     suspend fun addEpisode(
         seasonId: Uuid,
         actingMemberId: Uuid,
@@ -33,9 +36,9 @@ class EpisodeService(
         title: String? = null,
         meetingId: Uuid? = null,
     ): EpisodeRow {
-        val clubId = clubIdForSeason(seasonId, actingMemberId)
-        if (meetingId != null) requireMeetingInClub(meetingId, clubId)
-        val episode = episodeRepository.create(seasonId, number, title, meetingId)
+        requireClubSeriesForSeason(seasonId, actingMemberId)
+        val episode = episodeRepository.create(seasonId, number, title)
+        if (meetingId != null) assignToMeeting(episode.id, actingMemberId, meetingId)
         return runCatching { refreshMetadata(episode.id, actingMemberId) }.getOrDefault(episode)
     }
 
@@ -44,8 +47,7 @@ class EpisodeService(
     suspend fun refreshMetadata(episodeId: Uuid, actingMemberId: Uuid): EpisodeRow {
         val episode = episodeRepository.findById(episodeId) ?: throw NotFoundException("Episode not found")
         val season = season(episode.seasonId)
-        val series = seriesRepository.findById(season.seriesId) ?: throw NotFoundException("Series not found")
-        clubService.requireMembership(series.clubId, actingMemberId)
+        val series = requireClubSeriesForMember(season.seriesId, actingMemberId)
         val tmdbId = series.tmdbId?.toIntOrNull()
             ?: throw BadRequestException("Series has not been matched to TMDB yet")
 
@@ -53,49 +55,56 @@ class EpisodeService(
         return episodeRepository.updateTmdbMetadata(episodeId, details.toMetadata())
     }
 
-    fun assignToMeeting(episodeId: Uuid, actingMemberId: Uuid, meetingId: Uuid?): EpisodeRow {
-        val episode = episodeRepository.findById(episodeId) ?: throw NotFoundException("Episode not found")
-        val clubId = clubIdForSeason(episode.seasonId, actingMemberId)
-        if (meetingId != null) requireMeetingInClub(meetingId, clubId)
-        return episodeRepository.updateMeeting(episodeId, meetingId)
+    fun assignToMeeting(episodeId: Uuid, actingMemberId: Uuid, meetingId: Uuid): EpisodeRow {
+        episodeRepository.findById(episodeId) ?: throw NotFoundException("Episode not found")
+        clubService.requireMembership(requireMeeting(meetingId).clubId, actingMemberId)
+        episodeRepository.assignToMeeting(episodeId, meetingId)
+        return episodeRepository.findById(episodeId)!!
+    }
+
+    fun unassignFromMeeting(episodeId: Uuid, actingMemberId: Uuid, meetingId: Uuid): EpisodeRow {
+        episodeRepository.findById(episodeId) ?: throw NotFoundException("Episode not found")
+        clubService.requireMembership(requireMeeting(meetingId).clubId, actingMemberId)
+        episodeRepository.unassignFromMeeting(episodeId, meetingId)
+        return episodeRepository.findById(episodeId)!!
     }
 
     fun listEpisodes(seasonId: Uuid, actingMemberId: Uuid): List<EpisodeRow> {
-        clubIdForSeason(seasonId, actingMemberId)
+        requireClubSeriesForSeason(seasonId, actingMemberId)
         return episodeRepository.listBySeason(seasonId)
     }
 
     fun listEpisodesForMeeting(meetingId: Uuid, actingMemberId: Uuid): List<EpisodeRow> {
-        val meeting = meetingRepository.findById(meetingId) ?: throw NotFoundException("Meeting not found")
-        clubService.requireMembership(meeting.clubId, actingMemberId)
+        clubService.requireMembership(requireMeeting(meetingId).clubId, actingMemberId)
         return episodeRepository.listByMeeting(meetingId)
     }
 
     fun rate(
         episodeId: Uuid,
         actingMemberId: Uuid,
-        qualityOptionId: Uuid?,
-        sentimentOptionId: Uuid?,
-        comment: String?,
+        qualityOptionId: Uuid? = null,
+        sentimentOptionId: Uuid? = null,
+        comment: String? = null,
     ): EpisodeReviewRow {
         val episode = episodeRepository.findById(episodeId) ?: throw NotFoundException("Episode not found")
-        val clubId = clubIdForSeason(episode.seasonId, actingMemberId)
-        qualityOptionId?.let { clubService.validateRatingOption(clubId, it, QUALITY) }
-        sentimentOptionId?.let { clubService.validateRatingOption(clubId, it, SENTIMENT) }
+        val series = requireClubSeriesForMember(season(episode.seasonId).seriesId, actingMemberId)
+        if (qualityOptionId != null) clubService.validateRatingOption(series.clubId, qualityOptionId, QUALITY)
+        if (sentimentOptionId != null) clubService.validateRatingOption(series.clubId, sentimentOptionId, SENTIMENT)
         return episodeRepository.upsertReview(episodeId, actingMemberId, qualityOptionId, sentimentOptionId, comment)
     }
 
     private fun season(seasonId: Uuid): SeasonRow =
         seasonRepository.findById(seasonId) ?: throw NotFoundException("Season not found")
 
-    private fun clubIdForSeason(seasonId: Uuid, actingMemberId: Uuid): Uuid {
-        val series = seriesRepository.findById(season(seasonId).seriesId) ?: throw NotFoundException("Series not found")
-        clubService.requireMembership(series.clubId, actingMemberId)
-        return series.clubId
-    }
+    private fun requireMeeting(meetingId: Uuid) =
+        meetingRepository.findById(meetingId) ?: throw NotFoundException("Meeting not found")
 
-    private fun requireMeetingInClub(meetingId: Uuid, clubId: Uuid) {
-        val meeting = meetingRepository.findById(meetingId) ?: throw NotFoundException("Meeting not found")
-        if (meeting.clubId != clubId) throw BadRequestException("Meeting must belong to the same club as the series")
-    }
+    /** Season has no club of its own -- it's shared across every club following the series -- so access is derived
+     * by finding the acting member's own club's pick of the parent series. */
+    private fun requireClubSeriesForSeason(seasonId: Uuid, actingMemberId: Uuid): SeriesRow =
+        requireClubSeriesForMember(season(seasonId).seriesId, actingMemberId)
+
+    private fun requireClubSeriesForMember(globalSeriesId: Uuid, actingMemberId: Uuid): SeriesRow =
+        seriesRepository.findClubSeriesForMember(globalSeriesId, actingMemberId)
+            ?: throw ForbiddenException("Not a member of a club following this series")
 }

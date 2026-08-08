@@ -1,14 +1,14 @@
 package br.com.gabryel.movieclub
 
-import br.com.gabryel.movieclub.db.repositories.ExposedClubRepository
-import br.com.gabryel.movieclub.db.repositories.ExposedEpisodeRepository
-import br.com.gabryel.movieclub.db.repositories.ExposedMeetingRepository
-import br.com.gabryel.movieclub.db.repositories.ExposedMemberRepository
-import br.com.gabryel.movieclub.db.repositories.ExposedMovieRepository
-import br.com.gabryel.movieclub.db.repositories.ExposedRatingScaleRepository
-import br.com.gabryel.movieclub.db.repositories.ExposedSeasonRepository
-import br.com.gabryel.movieclub.db.repositories.ExposedSeriesRepository
-import br.com.gabryel.movieclub.db.repositories.ExposedWatchlistRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedClubRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedEpisodeRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedMeetingRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedMemberRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedMovieRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedRatingScaleRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedSeasonRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedSeriesRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedWatchlistRepository
 import br.com.gabryel.movieclub.plugins.configureAuthentication
 import br.com.gabryel.movieclub.plugins.configureCORS
 import br.com.gabryel.movieclub.plugins.configureCallLogging
@@ -55,7 +55,7 @@ fun Application.module() {
     val tmdbClient = TmdbClient(config.propertyOrNull("tmdb.accessToken")?.getString().orEmpty())
     val meetingService = MeetingService(meetingRepository, movieRepository, clubService)
     val movieService = MovieService(movieRepository, meetingRepository, clubService, tmdbClient)
-    val seriesService = SeriesService(seriesRepository, clubService, tmdbClient)
+    val seriesService = SeriesService(seriesRepository, clubService, tmdbClient, seasonRepository, episodeRepository)
     val seasonService = SeasonService(seasonRepository, seriesRepository, clubService)
     val episodeService = EpisodeService(
         episodeRepository,

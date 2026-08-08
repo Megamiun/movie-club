@@ -78,6 +78,15 @@ Content-Type: application/json
 GET http://localhost:8080/meetings/{{meetingId}}/episodes
 Authorization: Bearer {{jwt}}
 
+### 8b. Schedule episode 2 to the same meeting too (episodes are global, so a club can independently
+### assign/unassign any episode to any of its own meetings -- this isn't tied to how it was created)
+POST http://localhost:8080/episodes/{{episodeId}}/meetings/{{meetingId}}
+Authorization: Bearer {{jwt}}
+
+### 8c. Unassign it again
+DELETE http://localhost:8080/episodes/{{episodeId}}/meetings/{{meetingId}}
+Authorization: Bearer {{jwt}}
+
 ### 9. Get rating scale option ids
 GET http://localhost:8080/clubs/{{clubId}}/rating-scales
 Authorization: Bearer {{jwt}}

@@ -1,4 +1,4 @@
-package br.com.gabryel.movieclub.routing
+package br.com.gabryel.movieclub.routing.auth
 
 import kotlinx.serialization.Serializable
 

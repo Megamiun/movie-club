@@ -1,11 +1,30 @@
 package br.com.gabryel.movieclub.service.csvimport
 
 import kotlinx.datetime.LocalDate
+import org.apache.commons.csv.CSVFormat
+import java.io.StringReader
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class CsvParsingTest {
+    @Test
+    fun `getOrEmpty returns empty for a trailing column this row is too short to have, instead of throwing`() {
+        // "A,Twin Peaks" is short one field -- no trailing "IMDB Id" value at all, not even a blank one. A
+        // spreadsheet trims trailing empty cells on save, so this is the shape real ragged rows actually take.
+        val csv = "Choice,Movie,IMDB Id\nA,Twin Peaks\n"
+        val record = CSVFormat.DEFAULT
+            .builder()
+            .setHeader()
+            .setSkipHeaderRecord(true)
+            .build()
+            .parse(StringReader(csv))
+            .records
+            .single()
+
+        assertEquals("", record.getOrEmpty("IMDB Id"))
+    }
+
     @Test
     fun `parseDdMmYyyyOrNull parses a valid date`() {
         assertEquals(LocalDate(2025, 1, 5), parseDdMmYyyyOrNull("05/01/2025"))
@@ -42,10 +61,10 @@ class CsvParsingTest {
             "Choice",
             "Movie",
             "When?",
-            "Gabryel's Rating",
-            "Gabryel - Liked?",
-            "Camila's Rating",
-            "Camila - Liked?",
+            "Person A's Rating",
+            "Person A - Liked?",
+            "Person B's Rating",
+            "Person B - Liked?",
             "Year",
         )
 
@@ -53,8 +72,8 @@ class CsvParsingTest {
 
         assertEquals(
             listOf(
-                RatingColumnPair("Gabryel", "Gabryel's Rating", "Gabryel - Liked?"),
-                RatingColumnPair("Camila", "Camila's Rating", "Camila - Liked?"),
+                RatingColumnPair("Person A", "Person A's Rating", "Person A - Liked?"),
+                RatingColumnPair("Person B", "Person B's Rating", "Person B - Liked?"),
             ),
             pairs,
         )
@@ -62,7 +81,7 @@ class CsvParsingTest {
 
     @Test
     fun `detectRatingColumnPairs ignores an unpaired rating column`() {
-        val header = listOf("Choice", "Movie", "Gabryel's Rating")
+        val header = listOf("Choice", "Movie", "Person A's Rating")
 
         assertEquals(emptyList(), detectRatingColumnPairs(header))
     }

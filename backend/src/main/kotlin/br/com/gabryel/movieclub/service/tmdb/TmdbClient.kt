@@ -1,8 +1,9 @@
 package br.com.gabryel.movieclub.service.tmdb
 
-import br.com.gabryel.movieclub.db.repositories.TmdbEpisodeMetadata
-import br.com.gabryel.movieclub.db.repositories.TmdbMovieMetadata
-import br.com.gabryel.movieclub.db.repositories.TmdbSeriesMetadata
+import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
+import br.com.gabryel.movieclub.db.repositories.dto.TmdbEpisodeMetadata
+import br.com.gabryel.movieclub.db.repositories.dto.TmdbMovieMetadata
+import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
 import br.com.gabryel.movieclub.exception.BadRequestException
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -64,6 +65,38 @@ data class TmdbCredits(
 )
 
 @Serializable
+data class TmdbProductionCountry(
+    @SerialName("iso_3166_1") val isoCode: String,
+    val name: String,
+)
+
+@Serializable
+data class TmdbAlternativeTitleEntry(
+    @SerialName("iso_3166_1") val isoCode: String,
+    val title: String,
+    val type: String = "",
+)
+
+/** Movie alternative-titles responses nest their list under `"titles"`; TV's nests under `"results"` (see
+ * [TmdbTvAlternativeTitles]) -- a genuine inconsistency in TMDB's own API, not a typo here. */
+@Serializable
+data class TmdbMovieAlternativeTitles(
+    val titles: List<TmdbAlternativeTitleEntry> = emptyList(),
+) {
+    fun toAlternativeTitles(): List<AlternativeTitle> = titles.toAlternativeTitles()
+}
+
+@Serializable
+data class TmdbTvAlternativeTitles(
+    val results: List<TmdbAlternativeTitleEntry> = emptyList(),
+) {
+    fun toAlternativeTitles(): List<AlternativeTitle> = results.toAlternativeTitles()
+}
+
+private fun List<TmdbAlternativeTitleEntry>.toAlternativeTitles(): List<AlternativeTitle> =
+    map { AlternativeTitle(it.isoCode, it.title, it.type.takeIf(String::isNotBlank)) }
+
+@Serializable
 data class TmdbMovieDetails(
     @SerialName("original_title") val originalTitle: String,
     val title: String,
@@ -71,31 +104,38 @@ data class TmdbMovieDetails(
     val runtime: Int? = null,
     val genres: List<TmdbGenre> = emptyList(),
     @SerialName("origin_country") val originCountry: List<String> = emptyList(),
+    @SerialName("production_countries") val productionCountries: List<TmdbProductionCountry> = emptyList(),
     @SerialName("vote_average") val voteAverage: Double? = null,
     @SerialName("poster_path") val posterPath: String? = null,
     val credits: TmdbCredits? = null,
+    @SerialName("alternative_titles") val alternativeTitles: TmdbMovieAlternativeTitles? = null,
 ) {
     val year: Int? get() = releaseDate?.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull()
     val director: String? get() = credits?.crew?.firstOrNull { it.job == "Director" }?.name
-}
 
-fun TmdbMovieDetails.toMetadata(tmdbId: Int, fetchedAt: Instant = Clock.System.now()): TmdbMovieMetadata =
-    TmdbMovieMetadata(
+    fun toMetadata(tmdbId: Int, fetchedAt: Instant = Clock.System.now()) = TmdbMovieMetadata(
         tmdbId = tmdbId.toString(),
         originalTitle = originalTitle,
-        englishTitle = title,
+        alternativeTitles = alternativeTitles?.toAlternativeTitles().orEmpty(),
         year = year,
         director = director,
         runtimeMinutes = runtime,
         genre = genres.map { it.name },
-        country = originCountry,
+        originCountry = originCountry,
+        productionCountries = productionCountries.map { it.name },
         tmdbRating = voteAverage?.toRatingScale(),
         metadataFetchedAt = fetchedAt,
     )
+}
 
 @Serializable
 data class TmdbCreator(
     val name: String,
+)
+
+@Serializable
+data class TmdbSeasonSummary(
+    @SerialName("season_number") val seasonNumber: Int,
 )
 
 @Serializable
@@ -105,30 +145,34 @@ data class TmdbTvDetails(
     @SerialName("first_air_date") val firstAirDate: String? = null,
     val genres: List<TmdbGenre> = emptyList(),
     @SerialName("origin_country") val originCountry: List<String> = emptyList(),
+    @SerialName("production_countries") val productionCountries: List<TmdbProductionCountry> = emptyList(),
     @SerialName("vote_average") val voteAverage: Double? = null,
     @SerialName("poster_path") val posterPath: String? = null,
     @SerialName("created_by") val createdBy: List<TmdbCreator> = emptyList(),
+    @SerialName("alternative_titles") val alternativeTitles: TmdbTvAlternativeTitles? = null,
+    val seasons: List<TmdbSeasonSummary> = emptyList(),
 ) {
     val year: Int? get() = firstAirDate?.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull()
     val creator: String? get() = createdBy.firstOrNull()?.name
-}
 
-fun TmdbTvDetails.toMetadata(tmdbId: Int, fetchedAt: Instant = Clock.System.now()): TmdbSeriesMetadata =
-    TmdbSeriesMetadata(
+    fun toMetadata(tmdbId: Int, fetchedAt: Instant = Clock.System.now()) = TmdbSeriesMetadata(
         tmdbId = tmdbId.toString(),
         originalTitle = originalName,
-        englishTitle = name,
+        alternativeTitles = alternativeTitles?.toAlternativeTitles().orEmpty(),
         year = year,
         creator = creator,
         genre = genres.map { it.name },
-        country = originCountry,
+        originCountry = originCountry,
+        productionCountries = productionCountries.map { it.name },
         tmdbRating = voteAverage?.toRatingScale(),
         metadataFetchedAt = fetchedAt,
     )
+}
 
 @Serializable
 data class TmdbEpisodeDetails(
     val name: String,
+    @SerialName("episode_number") val episodeNumber: Int,
     @SerialName("air_date") val airDate: String? = null,
     val overview: String? = null,
     val runtime: Int? = null,
@@ -136,10 +180,8 @@ data class TmdbEpisodeDetails(
     val crew: List<TmdbCrewMember> = emptyList(),
 ) {
     val director: String? get() = crew.firstOrNull { it.job == "Director" }?.name
-}
 
-fun TmdbEpisodeDetails.toMetadata(fetchedAt: Instant = Clock.System.now()): TmdbEpisodeMetadata =
-    TmdbEpisodeMetadata(
+    fun toMetadata(fetchedAt: Instant = Clock.System.now()) = TmdbEpisodeMetadata(
         airDate = airDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
         overview = overview,
         runtimeMinutes = runtime,
@@ -147,12 +189,19 @@ fun TmdbEpisodeDetails.toMetadata(fetchedAt: Instant = Clock.System.now()): Tmdb
         tmdbRating = voteAverage?.toRatingScale(),
         metadataFetchedAt = fetchedAt,
     )
+}
+
+/** `/tv/{id}/season/{n}` -- the full episode list for one season, used to bulk-import a series' entire catalog
+ * rather than looking up one already-known episode at a time (see [TmdbClient.getSeasonDetails]). */
+@Serializable
+data class TmdbSeasonDetails(
+    @SerialName("season_number") val seasonNumber: Int,
+    val episodes: List<TmdbEpisodeDetails> = emptyList(),
+)
 
 private const val BASE_URL = "https://api.themoviedb.org/3"
 
-class TmdbClient(
-    private val accessToken: String,
-) {
+class TmdbClient(private val accessToken: String) {
     private val http = HttpClient(CIO) {
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true })
@@ -164,24 +213,28 @@ class TmdbClient(
     suspend fun findTvByImdbId(imdbId: String): TmdbTvSummary? = find(imdbId).tvResults.firstOrNull()
 
     suspend fun getMovieDetails(tmdbId: Int): TmdbMovieDetails =
-        http
-            .get("$BASE_URL/movie/$tmdbId") {
-                authorized()
-                parameter("append_to_response", "credits,external_ids")
-            }.body()
+        http.get("$BASE_URL/movie/$tmdbId") {
+            authorized()
+            parameter("append_to_response", "credits,external_ids,alternative_titles")
+        }.body()
 
     suspend fun getTvDetails(tmdbId: Int): TmdbTvDetails =
-        http.get("$BASE_URL/tv/$tmdbId") { authorized() }.body()
+        http.get("$BASE_URL/tv/$tmdbId") {
+            authorized()
+            parameter("append_to_response", "alternative_titles")
+        }.body()
 
     suspend fun getEpisodeDetails(tvId: Int, seasonNumber: Int, episodeNumber: Int): TmdbEpisodeDetails =
         http.get("$BASE_URL/tv/$tvId/season/$seasonNumber/episode/$episodeNumber") { authorized() }.body()
 
+    suspend fun getSeasonDetails(tvId: Int, seasonNumber: Int): TmdbSeasonDetails =
+        http.get("$BASE_URL/tv/$tvId/season/$seasonNumber") { authorized() }.body()
+
     private suspend fun find(imdbId: String): TmdbFindResponse =
-        http
-            .get("$BASE_URL/find/$imdbId") {
-                authorized()
-                parameter("external_source", "imdb_id")
-            }.body()
+        http.get("$BASE_URL/find/$imdbId") {
+            authorized()
+            parameter("external_source", "imdb_id")
+        }.body()
 
     private fun HttpRequestBuilder.authorized() {
         header("Authorization", "Bearer $accessToken")

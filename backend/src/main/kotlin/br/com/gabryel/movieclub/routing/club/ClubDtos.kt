@@ -1,4 +1,4 @@
-package br.com.gabryel.movieclub.routing
+package br.com.gabryel.movieclub.routing.club
 
 import kotlinx.serialization.Serializable
 
@@ -48,6 +48,7 @@ internal data class RatingOptionResponse(
     val id: String,
     val label: String,
     val position: Int,
+    val color: String,
 )
 
 @Serializable

@@ -5,15 +5,14 @@ import br.com.gabryel.movieclub.db.DisplayTitlePreference.CUSTOM
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
-import br.com.gabryel.movieclub.db.repositories.MeetingRow
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
-import br.com.gabryel.movieclub.db.repositories.MovieReviewRow
-import br.com.gabryel.movieclub.db.repositories.MovieRow
+import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
+import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
+import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.NotFoundException
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import br.com.gabryel.movieclub.service.tmdb.parseImdbId
-import br.com.gabryel.movieclub.service.tmdb.toMetadata
 import kotlin.uuid.Uuid
 
 class MovieService(
@@ -31,8 +30,9 @@ class MovieService(
         val meeting = requireMeetingAccess(meetingId, actingMemberId)
         val imdbId = parseImdbId(imdbUrlOrId)
 
-        val summary =
-            tmdbClient.findByImdbId(imdbId) ?: throw BadRequestException("Could not find TMDB metadata for $imdbId")
+        val summary = tmdbClient.findByImdbId(imdbId)
+            ?: throw BadRequestException("Could not find TMDB metadata for $imdbId")
+
         val metadata = tmdbClient.getMovieDetails(summary.id).toMetadata(summary.id)
 
         return movieRepository.create(meeting.id, actingMemberId, imdbId, metadata, watchLink)
@@ -40,9 +40,9 @@ class MovieService(
 
     suspend fun refreshMetadata(movieId: Uuid, actingMemberId: Uuid): MovieRow {
         val movie = requireMovieAccess(movieId, actingMemberId)
-
         val summary = tmdbClient.findByImdbId(movie.imdbId)
             ?: throw BadRequestException("Could not find TMDB metadata for ${movie.imdbId}")
+
         val metadata = tmdbClient.getMovieDetails(summary.id).toMetadata(summary.id)
 
         return movieRepository.updateTmdbMetadata(movieId, metadata)
@@ -58,16 +58,17 @@ class MovieService(
     fun updateDisplayTitle(
         movieId: Uuid,
         actingMemberId: Uuid,
-        customTitle: String?,
+        customTitle: String? = null,
         preference: DisplayTitlePreference,
     ): MovieRow {
         requireMovieAccess(movieId, actingMemberId)
         if (preference == CUSTOM && customTitle.isNullOrBlank())
             throw BadRequestException("customTitle is required when preference is CUSTOM")
+
         return movieRepository.updateDisplayTitle(movieId, customTitle, preference)
     }
 
-    fun updateWatchLink(movieId: Uuid, actingMemberId: Uuid, watchLink: String?): MovieRow {
+    fun updateWatchLink(movieId: Uuid, actingMemberId: Uuid, watchLink: String? = null): MovieRow {
         requireMovieAccess(movieId, actingMemberId)
         return movieRepository.updateWatchLink(movieId, watchLink)
     }
@@ -80,15 +81,15 @@ class MovieService(
     fun rate(
         movieId: Uuid,
         actingMemberId: Uuid,
-        qualityOptionId: Uuid?,
-        sentimentOptionId: Uuid?,
-        comment: String?,
+        qualityOptionId: Uuid? = null,
+        sentimentOptionId: Uuid? = null,
+        comment: String? = null,
     ): MovieReviewRow {
         val movie = requireMovieAccess(movieId, actingMemberId)
         val meeting = meetingRepository.findById(movie.meetingId) ?: throw NotFoundException("Meeting not found")
 
-        qualityOptionId?.let { clubService.validateRatingOption(meeting.clubId, it, QUALITY) }
-        sentimentOptionId?.let { clubService.validateRatingOption(meeting.clubId, it, SENTIMENT) }
+        if (qualityOptionId != null) clubService.validateRatingOption(meeting.clubId, qualityOptionId, QUALITY)
+        if (sentimentOptionId != null) clubService.validateRatingOption(meeting.clubId, sentimentOptionId, SENTIMENT)
 
         return movieRepository.upsertReview(movieId, actingMemberId, qualityOptionId, sentimentOptionId, comment)
     }

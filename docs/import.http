@@ -6,10 +6,10 @@ Content-Type: application/json
 
 > {%
   client.global.set("jwt", response.body.token);
-  client.global.set("gabryelId", response.body.member.id);
+  client.global.set("personAId", response.body.member.id);
 %}
 
-### 1. Create a club and invite a second member for Camila's mapping
+### 1. Create a club and invite a second member for Person B's mapping
 POST http://localhost:8080/clubs
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
@@ -25,7 +25,7 @@ POST http://localhost:8080/auth/invite
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
-{ "email": "import-camila@example.com" }
+{ "email": "import-personb@example.com" }
 
 > {%
   client.global.set("inviteToken", response.body.inviteToken);
@@ -35,10 +35,10 @@ Content-Type: application/json
 POST http://localhost:8080/auth/register
 Content-Type: application/json
 
-{ "inviteToken": "{{inviteToken}}", "name": "Camila", "password": "hunter2" }
+{ "inviteToken": "{{inviteToken}}", "name": "Person B", "password": "hunter2" }
 
 > {%
-  client.global.set("camilaId", response.body.member.id);
+  client.global.set("personBId", response.body.member.id);
 %}
 
 ###
@@ -46,7 +46,7 @@ POST http://localhost:8080/clubs/{{clubId}}/members
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
-{ "memberId": "{{camilaId}}" }
+{ "memberId": "{{personBId}}" }
 
 ### 2. Import the 2025 Movies CSV. `mappings` is a JSON-encoded array; substitute the real member ids from steps
 ### above. `file` is the CSV bytes from samples/. Requires the club admin's JWT (set in step 0).
@@ -61,7 +61,7 @@ movies
 --WebAppBoundary
 Content-Disposition: form-data; name="mappings"
 
-[{"choiceInitial":"G","csvDisplayName":"Gabryel","memberId":"{{gabryelId}}"},{"choiceInitial":"C","csvDisplayName":"Camila","memberId":"{{camilaId}}"}]
+[{"choiceInitial":"A","csvDisplayName":"Person A","memberId":"{{personAId}}"},{"choiceInitial":"B","csvDisplayName":"Person B","memberId":"{{personBId}}"}]
 --WebAppBoundary
 Content-Disposition: form-data; name="file"; filename="movies-2025.csv"
 Content-Type: text/csv
@@ -81,7 +81,7 @@ movies
 --WebAppBoundary
 Content-Disposition: form-data; name="mappings"
 
-[{"choiceInitial":"G","csvDisplayName":"Gabryel","memberId":"{{gabryelId}}"},{"choiceInitial":"C","csvDisplayName":"Camila","memberId":"{{camilaId}}"}]
+[{"choiceInitial":"A","csvDisplayName":"Person A","memberId":"{{personAId}}"},{"choiceInitial":"B","csvDisplayName":"Person B","memberId":"{{personBId}}"}]
 --WebAppBoundary
 Content-Disposition: form-data; name="file"; filename="movies-2025.csv"
 Content-Type: text/csv
@@ -101,7 +101,7 @@ series
 --WebAppBoundary
 Content-Disposition: form-data; name="mappings"
 
-[{"choiceInitial":"G","csvDisplayName":"Gabryel","memberId":"{{gabryelId}}"},{"choiceInitial":"C","csvDisplayName":"Camila","memberId":"{{camilaId}}"}]
+[{"choiceInitial":"A","csvDisplayName":"Person A","memberId":"{{personAId}}"},{"choiceInitial":"B","csvDisplayName":"Person B","memberId":"{{personBId}}"}]
 --WebAppBoundary
 Content-Disposition: form-data; name="file"; filename="series.csv"
 Content-Type: text/csv
@@ -121,7 +121,7 @@ reserve
 --WebAppBoundary
 Content-Disposition: form-data; name="mappings"
 
-[{"choiceInitial":"G","csvDisplayName":"Gabryel","memberId":"{{gabryelId}}"},{"choiceInitial":"C","csvDisplayName":"Camila","memberId":"{{camilaId}}"}]
+[{"choiceInitial":"A","csvDisplayName":"Person A","memberId":"{{personAId}}"},{"choiceInitial":"B","csvDisplayName":"Person B","memberId":"{{personBId}}"}]
 --WebAppBoundary
 Content-Disposition: form-data; name="file"; filename="reserve.csv"
 Content-Type: text/csv

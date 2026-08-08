@@ -6,4 +6,5 @@ object RatingOptions : UuidTable("rating_options") {
     val scaleId = reference("scale_id", RatingScales)
     val label = varchar("label", 64)
     val position = integer("position")
+    val color = varchar("color", 7)
 }

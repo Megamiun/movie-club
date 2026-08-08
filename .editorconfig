@@ -16,6 +16,10 @@ ij_kotlin_packages_to_use_import_on_demand =
 ktlint_standard_function-signature = disabled
 ktlint_standard_multiline-expression-wrapping = disabled
 ktlint_standard_multiline-if-else = disabled
+ktlint_standard_chain-method-continuation = disabled
+ktlint_standard_class-signature = disabled
+ktlint_standard_blank-line-between-when-conditions = disabled
+ktlint_standard_when-entry-bracing = disabled
 
 [*.{ts,tsx,js,jsx}]
 indent_style = space

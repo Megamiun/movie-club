@@ -30,36 +30,30 @@ fun parseImdbIdOrNull(value: String): String? = IMDB_ID_REGEX.find(value)?.value
 
 /**
  * Finds "<Name>'s Rating" / "<Name> - Liked?" column pairs by common display-name prefix, in header order.
- * Not hardcoded to "Gabryel"/"Camila" so the importer keeps working if the club's members change.
+ * Not hardcoded to "Person A"/"Person B" so the importer keeps working if the club's members change.
  */
 fun detectRatingColumnPairs(header: List<String>): List<RatingColumnPair> {
-    val ratingColumns =
-        header.mapNotNull { column ->
-            RATING_COLUMN_REGEX
-                .find(column)
-                ?.groupValues
-                ?.get(1)
-                ?.let { it to column }
-        }
-    val likedColumns =
-        header
-            .mapNotNull { column ->
-                LIKED_COLUMN_REGEX
-                    .find(column)
-                    ?.groupValues
-                    ?.get(1)
-                    ?.let { it to column }
-            }.toMap()
+    val ratingColumns = header.mapNotNull { column ->
+        RATING_COLUMN_REGEX.find(column)
+            ?.groupValues
+            ?.get(1)
+            ?.let { it to column }
+    }
+
+    val likedColumns = header.mapNotNull { column ->
+        LIKED_COLUMN_REGEX.find(column)
+            ?.groupValues?.get(1)
+            ?.let { it to column }
+    }.toMap()
+
     return ratingColumns.mapNotNull { (displayName, qualityColumn) ->
         likedColumns[displayName]?.let { sentimentColumn ->
-            RatingColumnPair(
-                displayName,
-                qualityColumn,
-                sentimentColumn,
-            )
+            RatingColumnPair(displayName, qualityColumn, sentimentColumn)
         }
     }
 }
 
-/** [CSVRecord.get] throws if the column isn't in this file's header; used for columns that drift/are optional across files. */
-fun CSVRecord.getOrEmpty(column: String): String = if (isMapped(column)) get(column) else ""
+/** [CSVRecord.get] throws if the column isn't in this file's header, or if this particular row is short that
+ * trailing column entirely (ragged/short rows are valid CSV, just missing optional trailing fields) -- [isSet]
+ * covers both cases, unlike [CSVRecord.isMapped] which only checks the header. */
+fun CSVRecord.getOrEmpty(column: String): String = if (isSet(column)) get(column) else ""

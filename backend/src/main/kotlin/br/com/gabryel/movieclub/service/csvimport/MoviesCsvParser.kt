@@ -36,11 +36,13 @@ object MoviesCsvParser {
             .setSkipHeaderRecord(true)
             .build()
             .parse(InputStreamReader(input, Charsets.UTF_8))
+
         val header = parser.headerNames
         val watchLinkColumn = header.firstOrNull { it == "Link" || it == "Where to watch?" }
         val ratingColumnPairs = detectRatingColumnPairs(header)
 
         var lastDate: LocalDate? = null
+
         return parser.records.map { record ->
             val date = parseDdMmYyyyOrNull(record.get("When?")) ?: lastDate
             lastDate = date ?: lastDate
@@ -56,7 +58,7 @@ object MoviesCsvParser {
                     )
                 },
                 watchLink = watchLinkColumn?.let { naToNull(record.getOrEmpty(it)) },
-                imdbId = parseImdbIdOrNull(record.get("IMDB Id")),
+                imdbId = parseImdbIdOrNull(record.getOrEmpty("IMDB Id")),
             )
         }
     }

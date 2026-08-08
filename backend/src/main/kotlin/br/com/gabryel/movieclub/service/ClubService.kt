@@ -6,11 +6,11 @@ import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.RatingScaleType
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
-import br.com.gabryel.movieclub.db.repositories.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.ClubRepository
-import br.com.gabryel.movieclub.db.repositories.ClubRow
-import br.com.gabryel.movieclub.db.repositories.RatingOptionRow
 import br.com.gabryel.movieclub.db.repositories.RatingScaleRepository
+import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
+import br.com.gabryel.movieclub.db.repositories.dto.ClubRow
+import br.com.gabryel.movieclub.db.repositories.dto.RatingOptionRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
@@ -35,6 +35,10 @@ private val DEFAULT_QUALITY_LABELS = listOf("Excepcional!", "Muito bom", "Bom", 
 private val DEFAULT_SENTIMENT_LABELS =
     listOf("Adorei", "Gostei!", "Ambivalente", "Indiferente", "Desgostei", "Detestei")
 
+/** Best-to-worst color gradient (green -> red) applied by position to any default scale -- both default scales are
+ * six options ordered best-first, so the same gradient fits either one. */
+private val DEFAULT_RATING_COLORS = listOf("#2E7D32", "#7CB342", "#C0CA33", "#FDD835", "#FB8C00", "#E53935")
+
 class ClubService(
     private val clubRepository: ClubRepository,
     private val ratingScaleRepository: RatingScaleRepository,
@@ -48,21 +52,20 @@ class ClubService(
             if (it.role != ADMIN) throw ForbiddenException("Must be a club admin")
         }
 
-    fun createClub(name: String, creatorMemberId: Uuid): ClubDetail =
-        transaction {
-            val club = clubRepository.create(name)
-            clubRepository.addMember(club.id, creatorMemberId, ADMIN, rotationOrder = 0)
+    fun createClub(name: String, creatorMemberId: Uuid): ClubDetail = transaction {
+        val club = clubRepository.create(name)
+        clubRepository.addMember(club.id, creatorMemberId, ADMIN, rotationOrder = 0)
 
-            seedScale(club.id, QUALITY, DEFAULT_QUALITY_LABELS)
-            seedScale(club.id, SENTIMENT, DEFAULT_SENTIMENT_LABELS)
+        seedScale(club.id, QUALITY, DEFAULT_QUALITY_LABELS)
+        seedScale(club.id, SENTIMENT, DEFAULT_SENTIMENT_LABELS)
 
-            ClubDetail(club.id, club.name, club.createdAt, clubRepository.listMembers(club.id))
-        }
+        ClubDetail(club.id, club.name, club.createdAt, clubRepository.listMembers(club.id))
+    }
 
     private fun seedScale(clubId: Uuid, type: RatingScaleType, labels: List<String>) {
         val scale = ratingScaleRepository.createScale(clubId, type)
         labels.forEachIndexed { position, label ->
-            ratingScaleRepository.createOption(scale.id, label, position)
+            ratingScaleRepository.createOption(scale.id, label, position, DEFAULT_RATING_COLORS[position])
         }
     }
 

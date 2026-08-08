@@ -1,6 +1,8 @@
-package br.com.gabryel.movieclub.routing
+package br.com.gabryel.movieclub.routing.watchlist
 
-import br.com.gabryel.movieclub.db.repositories.WatchlistEntryRow
+import br.com.gabryel.movieclub.db.repositories.dto.WatchlistEntryRow
+import br.com.gabryel.movieclub.routing.actingMemberId
+import br.com.gabryel.movieclub.routing.uuidPathParam
 import br.com.gabryel.movieclub.service.WatchlistService
 import io.ktor.http.HttpStatusCode.Companion.Created
 import io.ktor.http.HttpStatusCode.Companion.NoContent

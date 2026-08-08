@@ -1,0 +1,2 @@
+ALTER TABLE rating_options
+    ADD COLUMN color VARCHAR(7) NOT NULL DEFAULT '#9E9E9E';

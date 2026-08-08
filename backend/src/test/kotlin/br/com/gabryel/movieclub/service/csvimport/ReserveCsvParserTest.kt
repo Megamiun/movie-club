@@ -11,7 +11,7 @@ class ReserveCsvParserTest {
         val csv =
             """
             Movies,,Series,
-            Gabryel,Camila,Gabryel,Camila
+            Person A,Person B,Person A,Person B
             Anne+,Deception,Dark,Game of Thrones
             """.trimIndent()
 
@@ -19,10 +19,10 @@ class ReserveCsvParserTest {
 
         assertEquals(
             listOf(
-                ReserveCsvRow(WatchlistCategory.MOVIE, "Gabryel", "Anne+"),
-                ReserveCsvRow(WatchlistCategory.MOVIE, "Camila", "Deception"),
-                ReserveCsvRow(WatchlistCategory.SERIES, "Gabryel", "Dark"),
-                ReserveCsvRow(WatchlistCategory.SERIES, "Camila", "Game of Thrones"),
+                ReserveCsvRow(WatchlistCategory.MOVIE, "Person A", "Anne+"),
+                ReserveCsvRow(WatchlistCategory.MOVIE, "Person B", "Deception"),
+                ReserveCsvRow(WatchlistCategory.SERIES, "Person A", "Dark"),
+                ReserveCsvRow(WatchlistCategory.SERIES, "Person B", "Game of Thrones"),
             ),
             rows,
         )
@@ -33,7 +33,7 @@ class ReserveCsvParserTest {
         val csv =
             """
             Movies,,Series,
-            Gabryel,Camila,Gabryel,Camila
+            Person A,Person B,Person A,Person B
             Anne+,,Dark,
             Wolf Walkers,Erin Brockovich,,
             """.trimIndent()
@@ -42,10 +42,10 @@ class ReserveCsvParserTest {
 
         assertEquals(
             listOf(
-                ReserveCsvRow(WatchlistCategory.MOVIE, "Gabryel", "Anne+"),
-                ReserveCsvRow(WatchlistCategory.SERIES, "Gabryel", "Dark"),
-                ReserveCsvRow(WatchlistCategory.MOVIE, "Gabryel", "Wolf Walkers"),
-                ReserveCsvRow(WatchlistCategory.MOVIE, "Camila", "Erin Brockovich"),
+                ReserveCsvRow(WatchlistCategory.MOVIE, "Person A", "Anne+"),
+                ReserveCsvRow(WatchlistCategory.SERIES, "Person A", "Dark"),
+                ReserveCsvRow(WatchlistCategory.MOVIE, "Person A", "Wolf Walkers"),
+                ReserveCsvRow(WatchlistCategory.MOVIE, "Person B", "Erin Brockovich"),
             ),
             rows,
         )
@@ -56,7 +56,7 @@ class ReserveCsvParserTest {
         val csv =
             """
             Movies,,Series,
-            Gabryel,Camila,Gabryel,Camila
+            Person A,Person B,Person A,Person B
             Wolf Walkers ,Reservoir dogs ,,
             """.trimIndent()
 
@@ -74,7 +74,7 @@ class ReserveCsvParserTest {
         val rows = ReserveCsvParser.parse(file.inputStream())
 
         assertTrue(rows.isNotEmpty())
-        assertTrue(rows.any { it.category == WatchlistCategory.MOVIE && it.csvDisplayName == "Gabryel" })
-        assertTrue(rows.any { it.category == WatchlistCategory.SERIES && it.csvDisplayName == "Camila" })
+        assertTrue(rows.any { it.category == WatchlistCategory.MOVIE && it.csvDisplayName == "Person A" })
+        assertTrue(rows.any { it.category == WatchlistCategory.SERIES && it.csvDisplayName == "Person B" })
     }
 }

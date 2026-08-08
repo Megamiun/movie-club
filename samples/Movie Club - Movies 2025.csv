@@ -1,58 +1,58 @@
-Choice,Movie,When?,Gabryel's Rating,Gabryel - Liked?,Camila's Rating,Camila - Liked?,Year,Duration,Director,IMDB Rating,Genre,Country,IMDB Id
-C,Requiem for a Dream,05/01/2025,Muito bom,Gostei!,Muito bom,Gostei!,2000,102 min,Darren Aronofsky,8.3,Drama,United States,tt0180093
-G,To Kill a Mocking Bird,12/01/2025,Muito bom,Gostei!,Bom,Gostei!,1962,129 min,Robert Mulligan,8.3,"Crime, Drama",United States,tt0056592
-C,The Artifice Girl,19/01/2025,Excepcional!,Gostei!,Muito bom,Gostei!,2022,93 min,Franklin Ritch,6.6,"Mystery, Sci-Fi, Thriller",United States,tt20859464
-G,No Country For Old Man,26/01/2025,Muito bom,Gostei!,Regular,Desgostei,2007,122 min,"Ethan Coen, Joel Coen",8.2,"Crime, Drama, Thriller",United States,tt0477348
-C,Paradise,02/02/2025,Muito bom,Gostei!,Muito bom,Gostei!,2023,117 min,Boris Kunz,6.3,"Action, Sci-Fi, Thriller",Germany,tt21308888
-G,Look Back,09/02/2025,Muito bom,Gostei!,Bom,Gostei!,2024,58 min,Kiyotaka Oshiyama,7.8,"Animation, Drama","Japan, United States",tt31711040
-C,The Silence of the Lambs,16/02/2025,Muito bom,Gostei!,Excepcional!,Gostei!,1991,118 min,Jonathan Demme,8.6,"Crime, Drama, Horror",United States,tt0102926
-G,John Wick,23/02/2025,Bom,Gostei!,Bom,Gostei!,2014,101 min,Chad Stahelski,7.5,"Action, Crime, Thriller",United States,tt2911666
-G,John Wick: Chapter 2,,Muito bom,Gostei!,Regular,Desgostei,2017,122 min,Chad Stahelski,7.4,"Action, Crime, Thriller","United States, Italy, Hong Kong, Canada",tt4425200
-G,John Wick: Chapter 3 - Parabellum,02/03/2025,Bom,Gostei!,Regular,Desgostei,2019,130 min,Chad Stahelski,7.4,"Action, Crime, Drama","United States, Morocco, Ukraine, Italy",tt6146586
-G,John Wick: Chapter 4,,Bom,Gostei!,Ruim,Desgostei,2023,169 min,Chad Stahelski,7.6,"Action, Crime, Thriller","United States, Germany",tt10366206
-C,Aporia,09/03/2025,Muito bom,Gostei!,Muito bom,Gostei!,2023,104 min,Jared Moshe,5.6,"Drama, Sci-Fi",United States,tt8511466
-G,Train To Busan,16/03/2025,Muito bom,Gostei!,Muito bom,Desgostei,2016,118 min,Yeon Sang-ho,7.6,"Action, Horror, Thriller",South Korea,tt5700672
-C,Fried Green Tomatoes,,Muito bom,Gostei!,Muito bom,Gostei!,1991,130 min,Jon Avnet,7.7,Drama,United States,tt0101921
-G,Enter the Void,23/03/2025,Ruim,Desgostei,Excepcional!,Gostei!,2009,161 min,Gaspar Noé,7.2,"Drama, Fantasy","France, Germany, Italy, Canada, Japan",tt1191111
-C,Switch,30/03/2025,Bom,Gostei!,Bom,Gostei!,1991,103 min,Blake Edwards,5.8,"Comedy, Fantasy",United States,tt0103016
-G,Companion,06/04/2025,Bom,Gostei!,Muito bom,Gostei!,2025,97 min,Drew Hancock,6.9,"Sci-Fi, Thriller",United States,tt26584495
-C,Vesper,13/04/2025,Bom,Gostei!,Bom,Gostei!,2022,114 min,"Kristina Buozyte, Bruno Samper",6.0,"Adventure, Drama, Sci-Fi","Lithuania, France, Belgium, United Kingdom",tt20225374
-G,Sleepless In Seatle,20/04/2025,Regular,Indiferente,Regular,Gostei!,1993,105 min,Nora Ephron,6.8,"Comedy, Drama, Romance",United States,tt0108160
-C,Primer,27/04/2025,Muito bom,Gostei!,Bom,Gostei!,2004,77 min,Shane Carruth,6.7,"Drama, Sci-Fi, Thriller",United States,tt0390384
-G,Belfast,04/05/2025,Bom,Gostei!,Regular,Gostei!,2021,98 min,Kenneth Branagh,7.2,"Biography, Drama",United Kingdom,tt12789558
-C,The Butcher's Wife,11/05/2025,Bom,Gostei!,Muito bom,Gostei!,1991,107 min,Terry Hughes,5.4,"Comedy, Fantasy, Romance",United States,tt0101523
-G,Green Book,18/05/2025,Bom,Gostei!,Muito bom,Gostei!,2018,130 min,Peter Farrelly,8.2,"Biography, Comedy, Drama","China, Japan, United States",tt6966692
-C,Grand Tour: Disaster in Time,25/05/2025,Bom,Gostei!,Bom,Gostei!,1991,99 min,David Twohy,6.4,"Mystery, Sci-Fi",United States,tt0104362
-C,The Assessment,01/06/2025,Muito bom,Gostei!,Excepcional!,Gostei!,2024,114 min,Fleur Fortune,6.6,"Drama, Sci-Fi","United Kingdom, Germany, United States",tt32768323
-G,28 Days Later,08/06/2025,Bom,Gostei!,Bom,Desgostei,2002,113 min,Danny Boyle,7.5,"Drama, Horror, Sci-Fi","United Kingdom, United States",tt0289043
-G,28 Weeks Later,15/06/2025,Bom,Gostei!,Regular,Desgostei,2007,99 min,Juan Carlos Fresnadillo,6.8,"Horror, Sci-Fi","United Kingdom, Spain",tt0463854
-C,Aniara,22/06/2025,Muito bom,Gostei!,Muito bom,Gostei!,2018,106 min,"Pella Kagerman, Hugo Lilja",6.3,"Drama, Sci-Fi","Sweden, Denmark, United States",tt7589524
-G,Nosferatu (1922),29/06/2025,Regular,Desgostei,Bom,Gostei!,1922,94 min,F.W. Murnau,7.8,"Fantasy, Horror",Germany,tt0013442
-G,Nosferatu (2024),06/07/2025,Bom,Gostei!,Horrível,Desgostei,2024,132 min,Robert Eggers,7.1,"Fantasy, Horror, Mystery",United States,tt5040012
-C,A Sound of Thunder,13/07/2025,Bom,Gostei!,Bom,Gostei!,2005,110 min,Peter Hyams,4.2,"Action, Adventure, Horror","Czech Republic, United Kingdom, Germany, United States",tt0318081
-G,The Prestige,20/07/2025,Excepcional!,Gostei!,Bom,Gostei!,2006,130 min,Christopher Nolan,8.5,"Drama, Mystery, Sci-Fi","United Kingdom, United States",tt0482571
-C,Frankie and Johnny,27/07/2025,Bom,Gostei!,Muito bom,Gostei!,1991,118 min,Garry Marshall,6.7,"Comedy, Drama, Romance",United States,tt0101912
-G,Interview with the Vampire,03/08/2025,Bom,Gostei!,Regular,Gostei!,1994,123 min,Neil Jordan,7.5,"Drama, Fantasy, Horror",United States,tt0110148
-C,Things Will Be Different,10/08/2025,Bom,Gostei!,Bom,Gostei!,2024,102 min,Michael Felker,5.2,"Horror, Sci-Fi, Thriller",United States,tt27491225
-G,Oldboy,17/08/2025,Bom,Gostei!,Bom,Gostei!,2003,120 min,Park Chan-wook,8.3,"Action, Drama, Mystery",South Korea,tt0364569
-C,Thelma & Louise,24/08/2025,Bom,Gostei!,Ruim,Desgostei,1991,130 min,Ridley Scott,7.6,"Adventure, Crime, Drama","United States, United Kingdom, France",tt0103074
-G,RRR,31/08/2025,Muito bom,Gostei!,Muito bom,Gostei!,2022,187 min,S.S. Rajamouli,7.8,"Action, Adventure, Drama",India,tt8178634
-C,Wild,07/09/2025,Bom,Gostei!,Muito bom,Gostei!,2014,115 min,Jean-Marc Vallée,7.1,"Adventure, Biography, Drama",United States,tt2305051
-G,Blink Twice,14/09/2025,Bom,Gostei!,Bom,Gostei!,2024,102 min,Zoë Kravitz,6.5,"Mystery, Thriller","United States, Mexico",tt14858658
-C,The Watchers,21/09/2025,Regular,Gostei!,Muito bom,Gostei!,2024,102 min,Ishana Shyamalan,5.7,"Fantasy, Horror, Mystery","United States, Ireland",tt26736843
-G,28 Years Later,28/09/2025,Muito bom,Gostei!,Muito bom,Gostei!,2025,115 min,Danny Boyle,6.6,"Horror, Sci-Fi, Thriller","United Kingdom, Canada, United States",tt10548174
-C,Scrooged,05/10/2025,Ruim,Indiferente,Ruim,Desgostei,1988,101 min,Richard Donner,6.9,"Comedy, Drama, Fantasy",United States,tt0096061
-G,Little Women,12/10/2025,Bom,Gostei!,Muito bom,Gostei!,1994,115 min,Gillian Armstrong,7.3,"Drama, Family, Romance",United States,tt0110367
-C,The Pianist,19/10/2025,Excepcional!,Gostei!,Excepcional!,Gostei!,2002,150 min,Roman Polanski,8.5,"Biography, Drama, Music","France, Poland, Germany, United Kingdom, United States",tt0253474
-G,They Live,26/10/2025,Ruim,Indiferente,Horrível,Desgostei,1988,94 min,John Carpenter,7.2,"Action, Horror, Sci-Fi",United States,tt0096256
-C,Beetlejuice,02/11/2025,Bom,Gostei!,Regular,Gostei!,1988,92 min,Tim Burton,7.4,"Comedy, Fantasy",United States,tt0094721
-G,The Time That Remains,09/11/2025,Bom,Gostei!,Regular,Gostei!,2009,109 min,Elia Suleiman,7.1,"Drama, History","France, Belgium, Italy, United Arab Emirates",tt1037163
-C,The Wizard of Oz,16/11/2025,Bom,Indiferente,Muito bom,Gostei!,1939,102 min,"Victor Fleming, George Cukor, Norman Taurog",8.1,"Adventure, Family, Fantasy",United States,tt0032138
-G,The Heineken Kidnapping,23/11/2025,Bom,Gostei!,Regular,Gostei!,2011,127 min,Maarten Treurniet,6.5,"Crime, History, Thriller",Netherlands,tt1846526
-C,The Wonder,30/11/2025,Excepcional!,Gostei!,Bom,Gostei!,2022,108 min,Sebastián Lelio,6.6,"Drama, Mystery, Thriller","Ireland, United Kingdom, United States",tt9288822
-G,Monkey Man,07/12/2025,Muito bom,Gostei!,Bom,Gostei!,2024,121 min,Dev Patel,6.8,"Action, Crime, Thriller","Canada, Singapore, United States",tt9214772
-C,Last Tango in Paris,14/12/2025,Regular,Indiferente,Ruim,Desgostei,1972,129 min,Bernardo Bertolucci,6.8,"Drama, Romance","Italy, France",tt0070849
-G,Twin Peaks: Fire Walk with Me,21/12/2025,Bom,Gostei!,Muito bom,Gostei!,1992,134 min,David Lynch,7.3,"Drama, Horror, Mystery","France, United States",tt0105665
-G,Tokyo Godfathers,21/12/2025,Bom,Gostei!,Regular,Gostei!,2003,92 min,"Satoshi Kon, Shôgo Furuya",7.8,"Animation, Adventure, Comedy",Japan,tt0388473
-C,Twin Peaks: The Missing Pieces,28/12/2025,Bom,Gostei!,Regular,Gostei!,2014,91 min,David Lynch,7.5,"Drama, Horror, Mystery","France, United States",tt5334704
-C,Vortex,28/12/2025,Muito bom,Ambivalente,Excepcional!,Gostei!,2021,142 min,Gaspar Noé,7.4,Drama,"France, Belgium, Monaco",tt14821150
+Choice,Movie,When?,Person A's Rating,Person A - Liked?,Person B's Rating,Person B - Liked?,Year,Duration,Director,IMDB Rating,Genre,Country,IMDB Id
+B,Requiem for a Dream,05/01/2025,Muito bom,Gostei!,Muito bom,Gostei!,2000,102 min,Darren Aronofsky,8.3,Drama,United States,tt0180093
+A,To Kill a Mocking Bird,12/01/2025,Muito bom,Gostei!,Bom,Gostei!,1962,129 min,Robert Mulligan,8.3,"Crime, Drama",United States,tt0056592
+B,The Artifice Girl,19/01/2025,Excepcional!,Gostei!,Muito bom,Gostei!,2022,93 min,Franklin Ritch,6.6,"Mystery, Sci-Fi, Thriller",United States,tt20859464
+A,No Country For Old Man,26/01/2025,Muito bom,Gostei!,Regular,Desgostei,2007,122 min,"Ethan Coen, Joel Coen",8.2,"Crime, Drama, Thriller",United States,tt0477348
+B,Paradise,02/02/2025,Muito bom,Gostei!,Muito bom,Gostei!,2023,117 min,Boris Kunz,6.3,"Action, Sci-Fi, Thriller",Germany,tt21308888
+A,Look Back,09/02/2025,Muito bom,Gostei!,Bom,Gostei!,2024,58 min,Kiyotaka Oshiyama,7.8,"Animation, Drama","Japan, United States",tt31711040
+B,The Silence of the Lambs,16/02/2025,Muito bom,Gostei!,Excepcional!,Gostei!,1991,118 min,Jonathan Demme,8.6,"Crime, Drama, Horror",United States,tt0102926
+A,John Wick,23/02/2025,Bom,Gostei!,Bom,Gostei!,2014,101 min,Chad Stahelski,7.5,"Action, Crime, Thriller",United States,tt2911666
+A,John Wick: Chapter 2,,Muito bom,Gostei!,Regular,Desgostei,2017,122 min,Chad Stahelski,7.4,"Action, Crime, Thriller","United States, Italy, Hong Kong, Canada",tt4425200
+A,John Wick: Chapter 3 - Parabellum,02/03/2025,Bom,Gostei!,Regular,Desgostei,2019,130 min,Chad Stahelski,7.4,"Action, Crime, Drama","United States, Morocco, Ukraine, Italy",tt6146586
+A,John Wick: Chapter 4,,Bom,Gostei!,Ruim,Desgostei,2023,169 min,Chad Stahelski,7.6,"Action, Crime, Thriller","United States, Germany",tt10366206
+B,Aporia,09/03/2025,Muito bom,Gostei!,Muito bom,Gostei!,2023,104 min,Jared Moshe,5.6,"Drama, Sci-Fi",United States,tt8511466
+A,Train To Busan,16/03/2025,Muito bom,Gostei!,Muito bom,Desgostei,2016,118 min,Yeon Sang-ho,7.6,"Action, Horror, Thriller",South Korea,tt5700672
+B,Fried Green Tomatoes,,Muito bom,Gostei!,Muito bom,Gostei!,1991,130 min,Jon Avnet,7.7,Drama,United States,tt0101921
+A,Enter the Void,23/03/2025,Ruim,Desgostei,Excepcional!,Gostei!,2009,161 min,Gaspar Noé,7.2,"Drama, Fantasy","France, Germany, Italy, Canada, Japan",tt1191111
+B,Switch,30/03/2025,Bom,Gostei!,Bom,Gostei!,1991,103 min,Blake Edwards,5.8,"Comedy, Fantasy",United States,tt0103016
+A,Companion,06/04/2025,Bom,Gostei!,Muito bom,Gostei!,2025,97 min,Drew Hancock,6.9,"Sci-Fi, Thriller",United States,tt26584495
+B,Vesper,13/04/2025,Bom,Gostei!,Bom,Gostei!,2022,114 min,"Kristina Buozyte, Bruno Samper",6.0,"Adventure, Drama, Sci-Fi","Lithuania, France, Belgium, United Kingdom",tt20225374
+A,Sleepless In Seatle,20/04/2025,Regular,Indiferente,Regular,Gostei!,1993,105 min,Nora Ephron,6.8,"Comedy, Drama, Romance",United States,tt0108160
+B,Primer,27/04/2025,Muito bom,Gostei!,Bom,Gostei!,2004,77 min,Shane Carruth,6.7,"Drama, Sci-Fi, Thriller",United States,tt0390384
+A,Belfast,04/05/2025,Bom,Gostei!,Regular,Gostei!,2021,98 min,Kenneth Branagh,7.2,"Biography, Drama",United Kingdom,tt12789558
+B,The Butcher's Wife,11/05/2025,Bom,Gostei!,Muito bom,Gostei!,1991,107 min,Terry Hughes,5.4,"Comedy, Fantasy, Romance",United States,tt0101523
+A,Green Book,18/05/2025,Bom,Gostei!,Muito bom,Gostei!,2018,130 min,Peter Farrelly,8.2,"Biography, Comedy, Drama","China, Japan, United States",tt6966692
+B,Grand Tour: Disaster in Time,25/05/2025,Bom,Gostei!,Bom,Gostei!,1991,99 min,David Twohy,6.4,"Mystery, Sci-Fi",United States,tt0104362
+B,The Assessment,01/06/2025,Muito bom,Gostei!,Excepcional!,Gostei!,2024,114 min,Fleur Fortune,6.6,"Drama, Sci-Fi","United Kingdom, Germany, United States",tt32768323
+A,28 Days Later,08/06/2025,Bom,Gostei!,Bom,Desgostei,2002,113 min,Danny Boyle,7.5,"Drama, Horror, Sci-Fi","United Kingdom, United States",tt0289043
+A,28 Weeks Later,15/06/2025,Bom,Gostei!,Regular,Desgostei,2007,99 min,Juan Carlos Fresnadillo,6.8,"Horror, Sci-Fi","United Kingdom, Spain",tt0463854
+B,Aniara,22/06/2025,Muito bom,Gostei!,Muito bom,Gostei!,2018,106 min,"Pella Kagerman, Hugo Lilja",6.3,"Drama, Sci-Fi","Sweden, Denmark, United States",tt7589524
+A,Nosferatu (1922),29/06/2025,Regular,Desgostei,Bom,Gostei!,1922,94 min,F.W. Murnau,7.8,"Fantasy, Horror",Germany,tt0013442
+A,Nosferatu (2024),06/07/2025,Bom,Gostei!,Horrível,Desgostei,2024,132 min,Robert Eggers,7.1,"Fantasy, Horror, Mystery",United States,tt5040012
+B,A Sound of Thunder,13/07/2025,Bom,Gostei!,Bom,Gostei!,2005,110 min,Peter Hyams,4.2,"Action, Adventure, Horror","Czech Republic, United Kingdom, Germany, United States",tt0318081
+A,The Prestige,20/07/2025,Excepcional!,Gostei!,Bom,Gostei!,2006,130 min,Christopher Nolan,8.5,"Drama, Mystery, Sci-Fi","United Kingdom, United States",tt0482571
+B,Frankie and Johnny,27/07/2025,Bom,Gostei!,Muito bom,Gostei!,1991,118 min,Garry Marshall,6.7,"Comedy, Drama, Romance",United States,tt0101912
+A,Interview with the Vampire,03/08/2025,Bom,Gostei!,Regular,Gostei!,1994,123 min,Neil Jordan,7.5,"Drama, Fantasy, Horror",United States,tt0110148
+B,Things Will Be Different,10/08/2025,Bom,Gostei!,Bom,Gostei!,2024,102 min,Michael Felker,5.2,"Horror, Sci-Fi, Thriller",United States,tt27491225
+A,Oldboy,17/08/2025,Bom,Gostei!,Bom,Gostei!,2003,120 min,Park Chan-wook,8.3,"Action, Drama, Mystery",South Korea,tt0364569
+B,Thelma & Louise,24/08/2025,Bom,Gostei!,Ruim,Desgostei,1991,130 min,Ridley Scott,7.6,"Adventure, Crime, Drama","United States, United Kingdom, France",tt0103074
+A,RRR,31/08/2025,Muito bom,Gostei!,Muito bom,Gostei!,2022,187 min,S.S. Rajamouli,7.8,"Action, Adventure, Drama",India,tt8178634
+B,Wild,07/09/2025,Bom,Gostei!,Muito bom,Gostei!,2014,115 min,Jean-Marc Vallée,7.1,"Adventure, Biography, Drama",United States,tt2305051
+A,Blink Twice,14/09/2025,Bom,Gostei!,Bom,Gostei!,2024,102 min,Zoë Kravitz,6.5,"Mystery, Thriller","United States, Mexico",tt14858658
+B,The Watchers,21/09/2025,Regular,Gostei!,Muito bom,Gostei!,2024,102 min,Ishana Shyamalan,5.7,"Fantasy, Horror, Mystery","United States, Ireland",tt26736843
+A,28 Years Later,28/09/2025,Muito bom,Gostei!,Muito bom,Gostei!,2025,115 min,Danny Boyle,6.6,"Horror, Sci-Fi, Thriller","United Kingdom, Canada, United States",tt10548174
+B,Scrooged,05/10/2025,Ruim,Indiferente,Ruim,Desgostei,1988,101 min,Richard Donner,6.9,"Comedy, Drama, Fantasy",United States,tt0096061
+A,Little Women,12/10/2025,Bom,Gostei!,Muito bom,Gostei!,1994,115 min,Gillian Armstrong,7.3,"Drama, Family, Romance",United States,tt0110367
+B,The Pianist,19/10/2025,Excepcional!,Gostei!,Excepcional!,Gostei!,2002,150 min,Roman Polanski,8.5,"Biography, Drama, Music","France, Poland, Germany, United Kingdom, United States",tt0253474
+A,They Live,26/10/2025,Ruim,Indiferente,Horrível,Desgostei,1988,94 min,John Carpenter,7.2,"Action, Horror, Sci-Fi",United States,tt0096256
+B,Beetlejuice,02/11/2025,Bom,Gostei!,Regular,Gostei!,1988,92 min,Tim Burton,7.4,"Comedy, Fantasy",United States,tt0094721
+A,The Time That Remains,09/11/2025,Bom,Gostei!,Regular,Gostei!,2009,109 min,Elia Suleiman,7.1,"Drama, History","France, Belgium, Italy, United Arab Emirates",tt1037163
+B,The Wizard of Oz,16/11/2025,Bom,Indiferente,Muito bom,Gostei!,1939,102 min,"Victor Fleming, George Cukor, Norman Taurog",8.1,"Adventure, Family, Fantasy",United States,tt0032138
+A,The Heineken Kidnapping,23/11/2025,Bom,Gostei!,Regular,Gostei!,2011,127 min,Maarten Treurniet,6.5,"Crime, History, Thriller",Netherlands,tt1846526
+B,The Wonder,30/11/2025,Excepcional!,Gostei!,Bom,Gostei!,2022,108 min,Sebastián Lelio,6.6,"Drama, Mystery, Thriller","Ireland, United Kingdom, United States",tt9288822
+A,Monkey Man,07/12/2025,Muito bom,Gostei!,Bom,Gostei!,2024,121 min,Dev Patel,6.8,"Action, Crime, Thriller","Canada, Singapore, United States",tt9214772
+B,Last Tango in Paris,14/12/2025,Regular,Indiferente,Ruim,Desgostei,1972,129 min,Bernardo Bertolucci,6.8,"Drama, Romance","Italy, France",tt0070849
+A,Twin Peaks: Fire Walk with Me,21/12/2025,Bom,Gostei!,Muito bom,Gostei!,1992,134 min,David Lynch,7.3,"Drama, Horror, Mystery","France, United States",tt0105665
+A,Tokyo Godfathers,21/12/2025,Bom,Gostei!,Regular,Gostei!,2003,92 min,"Satoshi Kon, Shôgo Furuya",7.8,"Animation, Adventure, Comedy",Japan,tt0388473
+B,Twin Peaks: The Missing Pieces,28/12/2025,Bom,Gostei!,Regular,Gostei!,2014,91 min,David Lynch,7.5,"Drama, Horror, Mystery","France, United States",tt5334704
+B,Vortex,28/12/2025,Muito bom,Ambivalente,Excepcional!,Gostei!,2021,142 min,Gaspar Noé,7.4,Drama,"France, Belgium, Monaco",tt14821150

@@ -1,16 +1,13 @@
 package br.com.gabryel.movieclub.service
 
-import br.com.gabryel.movieclub.db.repositories.WatchlistEntryRow
 import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
+import br.com.gabryel.movieclub.db.repositories.dto.WatchlistEntryRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
 import kotlin.uuid.Uuid
 
-class WatchlistService(
-    private val watchlistRepository: WatchlistRepository,
-    private val clubService: ClubService,
-) {
+class WatchlistService(private val watchlistRepository: WatchlistRepository, private val clubService: ClubService) {
     fun addEntry(
         clubId: Uuid,
         actingMemberId: Uuid,

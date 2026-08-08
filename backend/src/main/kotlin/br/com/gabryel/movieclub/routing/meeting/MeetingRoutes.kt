@@ -1,6 +1,9 @@
-package br.com.gabryel.movieclub.routing
+package br.com.gabryel.movieclub.routing.meeting
 
-import br.com.gabryel.movieclub.db.repositories.MeetingRow
+import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
+import br.com.gabryel.movieclub.routing.actingMemberId
+import br.com.gabryel.movieclub.routing.toUuidOrBadRequest
+import br.com.gabryel.movieclub.routing.uuidPathParam
 import br.com.gabryel.movieclub.service.MeetingService
 import io.ktor.http.HttpStatusCode.Companion.Created
 import io.ktor.http.HttpStatusCode.Companion.NoContent
@@ -72,10 +75,9 @@ fun Route.meetingRoutes(meetingService: MeetingService) {
     }
 }
 
-private fun MeetingRow.toResponse() =
-    MeetingResponse(
-        id = id.toString(),
-        clubId = clubId.toString(),
-        date = date.toString(),
-        assignedMemberId = assignedMemberId?.toString(),
-    )
+private fun MeetingRow.toResponse() = MeetingResponse(
+    id = id.toString(),
+    clubId = clubId.toString(),
+    date = date.toString(),
+    assignedMemberId = assignedMemberId?.toString(),
+)

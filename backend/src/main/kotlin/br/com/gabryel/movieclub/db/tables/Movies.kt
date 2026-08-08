@@ -1,30 +1,28 @@
 package br.com.gabryel.movieclub.db.tables
 
-import br.com.gabryel.movieclub.db.DisplayTitlePreference
+import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
+import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.VarCharColumnType
 import org.jetbrains.exposed.v1.core.dao.id.UuidTable
 import org.jetbrains.exposed.v1.datetime.timestamp
+import org.jetbrains.exposed.v1.json.jsonb
 
+/** Global movie catalog, deduplicated by [imdbId] -- every club that picks the same real movie shares this row. */
 object Movies : UuidTable("movies") {
-    val meetingId = reference("meeting_id", Meetings)
-    val chosenById = reference("chosen_by_id", Members)
-
-    val imdbId = varchar("imdb_id", 16)
+    val imdbId = varchar("imdb_id", 16).uniqueIndex()
     val tmdbId = varchar("tmdb_id", 16).nullable()
     val originalTitle = varchar("original_title", 512)
-    val englishTitle = varchar("english_title", 512).nullable()
-    val customTitle = varchar("custom_title", 512).nullable()
-    val displayTitlePreference = enumerationByName<DisplayTitlePreference>("display_title_preference", 16)
+    val alternativeTitles = jsonb<List<AlternativeTitle>>("alternative_titles", Json.Default)
 
     val year = integer("year").nullable()
     val director = varchar("director", 512).nullable()
     val runtimeMinutes = integer("runtime_minutes").nullable()
     val genre = array("genre", VarCharColumnType(255)).nullable()
-    val country = array("country", VarCharColumnType(255)).nullable()
+    val originCountry = array("origin_country", VarCharColumnType(255)).nullable()
+    val productionCountries = array("production_countries", VarCharColumnType(255)).nullable()
     val tmdbRating = decimal("tmdb_rating", precision = 4, scale = 1).nullable()
 
     val posterS3Key = varchar("poster_s3_key", 512).nullable()
-    val watchLink = varchar("watch_link", 2048).nullable()
     val metadataFetchedAt = timestamp("metadata_fetched_at").nullable()
     val createdAt = timestamp("created_at")
 }

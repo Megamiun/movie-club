@@ -3,11 +3,11 @@ package br.com.gabryel.movieclub.service
 import br.com.gabryel.movieclub.db.ClubRole
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
-import br.com.gabryel.movieclub.db.repositories.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
-import br.com.gabryel.movieclub.db.repositories.MeetingRow
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
-import br.com.gabryel.movieclub.db.repositories.MovieRow
+import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
+import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
+import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ConflictException
 import br.com.gabryel.movieclub.exception.ForbiddenException
@@ -44,7 +44,7 @@ class MeetingServiceTest {
     fun `createMeeting allows a null assigned member (empty slot)`() {
         every { clubService.requireMembership(clubId, memberId) } returns membership()
         val expected = meeting(assignedMemberId = null)
-        every { meetingRepository.create(clubId, date, null) } returns expected
+        every { meetingRepository.create(clubId, date) } returns expected
 
         assertEquals(expected, meetingService.createMeeting(clubId, memberId, date))
     }
@@ -53,12 +53,7 @@ class MeetingServiceTest {
     fun `createMeeting validates the assigned member belongs to the club`() {
         val assignedId = Uuid.random()
         every { clubService.requireMembership(clubId, memberId) } returns membership()
-        every {
-            clubService.requireMembership(
-                clubId,
-                assignedId,
-            )
-        } throws ForbiddenException("Not a member of this club")
+        every { clubService.requireMembership(clubId, assignedId) } throws ForbiddenException("Not a member of this club")
 
         assertFailsWith<ForbiddenException> { meetingService.createMeeting(clubId, memberId, date, assignedId) }
         verify(exactly = 0) { meetingRepository.create(any(), any(), any()) }
@@ -93,16 +88,11 @@ class MeetingServiceTest {
         every { meetingRepository.findById(meetingB.id) } returns meetingB
         every { clubService.requireMembership(any(), any()) } returns membership()
         every {
-            meetingRepository.updateAssignedMember(
-                meetingA.id,
-                memberB,
-            )
+            meetingRepository.updateAssignedMember(meetingA.id, memberB)
         } returns meetingA.copy(assignedMemberId = memberB)
+
         every {
-            meetingRepository.updateAssignedMember(
-                meetingB.id,
-                memberA,
-            )
+            meetingRepository.updateAssignedMember(meetingB.id, memberA)
         } returns meetingB.copy(assignedMemberId = memberA)
 
         val (updatedA, updatedB) = meetingService.swapAssignments(meetingA.id, meetingB.id, memberId)
@@ -122,7 +112,7 @@ class MeetingServiceTest {
         every { movieRepository.listByMeeting(from.id) } returns listOf(movie)
         every { movieRepository.updateMeeting(movie.id, into.id) } returns movie.copy(meetingId = into.id)
         every { meetingRepository.delete(from.id) } returns Unit
-        every { meetingRepository.updateAssignedMember(into.id, null) } returns into.copy(assignedMemberId = null)
+        every { meetingRepository.updateAssignedMember(into.id) } returns into.copy(assignedMemberId = null)
 
         val result = meetingService.mergeMeetings(into.id, from.id, memberId)
 
@@ -162,29 +152,14 @@ class MeetingServiceTest {
         assignedMemberId: Uuid? = null,
     ) = MeetingRow(id, clubId, date, assignedMemberId)
 
-    private fun movie(
-        id: Uuid = Uuid.random(),
-        meetingId: Uuid,
-        chosenById: Uuid = memberId,
-    ) = MovieRow(
+    private fun movie(id: Uuid = Uuid.random(), meetingId: Uuid, chosenById: Uuid = memberId) = MovieRow(
         id = id,
         meetingId = meetingId,
         chosenById = chosenById,
         imdbId = "tt0000000",
-        tmdbId = null,
         originalTitle = "A Movie",
-        englishTitle = null,
-        customTitle = null,
+        alternativeTitles = emptyList(),
         displayTitlePreference = ORIGINAL,
-        year = null,
-        director = null,
-        runtimeMinutes = null,
-        genre = null,
-        country = null,
-        tmdbRating = null,
-        posterS3Key = null,
-        watchLink = null,
-        metadataFetchedAt = null,
         createdAt = Clock.System.now(),
     )
 

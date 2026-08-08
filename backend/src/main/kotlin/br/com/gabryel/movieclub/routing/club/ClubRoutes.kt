@@ -1,7 +1,10 @@
-package br.com.gabryel.movieclub.routing
+package br.com.gabryel.movieclub.routing.club
 
 import br.com.gabryel.movieclub.db.ClubRole
 import br.com.gabryel.movieclub.exception.BadRequestException
+import br.com.gabryel.movieclub.routing.actingMemberId
+import br.com.gabryel.movieclub.routing.toUuidOrBadRequest
+import br.com.gabryel.movieclub.routing.uuidPathParam
 import br.com.gabryel.movieclub.service.ClubDetail
 import br.com.gabryel.movieclub.service.ClubService
 import io.ktor.http.HttpStatusCode.Companion.Created
@@ -90,7 +93,7 @@ fun Route.clubRoutes(clubService: ClubService) {
                     RatingScaleResponse(
                         scale.id.toString(),
                         scale.type.name,
-                        scale.options.map { RatingOptionResponse(it.id.toString(), it.label, it.position) },
+                        scale.options.map { RatingOptionResponse(it.id.toString(), it.label, it.position, it.color) },
                     )
                 },
             )
@@ -98,12 +101,11 @@ fun Route.clubRoutes(clubService: ClubService) {
     }
 }
 
-private fun ClubDetail.toDetailResponse() =
-    ClubDetailResponse(
-        id = id.toString(),
-        name = name,
-        members = members.map { ClubMemberResponse(it.memberId.toString(), it.role.name, it.rotationOrder) },
-    )
+private fun ClubDetail.toDetailResponse() = ClubDetailResponse(
+    id = id.toString(),
+    name = name,
+    members = members.map { ClubMemberResponse(it.memberId.toString(), it.role.name, it.rotationOrder) },
+)
 
-private fun String.toClubRoleOrBadRequest(): ClubRole =
-    ClubRole.entries.find { it.name == this } ?: throw BadRequestException("Invalid role: $this")
+private fun String.toClubRoleOrBadRequest() = ClubRole.entries
+    .find { it.name == this } ?: throw BadRequestException("Invalid role: $this")

@@ -1,7 +1,12 @@
-package br.com.gabryel.movieclub.routing
+package br.com.gabryel.movieclub.routing.movie
 
-import br.com.gabryel.movieclub.db.repositories.MovieReviewRow
-import br.com.gabryel.movieclub.db.repositories.MovieRow
+import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
+import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
+import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
+import br.com.gabryel.movieclub.routing.actingMemberId
+import br.com.gabryel.movieclub.routing.toDisplayTitlePreferenceOrBadRequest
+import br.com.gabryel.movieclub.routing.toUuidOrBadRequest
+import br.com.gabryel.movieclub.routing.uuidPathParam
 import br.com.gabryel.movieclub.service.MovieService
 import io.ktor.http.HttpStatusCode.Companion.Created
 import io.ktor.http.HttpStatusCode.Companion.NoContent
@@ -77,32 +82,33 @@ fun Route.movieRoutes(movieService: MovieService) {
     }
 }
 
-private fun MovieRow.toResponse() =
-    MovieResponse(
-        id = id.toString(),
-        meetingId = meetingId.toString(),
-        chosenById = chosenById.toString(),
-        imdbId = imdbId,
-        tmdbId = tmdbId,
-        originalTitle = originalTitle,
-        englishTitle = englishTitle,
-        customTitle = customTitle,
-        displayTitlePreference = displayTitlePreference.name,
-        year = year,
-        director = director,
-        runtimeMinutes = runtimeMinutes,
-        genre = genre,
-        country = country,
-        tmdbRating = tmdbRating?.toPlainString(),
-        posterS3Key = posterS3Key,
-        watchLink = watchLink,
-    )
+private fun MovieRow.toResponse() = MovieResponse(
+    id = id.toString(),
+    meetingId = meetingId.toString(),
+    chosenById = chosenById.toString(),
+    imdbId = imdbId,
+    tmdbId = tmdbId,
+    originalTitle = originalTitle,
+    alternativeTitles = alternativeTitles.map { it.toResponse() },
+    customTitle = customTitle,
+    displayTitlePreference = displayTitlePreference.name,
+    year = year,
+    director = director,
+    runtimeMinutes = runtimeMinutes,
+    genre = genre,
+    originCountry = originCountry,
+    productionCountries = productionCountries,
+    tmdbRating = tmdbRating?.toPlainString(),
+    posterS3Key = posterS3Key,
+    watchLink = watchLink,
+)
 
-private fun MovieReviewRow.toResponse() =
-    MovieReviewResponse(
-        movieId = movieId.toString(),
-        memberId = memberId.toString(),
-        qualityOptionId = qualityOptionId?.toString(),
-        sentimentOptionId = sentimentOptionId?.toString(),
-        comment = comment,
-    )
+private fun AlternativeTitle.toResponse() = AlternativeTitleResponse(isoCode, title, type)
+
+private fun MovieReviewRow.toResponse() = MovieReviewResponse(
+    movieId = movieId.toString(),
+    memberId = memberId.toString(),
+    qualityOptionId = qualityOptionId?.toString(),
+    sentimentOptionId = sentimentOptionId?.toString(),
+    comment = comment,
+)

@@ -7,27 +7,14 @@ import io.ktor.http.HttpStatusCode.Companion.Forbidden
 import io.ktor.http.HttpStatusCode.Companion.NotFound
 import io.ktor.http.HttpStatusCode.Companion.Unauthorized
 
-sealed class DomainException(
-    message: String,
-    val status: HttpStatusCode,
-) : Exception(message)
+sealed class DomainException(message: String, val status: HttpStatusCode) : Exception(message)
 
-class BadRequestException(
-    message: String,
-) : DomainException(message, BadRequest)
+class BadRequestException(message: String) : DomainException(message, BadRequest)
 
-class ForbiddenException(
-    message: String,
-) : DomainException(message, Forbidden)
+class ForbiddenException(message: String) : DomainException(message, Forbidden)
 
-class ConflictException(
-    message: String,
-) : DomainException(message, Conflict)
+class ConflictException(message: String) : DomainException(message, Conflict)
 
-class UnauthorizedException(
-    message: String,
-) : DomainException(message, Unauthorized)
+class UnauthorizedException(message: String) : DomainException(message, Unauthorized)
 
-class NotFoundException(
-    message: String,
-) : DomainException(message, NotFound)
+class NotFoundException(message: String) : DomainException(message, NotFound)

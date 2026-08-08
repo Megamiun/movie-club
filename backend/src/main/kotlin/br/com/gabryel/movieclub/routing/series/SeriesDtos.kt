@@ -1,5 +1,6 @@
-package br.com.gabryel.movieclub.routing
+package br.com.gabryel.movieclub.routing.series
 
+import br.com.gabryel.movieclub.routing.movie.AlternativeTitleResponse
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -21,12 +22,13 @@ internal data class SeriesResponse(
     val imdbId: String,
     val tmdbId: String?,
     val originalTitle: String,
-    val englishTitle: String?,
+    val alternativeTitles: List<AlternativeTitleResponse>,
     val customTitle: String?,
     val displayTitlePreference: String,
     val year: Int?,
     val genre: List<String>?,
-    val country: List<String>?,
+    val originCountry: List<String>?,
+    val productionCountries: List<String>?,
     val tmdbRating: String?,
     val creator: String?,
     val posterS3Key: String?,
@@ -54,17 +56,11 @@ internal data class AddEpisodeRequest(
 )
 
 @Serializable
-internal data class AssignEpisodeMeetingRequest(
-    val meetingId: String? = null,
-)
-
-@Serializable
 internal data class EpisodeResponse(
     val id: String,
     val seasonId: String,
     val number: Int,
     val title: String?,
-    val meetingId: String?,
     val airDate: String?,
     val overview: String?,
     val runtimeMinutes: Int?,

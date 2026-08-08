@@ -4,6 +4,7 @@ val ktorVersion = "3.5.0"
 val exposedVersion = "1.3.1"
 val kotlinVersion = "2.4.10"
 val flywayVersion = "12.10.0"
+val testcontainersVersion = "2.0.5"
 
 plugins {
     kotlin("jvm") version "2.4.10"
@@ -48,6 +49,7 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-dao:$exposedVersion")
     implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
     implementation("org.jetbrains.exposed:exposed-kotlin-datetime:$exposedVersion")
+    implementation("org.jetbrains.exposed:exposed-json:$exposedVersion")
 
     // Database
     implementation("org.postgresql:postgresql:42.7.7")
@@ -74,6 +76,7 @@ dependencies {
     testImplementation("io.ktor:ktor-server-test-host-jvm:$ktorVersion")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlinVersion")
     testImplementation("io.mockk:mockk:1.13.14")
+    testImplementation("org.testcontainers:testcontainers-postgresql:$testcontainersVersion")
 }
 
 tasks.withType<ShadowJar> {

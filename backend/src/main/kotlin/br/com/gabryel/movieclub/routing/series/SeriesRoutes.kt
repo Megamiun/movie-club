@@ -1,11 +1,17 @@
-package br.com.gabryel.movieclub.routing
+package br.com.gabryel.movieclub.routing.series
 
-import br.com.gabryel.movieclub.db.repositories.EpisodeReviewRow
-import br.com.gabryel.movieclub.db.repositories.EpisodeRow
-import br.com.gabryel.movieclub.db.repositories.SeasonReviewRow
-import br.com.gabryel.movieclub.db.repositories.SeasonRow
-import br.com.gabryel.movieclub.db.repositories.SeriesReviewRow
-import br.com.gabryel.movieclub.db.repositories.SeriesRow
+import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
+import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
+import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
+import br.com.gabryel.movieclub.db.repositories.dto.SeasonReviewRow
+import br.com.gabryel.movieclub.db.repositories.dto.SeasonRow
+import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
+import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
+import br.com.gabryel.movieclub.routing.actingMemberId
+import br.com.gabryel.movieclub.routing.movie.AlternativeTitleResponse
+import br.com.gabryel.movieclub.routing.toDisplayTitlePreferenceOrBadRequest
+import br.com.gabryel.movieclub.routing.toUuidOrBadRequest
+import br.com.gabryel.movieclub.routing.uuidPathParam
 import br.com.gabryel.movieclub.service.EpisodeService
 import br.com.gabryel.movieclub.service.SeasonService
 import br.com.gabryel.movieclub.service.SeriesService
@@ -14,6 +20,7 @@ import io.ktor.server.auth.authenticate
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
@@ -111,12 +118,20 @@ fun Route.seriesRoutes(seriesService: SeriesService, seasonService: SeasonServic
             call.respond(episode.toResponse())
         }
 
-        patch("/episodes/{episodeId}") {
-            val body = call.receive<AssignEpisodeMeetingRequest>()
+        post("/episodes/{episodeId}/meetings/{meetingId}") {
             val episode = episodeService.assignToMeeting(
                 call.uuidPathParam("episodeId"),
                 call.actingMemberId(),
-                body.meetingId?.toUuidOrBadRequest(),
+                call.uuidPathParam("meetingId"),
+            )
+            call.respond(episode.toResponse())
+        }
+
+        delete("/episodes/{episodeId}/meetings/{meetingId}") {
+            val episode = episodeService.unassignFromMeeting(
+                call.uuidPathParam("episodeId"),
+                call.actingMemberId(),
+                call.uuidPathParam("meetingId"),
             )
             call.respond(episode.toResponse())
         }
@@ -140,64 +155,61 @@ fun Route.seriesRoutes(seriesService: SeriesService, seasonService: SeasonServic
     }
 }
 
-private fun SeriesRow.toResponse() =
-    SeriesResponse(
-        id = id.toString(),
-        clubId = clubId.toString(),
-        chosenById = chosenById.toString(),
-        imdbId = imdbId,
-        tmdbId = tmdbId,
-        originalTitle = originalTitle,
-        englishTitle = englishTitle,
-        customTitle = customTitle,
-        displayTitlePreference = displayTitlePreference.name,
-        year = year,
-        genre = genre,
-        country = country,
-        tmdbRating = tmdbRating?.toPlainString(),
-        creator = creator,
-        posterS3Key = posterS3Key,
-    )
+private fun SeriesRow.toResponse() = SeriesResponse(
+    id = id.toString(),
+    clubId = clubId.toString(),
+    chosenById = chosenById.toString(),
+    imdbId = imdbId,
+    tmdbId = tmdbId,
+    originalTitle = originalTitle,
+    alternativeTitles = alternativeTitles.map { it.toResponse() },
+    customTitle = customTitle,
+    displayTitlePreference = displayTitlePreference.name,
+    year = year,
+    genre = genre,
+    originCountry = originCountry,
+    productionCountries = productionCountries,
+    tmdbRating = tmdbRating?.toPlainString(),
+    creator = creator,
+    posterS3Key = posterS3Key,
+)
+
+private fun AlternativeTitle.toResponse() = AlternativeTitleResponse(isoCode, title, type)
 
 private fun SeasonRow.toResponse() = SeasonResponse(id.toString(), seriesId.toString(), number, title)
 
-private fun EpisodeRow.toResponse() =
-    EpisodeResponse(
-        id = id.toString(),
-        seasonId = seasonId.toString(),
-        number = number,
-        title = title,
-        meetingId = meetingId?.toString(),
-        airDate = airDate?.toString(),
-        overview = overview,
-        runtimeMinutes = runtimeMinutes,
-        director = director,
-        tmdbRating = tmdbRating?.toPlainString(),
-    )
+private fun EpisodeRow.toResponse() = EpisodeResponse(
+    id = id.toString(),
+    seasonId = seasonId.toString(),
+    number = number,
+    title = title,
+    airDate = airDate?.toString(),
+    overview = overview,
+    runtimeMinutes = runtimeMinutes,
+    director = director,
+    tmdbRating = tmdbRating?.toPlainString(),
+)
 
-private fun SeriesReviewRow.toResponse() =
-    SeriesReviewResponse(
-        seriesId.toString(),
-        memberId.toString(),
-        qualityOptionId?.toString(),
-        sentimentOptionId?.toString(),
-        comment,
-    )
+private fun SeriesReviewRow.toResponse() = SeriesReviewResponse(
+    seriesId.toString(),
+    memberId.toString(),
+    qualityOptionId?.toString(),
+    sentimentOptionId?.toString(),
+    comment,
+)
 
-private fun SeasonReviewRow.toResponse() =
-    SeasonReviewResponse(
-        seasonId.toString(),
-        memberId.toString(),
-        qualityOptionId?.toString(),
-        sentimentOptionId?.toString(),
-        comment,
-    )
+private fun SeasonReviewRow.toResponse() = SeasonReviewResponse(
+    seasonId.toString(),
+    memberId.toString(),
+    qualityOptionId?.toString(),
+    sentimentOptionId?.toString(),
+    comment,
+)
 
-private fun EpisodeReviewRow.toResponse() =
-    EpisodeReviewResponse(
-        episodeId.toString(),
-        memberId.toString(),
-        qualityOptionId?.toString(),
-        sentimentOptionId?.toString(),
-        comment,
-    )
+private fun EpisodeReviewRow.toResponse() = EpisodeReviewResponse(
+    episodeId.toString(),
+    memberId.toString(),
+    qualityOptionId?.toString(),
+    sentimentOptionId?.toString(),
+    comment,
+)

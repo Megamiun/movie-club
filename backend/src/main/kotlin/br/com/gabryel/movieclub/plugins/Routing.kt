@@ -1,12 +1,12 @@
 package br.com.gabryel.movieclub.plugins
 
-import br.com.gabryel.movieclub.routing.authRoutes
-import br.com.gabryel.movieclub.routing.clubRoutes
-import br.com.gabryel.movieclub.routing.importRoutes
-import br.com.gabryel.movieclub.routing.meetingRoutes
-import br.com.gabryel.movieclub.routing.movieRoutes
-import br.com.gabryel.movieclub.routing.seriesRoutes
-import br.com.gabryel.movieclub.routing.watchlistRoutes
+import br.com.gabryel.movieclub.routing.auth.authRoutes
+import br.com.gabryel.movieclub.routing.club.clubRoutes
+import br.com.gabryel.movieclub.routing.import.importRoutes
+import br.com.gabryel.movieclub.routing.meeting.meetingRoutes
+import br.com.gabryel.movieclub.routing.movie.movieRoutes
+import br.com.gabryel.movieclub.routing.series.seriesRoutes
+import br.com.gabryel.movieclub.routing.watchlist.watchlistRoutes
 import br.com.gabryel.movieclub.service.ClubService
 import br.com.gabryel.movieclub.service.EpisodeService
 import br.com.gabryel.movieclub.service.MeetingService

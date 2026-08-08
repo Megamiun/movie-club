@@ -1,9 +1,9 @@
 package br.com.gabryel.movieclub.service
 
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
-import br.com.gabryel.movieclub.db.repositories.ClubMembershipRow
-import br.com.gabryel.movieclub.db.repositories.WatchlistEntryRow
 import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
+import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
+import br.com.gabryel.movieclub.db.repositories.dto.WatchlistEntryRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
@@ -35,8 +35,9 @@ class WatchlistServiceTest {
     @Test
     fun `addEntry creates an entry owned by the acting member`() {
         every { clubService.requireMembership(clubId, memberId) } returns membership()
+
         val expected = entry()
-        every { watchlistRepository.create(clubId, memberId, "Dune", null, null) } returns expected
+        every { watchlistRepository.create(clubId, memberId, "Dune") } returns expected
 
         assertEquals(expected, watchlistService.addEntry(clubId, memberId, "Dune"))
     }
@@ -45,6 +46,7 @@ class WatchlistServiceTest {
     fun `updateEntry throws ForbiddenException when acting member is not the owner`() {
         val entryId = Uuid.random()
         val ownerId = Uuid.random()
+
         every { watchlistRepository.findById(entryId) } returns entry(id = entryId, memberId = ownerId)
         every { clubService.requireMembership(clubId, memberId) } returns membership()
 
@@ -57,8 +59,9 @@ class WatchlistServiceTest {
         val entryId = Uuid.random()
         every { watchlistRepository.findById(entryId) } returns entry(id = entryId, memberId = memberId)
         every { clubService.requireMembership(clubId, memberId) } returns membership()
+
         val updated = entry(id = entryId, memberId = memberId, title = "New title")
-        every { watchlistRepository.update(entryId, "New title", null, null) } returns updated
+        every { watchlistRepository.update(entryId, "New title") } returns updated
 
         assertEquals(updated, watchlistService.updateEntry(entryId, memberId, title = "New title"))
     }
@@ -74,6 +77,7 @@ class WatchlistServiceTest {
     @Test
     fun `listEntries returns entries visible to any club member, not just owners`() {
         every { clubService.requireMembership(clubId, memberId) } returns membership()
+
         val entries = listOf(entry(memberId = Uuid.random()), entry(memberId = memberId))
         every { watchlistRepository.listByClub(clubId) } returns entries
 
@@ -82,9 +86,6 @@ class WatchlistServiceTest {
 
     private fun membership() = ClubMembershipRow(clubId, memberId, MEMBER, 0, Clock.System.now())
 
-    private fun entry(
-        id: Uuid = Uuid.random(),
-        memberId: Uuid = this.memberId,
-        title: String = "Dune",
-    ) = WatchlistEntryRow(id, clubId, memberId, title, null, null, Clock.System.now())
+    private fun entry(id: Uuid = Uuid.random(), memberId: Uuid = this.memberId, title: String = "Dune") =
+        WatchlistEntryRow(id, clubId, memberId, title, createdAt = Clock.System.now())
 }

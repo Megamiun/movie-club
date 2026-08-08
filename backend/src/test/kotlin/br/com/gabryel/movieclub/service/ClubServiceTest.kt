@@ -3,9 +3,10 @@ package br.com.gabryel.movieclub.service
 import br.com.gabryel.movieclub.db.ClubRole
 import br.com.gabryel.movieclub.db.ClubRole.ADMIN
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
-import br.com.gabryel.movieclub.db.repositories.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.ClubRepository
 import br.com.gabryel.movieclub.db.repositories.RatingScaleRepository
+import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
+import br.com.gabryel.movieclub.db.repositories.dto.ClubRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
@@ -97,6 +98,7 @@ class ClubServiceTest {
             membership(rotationOrder = 0),
             membership(rotationOrder = 1),
         )
+
         val expected = membership(memberId = targetId, role = MEMBER, rotationOrder = 2)
         every { clubRepository.addMember(clubId, targetId, MEMBER, 2) } returns expected
 
@@ -169,12 +171,8 @@ class ClubServiceTest {
         verify { clubRepository.updateRotationOrder(clubId, memberA, 1) }
     }
 
-    private fun clubRow() = br.com.gabryel.movieclub.db.repositories
-        .ClubRow(clubId, "Movie Club", Clock.System.now())
+    private fun clubRow() = ClubRow(clubId, "Movie Club", Clock.System.now())
 
-    private fun membership(
-        memberId: Uuid = this.memberId,
-        role: ClubRole = MEMBER,
-        rotationOrder: Int = 0,
-    ) = ClubMembershipRow(clubId, memberId, role, rotationOrder, Clock.System.now())
+    private fun membership(memberId: Uuid = this.memberId, role: ClubRole = MEMBER, rotationOrder: Int = 0) =
+        ClubMembershipRow(clubId, memberId, role, rotationOrder, Clock.System.now())
 }

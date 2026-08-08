@@ -3,6 +3,9 @@ package br.com.gabryel.movieclub.db.repositories
 import br.com.gabryel.movieclub.db.RatingScaleType
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
+import br.com.gabryel.movieclub.db.repositories.dto.RatingScaleRow
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedClubRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedRatingScaleRepository
 import br.com.gabryel.movieclub.db.tables.ClubMembers
 import br.com.gabryel.movieclub.db.tables.Clubs
 import br.com.gabryel.movieclub.db.tables.Members
@@ -11,7 +14,6 @@ import br.com.gabryel.movieclub.db.tables.RatingScales
 import br.com.gabryel.movieclub.service.ClubService
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -28,13 +30,9 @@ import kotlin.uuid.Uuid
  * Verifies the nested-transaction assumption ClubService.createClub relies on: the service opens one
  * outer `transaction {}` and repository calls join it, so a failure partway through must leave nothing
  * committed. Every other test in this codebase mocks its repositories; this one deliberately talks to a
- * real Postgres (the local docker-compose `db` service) because that assumption can't be verified with mocks.
+ * real (fresh, throwaway) Postgres because that assumption can't be verified with mocks.
  */
 class ClubRepositoryIntegrationTest {
-    init {
-        TestDatabase.ensureConnected()
-    }
-
     private val clubRepository = ExposedClubRepository()
     private val insertedMemberIds = mutableListOf<Uuid>()
 
@@ -91,9 +89,7 @@ class ClubRepositoryIntegrationTest {
             result[Members.id].value
         }.also { insertedMemberIds.add(it) }
 
-    private class FailingAfterFirstScale(
-        private val delegate: RatingScaleRepository,
-    ) : RatingScaleRepository by delegate {
+    private class FailingAfterFirstScale(private val delegate: RatingScaleRepository) : RatingScaleRepository by delegate {
         override fun createScale(clubId: Uuid, type: RatingScaleType): RatingScaleRow {
             if (type == SENTIMENT) error("Simulated failure seeding the sentiment scale")
             return delegate.createScale(clubId, type)
@@ -102,22 +98,9 @@ class ClubRepositoryIntegrationTest {
 
     companion object {
         private const val TEST_CLUB_NAME = "Atomicity Test Club"
-    }
-}
 
-private object TestDatabase {
-    @Volatile
-    private var connected = false
-
-    @Synchronized
-    fun ensureConnected() {
-        if (connected) return
-        Database.connect(
-            url = "jdbc:postgresql://localhost:5432/movieclub",
-            driver = "org.postgresql.Driver",
-            user = "postgres",
-            password = "postgres",
-        )
-        connected = true
+        init {
+            TestDatabase.startFresh()
+        }
     }
 }

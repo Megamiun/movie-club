@@ -1,4 +1,4 @@
-package br.com.gabryel.movieclub.routing
+package br.com.gabryel.movieclub.routing.auth
 
 import br.com.gabryel.movieclub.service.MemberService
 import br.com.gabryel.movieclub.service.auth.JwtService
@@ -9,10 +9,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 
-fun Route.authRoutes(
-    jwtService: JwtService,
-    memberService: MemberService,
-) {
+fun Route.authRoutes(jwtService: JwtService, memberService: MemberService) {
     post("/auth/register") {
         val body = call.receive<RegisterRequest>()
         val member = memberService.register(body.inviteToken, body.name, body.password)
