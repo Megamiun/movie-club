@@ -1,6 +1,6 @@
 package br.com.gabryel.movieclub.db.tables
 
-import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
+import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.VarCharColumnType
 import org.jetbrains.exposed.v1.core.dao.id.UuidTable
@@ -12,7 +12,8 @@ object Movies : UuidTable("movies") {
     val imdbId = varchar("imdb_id", 16).uniqueIndex()
     val tmdbId = varchar("tmdb_id", 16).nullable()
     val originalTitle = varchar("original_title", 512)
-    val alternativeTitles = jsonb<List<AlternativeTitle>>("alternative_titles", Json.Default)
+    val originalLanguage = varchar("original_language", 8).nullable()
+    val translations = jsonb<List<Translation>>("translations", Json.Default)
 
     val year = integer("year").nullable()
     val director = varchar("director", 512).nullable()

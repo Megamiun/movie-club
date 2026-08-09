@@ -250,7 +250,7 @@ class ClubServiceTest {
         verify { ratingScaleRepository.updateOptionPosition(optionA, 1) }
     }
 
-    private fun clubRow() = ClubRow(clubId, "Movie Club", Clock.System.now())
+    private fun clubRow() = ClubRow(clubId, "Movie Club", createdAt = Clock.System.now())
 
     private fun membership(memberId: Uuid = this.memberId, role: ClubRole = MEMBER, rotationOrder: Int = 0) =
         ClubMembershipRow(clubId, memberId, role, rotationOrder, Clock.System.now())

@@ -19,6 +19,9 @@ export const clubsApi = {
   updateRotation: (clubId: string, memberIds: string[]) =>
     api.put<void>(`/clubs/${clubId}/rotation`, { memberIds }),
 
+  updateLanguagePreferences: (clubId: string, preferredLanguages: string[], ignoredLanguages: string[]) =>
+    api.patch<ClubDetail>(`/clubs/${clubId}/language-preferences`, { preferredLanguages, ignoredLanguages }),
+
   getRatingScales: (clubId: string) => api.get<RatingScale[]>(`/clubs/${clubId}/rating-scales`),
 
   updateRatingOption: (clubId: string, optionId: string, body: { label?: string; color?: string }) =>

@@ -382,7 +382,7 @@ class ImportServiceTest {
         chosenById = personA,
         imdbId = "tt2911666",
         originalTitle = "John Wick",
-        alternativeTitles = emptyList(),
+        translations = emptyList(),
         displayTitlePreference = ORIGINAL,
         year = 2014,
         createdAt = Clock.System.now(),
@@ -395,7 +395,7 @@ class ImportServiceTest {
         chosenById = personA,
         imdbId = "tt0903747",
         originalTitle = "Breaking Bad",
-        alternativeTitles = emptyList(),
+        translations = emptyList(),
         displayTitlePreference = ORIGINAL,
         createdAt = Clock.System.now(),
     )

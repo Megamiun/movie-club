@@ -2,6 +2,7 @@ package br.com.gabryel.movieclub.service
 
 import br.com.gabryel.movieclub.db.DisplayTitlePreference
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.CUSTOM
+import br.com.gabryel.movieclub.db.DisplayTitlePreference.LANGUAGE
 import br.com.gabryel.movieclub.db.MediaItemType.SERIES
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
@@ -143,12 +144,15 @@ class SeriesService(
         actingMemberId: Uuid,
         customTitle: String? = null,
         preference: DisplayTitlePreference,
+        languageCode: String? = null,
     ): SeriesRow {
         requireSeriesAccess(seriesId, actingMemberId)
         if (preference == CUSTOM && customTitle.isNullOrBlank())
             throw BadRequestException("customTitle is required when preference is CUSTOM")
+        if (preference == LANGUAGE && languageCode.isNullOrBlank())
+            throw BadRequestException("languageCode is required when preference is LANGUAGE")
 
-        return seriesRepository.updateDisplayTitle(seriesId, customTitle, preference)
+        return seriesRepository.updateDisplayTitle(seriesId, customTitle, preference, languageCode)
     }
 
     /** Reviews are keyed by the *global* series id (one review per member per series, shared across whichever

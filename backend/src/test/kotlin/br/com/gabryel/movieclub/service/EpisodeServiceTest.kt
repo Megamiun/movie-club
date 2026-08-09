@@ -6,13 +6,13 @@ import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
-import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeasonRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
+import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
@@ -186,7 +186,7 @@ class EpisodeServiceTest {
         imdbId = "tt0903747",
         tmdbId = "1396",
         originalTitle = "Breaking Bad",
-        alternativeTitles = listOf(AlternativeTitle("US", "Breaking Bad")),
+        translations = listOf(Translation("en", "US", "English", "Breaking Bad")),
         displayTitlePreference = ORIGINAL,
         year = 2008,
         createdAt = Clock.System.now(),

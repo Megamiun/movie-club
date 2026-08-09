@@ -29,3 +29,14 @@
 - [x] Separate Series and Movies watchlist in the UI
 - [ ] Add a movie tab where you can search for movies outside a meeting, with a button to add to a meeting or to the wishlist
 - [ ] When adding a series episode to a meeting, try to suggest next episode of current series
+- [x] Allow Club to have a list of ranked preferred languages
+- [x] Allow Club to have a list of ignored languages
+- [x] Instead of keeping alternative titles, use translations field, which calls translations API
+  - `Movie`/`Series` now store `translations` (TMDB's per-language `/translations` endpoint, via `append_to_response`) instead of `alternative_titles` (per-country); also added `originalLanguage`
+- [x] Allow Clubs to default to:
+  - [x] first available preferred language, or original if unavailable
+  - [x] use original title, unless in ignored languages
+  - Resolution (`resolveTitle` in `frontend/src/utils/title.ts`) runs client-side, not server-side — it's a pure display concern that only depends on data already in the API response (translations + club's language lists), so it didn't need threading through every read path in `MovieService`/`SeriesService`
+- [x] Allow Clubs to change the exhibition language for a certain media
+  - [x] do that by clicking an language icon in the details page, where you will open a dialog, where you may select any translation
+  - `DisplayTitlePreference` is now `ORIGINAL | CUSTOM | LANGUAGE` (dropped `ENGLISH`, which was never actually resolved anywhere — `LANGUAGE` + a per-pick `displayLanguageCode` is a strict superset); `LanguagePickerDialog` component reused by both `MovieSection` and `SeriesDetailPage`

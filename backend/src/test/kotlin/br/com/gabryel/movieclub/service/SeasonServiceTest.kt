@@ -4,11 +4,11 @@ import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
-import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeasonReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeasonRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
+import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
 import io.mockk.every
@@ -80,7 +80,7 @@ class SeasonServiceTest {
         imdbId = "tt0903747",
         tmdbId = "1396",
         originalTitle = "Breaking Bad",
-        alternativeTitles = listOf(AlternativeTitle("US", "Breaking Bad")),
+        translations = listOf(Translation("en", "US", "English", "Breaking Bad")),
         displayTitlePreference = ORIGINAL,
         year = 2008,
         createdAt = Clock.System.now(),

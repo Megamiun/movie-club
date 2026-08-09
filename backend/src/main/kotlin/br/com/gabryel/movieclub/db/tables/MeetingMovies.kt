@@ -13,6 +13,7 @@ object MeetingMovies : UuidTable("meeting_movies") {
 
     val customTitle = varchar("custom_title", 512).nullable()
     val displayTitlePreference = enumerationByName<DisplayTitlePreference>("display_title_preference", 16)
+    val displayLanguageCode = varchar("display_language_code", 8).nullable()
     val watchLink = varchar("watch_link", 2048).nullable()
     val createdAt = timestamp("created_at")
 

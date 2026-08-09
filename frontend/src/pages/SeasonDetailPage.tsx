@@ -23,6 +23,7 @@ import type { Episode, RatingScale } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { RatingForm } from '../components/RatingForm'
 import { useAsync } from '../hooks/useAsync'
+import { resolveTitle } from '../utils/title'
 
 export function SeasonDetailPage() {
   const { seasonId } = useParams<{ seasonId: string }>()
@@ -31,6 +32,9 @@ export function SeasonDetailPage() {
 
   const { data: episodes, loading, error, reload } = useAsync(() => seasonsApi.listEpisodes(seasonId!), [seasonId])
   const { data: series } = useAsync(() => (seriesId ? seriesApi.get(seriesId) : Promise.resolve(null)), [seriesId])
+  const { data: club } = useAsync(() => (series ? clubsApi.get(series.clubId) : Promise.resolve(null)), [
+    series?.clubId,
+  ])
   const { data: scales } = useAsync(
     () => (series ? clubsApi.getRatingScales(series.clubId) : Promise.resolve([])),
     [series?.clubId],
@@ -64,7 +68,7 @@ export function SeasonDetailPage() {
       <AsyncState loading={loading} error={error}>
         {series && (
           <Button component={RouterLink} to={`/series/${series.id}`} sx={{ mb: 2 }}>
-            &larr; Back to {series.customTitle ?? series.originalTitle}
+            &larr; Back to {resolveTitle(series, club ?? { preferredLanguages: [], ignoredLanguages: [] })}
           </Button>
         )}
         <Typography variant="h4" gutterBottom>

@@ -23,21 +23,25 @@ import { moviesApi } from '../../api/movies'
 import { ApiError } from '../../api/client'
 import type { ClubMember, Movie, RatingScale, TmdbSearchResult } from '../../api/types'
 import { AsyncState } from '../../components/AsyncState'
+import { LanguagePickerDialog } from '../../components/LanguagePickerDialog'
 import { RatingForm } from '../../components/RatingForm'
 import { ReviewsList } from '../../components/ReviewsList'
 import { TmdbSearchAutocomplete } from '../../components/TmdbSearchAutocomplete'
 import { useAsync } from '../../hooks/useAsync'
 import { memberName } from '../../utils/members'
 import { ratingLabel } from '../../utils/rating'
+import { resolveTitle, type LanguagePreferences } from '../../utils/title'
 
 export function MovieSection({
   meetingId,
   scales,
   members,
+  languagePrefs,
 }: {
   meetingId: string
   scales: RatingScale[]
   members: ClubMember[]
+  languagePrefs: LanguagePreferences
 }) {
   const { data: movies, loading, error, reload } = useAsync(() => moviesApi.list(meetingId), [meetingId])
   const [addMode, setAddMode] = useState<'search' | 'imdb'>('search')
@@ -75,7 +79,14 @@ export function MovieSection({
         <Stack spacing={1}>
           {movies?.length === 0 && <Typography color="text.secondary">No movies picked yet.</Typography>}
           {movies?.map((movie) => (
-            <MovieItem key={movie.id} movie={movie} scales={scales} members={members} onChange={reload} />
+            <MovieItem
+              key={movie.id}
+              movie={movie}
+              scales={scales}
+              members={members}
+              languagePrefs={languagePrefs}
+              onChange={reload}
+            />
           ))}
         </Stack>
       </AsyncState>
@@ -134,25 +145,39 @@ function MovieItem({
   movie,
   scales,
   members,
+  languagePrefs,
   onChange,
 }: {
   movie: Movie
   scales: RatingScale[]
   members: ClubMember[]
+  languagePrefs: LanguagePreferences
   onChange: () => void
 }) {
   const { data: reviews, reload: reloadReviews } = useAsync(() => moviesApi.listReviews(movie.id), [movie.id])
   const [customTitle, setCustomTitle] = useState(movie.customTitle ?? '')
-  const [preference, setPreference] = useState(movie.displayTitlePreference)
+  const [preference, setPreference] = useState<'ORIGINAL' | 'CUSTOM'>(
+    movie.displayTitlePreference === 'CUSTOM' ? 'CUSTOM' : 'ORIGINAL',
+  )
   const [watchLink, setWatchLink] = useState(movie.watchLink ?? '')
   const [error, setError] = useState<string | null>(null)
 
-  const title = movie.customTitle ?? movie.originalTitle
+  const title = resolveTitle(movie, languagePrefs)
 
   const handleSaveDetails = async () => {
     setError(null)
     try {
       await moviesApi.update(movie.id, { customTitle: customTitle || undefined, preference, watchLink: watchLink || undefined })
+      onChange()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  const handlePickLanguage = async (languageCode: string) => {
+    setError(null)
+    try {
+      await moviesApi.update(movie.id, { preference: 'LANGUAGE', languageCode })
       onChange()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -191,6 +216,9 @@ function MovieItem({
           <Typography sx={{ flexGrow: 1 }}>{title}</Typography>
           {movie.year && <Chip size="small" label={movie.year} />}
           {ratingLabel(movie) && <Chip size="small" label={ratingLabel(movie)} />}
+          {movie.displayTitlePreference === 'LANGUAGE' && movie.displayLanguageCode && (
+            <Chip size="small" label={movie.displayLanguageCode} />
+          )}
         </Stack>
       </AccordionSummary>
       <AccordionDetails>
@@ -214,11 +242,19 @@ function MovieItem({
               value={customTitle}
               onChange={(e) => setCustomTitle(e.target.value)}
             />
-            <Select size="small" value={preference} onChange={(e) => setPreference(e.target.value)}>
+            <Select
+              size="small"
+              value={preference}
+              onChange={(e) => setPreference(e.target.value as 'ORIGINAL' | 'CUSTOM')}
+            >
               <MenuItem value="ORIGINAL">ORIGINAL</MenuItem>
-              <MenuItem value="ENGLISH">ENGLISH</MenuItem>
               <MenuItem value="CUSTOM">CUSTOM</MenuItem>
             </Select>
+            <LanguagePickerDialog
+              translations={movie.translations}
+              selectedLanguageCode={movie.displayTitlePreference === 'LANGUAGE' ? movie.displayLanguageCode : null}
+              onSelect={handlePickLanguage}
+            />
             <TextField label="Watch link" size="small" value={watchLink} onChange={(e) => setWatchLink(e.target.value)} />
             <Button size="small" variant="outlined" onClick={handleSaveDetails}>
               Save

@@ -25,7 +25,15 @@ internal data class ClubMemberResponse(
 internal data class ClubDetailResponse(
     val id: String,
     val name: String,
+    val preferredLanguages: List<String>,
+    val ignoredLanguages: List<String>,
     val members: List<ClubMemberResponse>,
+)
+
+@Serializable
+internal data class UpdateLanguagePreferencesRequest(
+    val preferredLanguages: List<String>,
+    val ignoredLanguages: List<String>,
 )
 
 @Serializable

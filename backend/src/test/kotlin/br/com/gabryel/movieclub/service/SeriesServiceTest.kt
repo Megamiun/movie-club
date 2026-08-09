@@ -2,6 +2,7 @@ package br.com.gabryel.movieclub.service
 
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.CUSTOM
+import br.com.gabryel.movieclub.db.DisplayTitlePreference.LANGUAGE
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
 import br.com.gabryel.movieclub.db.MediaItemType.SERIES
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
@@ -9,13 +10,13 @@ import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
-import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeasonRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
+import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.service.omdb.OmdbClient
@@ -97,7 +98,7 @@ class SeriesServiceTest {
                     metadata = match {
                         it.tmdbId == "1396" &&
                             it.originalTitle == "Breaking Bad" &&
-                            it.alternativeTitles == emptyList<AlternativeTitle>() &&
+                            it.translations == emptyList<Translation>() &&
                             it.year == 2008 &&
                             it.genre == emptyList<String>() &&
                             it.originCountry == emptyList<String>() &&
@@ -202,6 +203,17 @@ class SeriesServiceTest {
 
         assertFailsWith<BadRequestException> {
             seriesService.updateDisplayTitle(seriesId, memberId, preference = CUSTOM)
+        }
+    }
+
+    @Test
+    fun `updateDisplayTitle throws BadRequestException when LANGUAGE has no languageCode`() {
+        val seriesId = Uuid.random()
+        every { seriesRepository.findById(seriesId) } returns series(id = seriesId)
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+        assertFailsWith<BadRequestException> {
+            seriesService.updateDisplayTitle(seriesId, memberId, preference = LANGUAGE)
         }
     }
 
@@ -343,7 +355,7 @@ class SeriesServiceTest {
         imdbId = "tt0903747",
         tmdbId = "1396",
         originalTitle = "Breaking Bad",
-        alternativeTitles = listOf(AlternativeTitle("US", "Breaking Bad")),
+        translations = listOf(Translation("en", "US", "English", "Breaking Bad")),
         displayTitlePreference = ORIGINAL,
         year = 2008,
         genre = listOf("Drama", "Crime"),

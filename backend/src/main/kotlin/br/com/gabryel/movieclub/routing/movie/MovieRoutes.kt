@@ -1,8 +1,8 @@
 package br.com.gabryel.movieclub.routing.movie
 
-import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
+import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.routing.actingMemberId
 import br.com.gabryel.movieclub.routing.toDisplayTitlePreferenceOrBadRequest
@@ -60,6 +60,7 @@ fun Route.movieRoutes(movieService: MovieService) {
                     actingMemberId,
                     body.customTitle,
                     body.preference.toDisplayTitlePreferenceOrBadRequest(),
+                    body.languageCode,
                 )
             }
             if (body.watchLink != null) {
@@ -104,9 +105,11 @@ private fun MovieRow.toResponse() = MovieResponse(
     imdbId = imdbId,
     tmdbId = tmdbId,
     originalTitle = originalTitle,
-    alternativeTitles = alternativeTitles.map { it.toResponse() },
+    originalLanguage = originalLanguage,
+    translations = translations.map { it.toResponse() },
     customTitle = customTitle,
     displayTitlePreference = displayTitlePreference.name,
+    displayLanguageCode = displayLanguageCode,
     year = year,
     director = director,
     runtimeMinutes = runtimeMinutes,
@@ -119,7 +122,7 @@ private fun MovieRow.toResponse() = MovieResponse(
     watchLink = watchLink,
 )
 
-private fun AlternativeTitle.toResponse() = AlternativeTitleResponse(isoCode, title, type)
+private fun Translation.toResponse() = TranslationResponse(languageCode, countryCode, englishName, title)
 
 private fun TmdbMovieSearchItem.toResponse() = MovieSearchResultResponse(
     tmdbId = id.toString(),

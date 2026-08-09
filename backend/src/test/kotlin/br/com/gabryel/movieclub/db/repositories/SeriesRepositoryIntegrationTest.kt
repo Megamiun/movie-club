@@ -129,7 +129,7 @@ class SeriesRepositoryIntegrationTest {
     private fun metadata(originalTitle: String = "Breaking Bad") = TmdbSeriesMetadata(
         tmdbId = "1396",
         originalTitle = originalTitle,
-        alternativeTitles = emptyList(),
+        translations = emptyList(),
         year = 2008,
         genre = listOf("Drama", "Crime"),
         originCountry = listOf("US"),

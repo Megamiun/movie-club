@@ -24,10 +24,21 @@ class ExposedClubRepository : ClubRepository {
     override fun create(name: String): ClubRow = transaction {
         val result = Clubs.insert {
             it[Clubs.name] = name
+            it[Clubs.preferredLanguages] = emptyList()
+            it[Clubs.ignoredLanguages] = emptyList()
             it[Clubs.createdAt] = Clock.System.now()
         }
         toClubRow(result.resultedValues!!.single())
     }
+
+    override fun updateLanguagePreferences(clubId: Uuid, preferredLanguages: List<String>, ignoredLanguages: List<String>): ClubRow =
+        transaction {
+            Clubs.update({ Clubs.id eq clubId }) {
+                it[Clubs.preferredLanguages] = preferredLanguages
+                it[Clubs.ignoredLanguages] = ignoredLanguages
+            }
+            findById(clubId)!!
+        }
 
     override fun findById(id: Uuid): ClubRow? = transaction {
         Clubs
@@ -103,6 +114,8 @@ class ExposedClubRepository : ClubRepository {
     private fun toClubRow(row: ResultRow) = ClubRow(
         id = row[Clubs.id].value,
         name = row[Clubs.name],
+        preferredLanguages = row[Clubs.preferredLanguages],
+        ignoredLanguages = row[Clubs.ignoredLanguages],
         createdAt = row[Clubs.createdAt],
     )
 

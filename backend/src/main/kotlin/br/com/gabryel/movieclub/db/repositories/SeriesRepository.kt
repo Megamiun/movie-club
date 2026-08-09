@@ -20,7 +20,12 @@ interface SeriesRepository {
      * to check directly since they're shared across every club following the series. */
     fun findClubSeriesForMember(seriesId: Uuid, memberId: Uuid): SeriesRow?
 
-    fun updateDisplayTitle(seriesId: Uuid, customTitle: String? = null, preference: DisplayTitlePreference): SeriesRow
+    fun updateDisplayTitle(
+        seriesId: Uuid,
+        customTitle: String? = null,
+        preference: DisplayTitlePreference,
+        displayLanguageCode: String? = null,
+    ): SeriesRow
 
     fun updateTmdbMetadata(seriesId: Uuid, metadata: TmdbSeriesMetadata, mediaItemId: Uuid? = null): SeriesRow
 

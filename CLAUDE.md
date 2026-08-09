@@ -70,6 +70,9 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Has two configurable rating scales: **quality** and **sentiment**
 - Default quality scale: Excepcional!, Muito bom, Bom, Regular, Ruim, Horrível
 - Default sentiment scale: Adorei, Gostei!, Ambivalente, Indiferente, Desgostei, Detestei
+- Has `preferred_languages` (ordered ISO 639-1 codes, ranked) and `ignored_languages` (unordered) — used to resolve a
+  display title for any Movie/Series pick that's left at the default `ORIGINAL` preference (see Movie below); both
+  default to empty, admin-only to edit (`PATCH /clubs/{clubId}/language-preferences`)
 
 ### Member
 
@@ -116,14 +119,25 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Added via IMDB URL → extract `tt` ID → TMDB API fetch, or via title search (`GET /movies/search`, picks by
   `tmdb_id`) — either path resolves through TMDB, so either way the catalog row also gets a linked MediaItem (see
   above)
-- Cached TMDB metadata (on the catalog row): `original_title`, `alternative_titles` (list of per-country titles from
-  TMDB, replaces the old single `english_title` — each entry has a country code, the title, and TMDB's own `type`
-  classification like "working title"/"festival title", blank/omitted types stored as `null`), year, director, runtime,
-  genre, `origin_country`, `production_countries` (a second, distinct country list — TMDB's full production-country
-  objects, not just origin codes), TMDB rating, IMDB rating (via OMDb, see MediaItem above), poster (stored in S3),
+- Cached TMDB metadata (on the catalog row): `original_title`, `original_language` (ISO 639-1), `translations` (TMDB's
+  per-language `/translations` endpoint, fetched via `append_to_response` — each entry has a language code, country
+  code, TMDB's English name for that language, and the translated title; entries with no title override are dropped,
+  see `TmdbTranslations.toTranslations`. Replaces the old per-country `alternative_titles`, which was keyed the wrong
+  way for language-based resolution and is gone entirely, not kept alongside), year, director, runtime, genre,
+  `origin_country`, `production_countries` (a second, distinct country list — TMDB's full production-country objects,
+  not just origin codes), TMDB rating, IMDB rating (via OMDb, see MediaItem above), poster (stored in S3),
   `metadata_fetched_at`.
-  `display_title_preference` (ORIGINAL|ENGLISH|CUSTOM, default ORIGINAL) lives on the pick row; resolving what "ENGLISH"
-  means from `alternative_titles` isn't done server-side yet.
+  `display_title_preference` (ORIGINAL|CUSTOM|LANGUAGE, default ORIGINAL) lives on the pick row, alongside
+  `display_language_code` (set only when preference is LANGUAGE — a language icon on the movie/series detail view
+  opens a dialog listing that item's `translations` to pick from). Resolving ORIGINAL/CUSTOM/LANGUAGE into an actual
+  display string is a pure client-side function (`resolveTitle` in `frontend/src/utils/title.ts`), not done
+  server-side — it only needs data already in the API response (the pick's own fields + the club's language lists),
+  so there was no reason to thread it through every read path in `MovieService`/`SeriesService`. Algorithm: LANGUAGE
+  wins if set and a matching translation exists; else try the club's `preferred_languages` in rank order (skipping any
+  that are also `ignored_languages`), first match wins; else fall back to the original title, unless the original's
+  own language is itself ignored, in which case fall back to any non-ignored translation before finally giving up and
+  showing the original title anyway. (ENGLISH used to be a third preference value but was dropped — it was never
+  actually resolved anywhere server-side or client-side; LANGUAGE + `display_language_code` is a strict superset)
 - Metadata can be manually refreshed (for unreleased films with missing fields) — refreshing from any one pick updates
   the shared catalog row for every other pick of the same movie
 - Separate "where to watch" link (e.g. HBO, Netflix, magnet link) — per-meeting-pick, not global
@@ -147,9 +161,11 @@ enforces those automatically. This section is for conventions ktlint can't check
   series/season/episode regardless of which club they watched it through; any club sharing that entity sees the same
   rating. This is the opposite of Movie's per-pick reviews, deliberately: Movie supports rewatch-and-re-review,
   Series/Season/Episode assume a linear, watched-once progression
-- Series cached TMDB metadata: `original_title`, `alternative_titles`, year, genre, `origin_country`,
+- Series cached TMDB metadata: `original_title`, `original_language`, `translations`, year, genre, `origin_country`,
   `production_countries`, TMDB rating, IMDB rating (via OMDb, see MediaItem above), creator, poster,
-  `metadata_fetched_at` — no director/runtime (those are per-episode, not per-series)
+  `metadata_fetched_at` — no director/runtime (those are per-episode, not per-series). Same `translations`/
+  `display_title_preference`/`display_language_code`/client-side resolution as Movie (see above) — `ClubSeries` has
+  its own `display_language_code` column, separate from `MeetingMovies`'
 - Adding a series through the UI (by IMDB URL or by `tmdb_id` via title search — `SeriesService.addSeries` /
   `addSeriesByTmdbId`) immediately triggers `importSeasonsAndEpisodes` best-effort, instead of leaving Season/Episode
   empty until someone visits `SeasonDetailPage` and adds them one at a time. CSV import already did this explicitly

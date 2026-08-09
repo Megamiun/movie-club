@@ -10,6 +10,8 @@ interface ClubRepository {
 
     fun findById(id: Uuid): ClubRow?
 
+    fun updateLanguagePreferences(clubId: Uuid, preferredLanguages: List<String>, ignoredLanguages: List<String>): ClubRow
+
     fun addMember(clubId: Uuid, memberId: Uuid, role: ClubRole, rotationOrder: Int): ClubMembershipRow
 
     fun findMembership(clubId: Uuid, memberId: Uuid): ClubMembershipRow?

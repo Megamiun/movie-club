@@ -2,6 +2,7 @@ package br.com.gabryel.movieclub.service
 
 import br.com.gabryel.movieclub.db.DisplayTitlePreference
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.CUSTOM
+import br.com.gabryel.movieclub.db.DisplayTitlePreference.LANGUAGE
 import br.com.gabryel.movieclub.db.MediaItemType.MOVIE
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
@@ -117,12 +118,15 @@ class MovieService(
         actingMemberId: Uuid,
         customTitle: String? = null,
         preference: DisplayTitlePreference,
+        languageCode: String? = null,
     ): MovieRow {
         requireMovieAccess(movieId, actingMemberId)
         if (preference == CUSTOM && customTitle.isNullOrBlank())
             throw BadRequestException("customTitle is required when preference is CUSTOM")
+        if (preference == LANGUAGE && languageCode.isNullOrBlank())
+            throw BadRequestException("languageCode is required when preference is LANGUAGE")
 
-        return movieRepository.updateDisplayTitle(movieId, customTitle, preference)
+        return movieRepository.updateDisplayTitle(movieId, customTitle, preference, languageCode)
     }
 
     fun updateWatchLink(movieId: Uuid, actingMemberId: Uuid, watchLink: String? = null): MovieRow {

@@ -48,6 +48,8 @@ export interface EpisodeSearchResult {
 export interface ClubDetail {
   id: string
   name: string
+  preferredLanguages: string[]
+  ignoredLanguages: string[]
   members: ClubMember[]
 }
 
@@ -71,11 +73,14 @@ export interface Meeting {
   assignedMemberId: string | null
 }
 
-export interface AlternativeTitle {
-  isoCode: string
+export interface Translation {
+  languageCode: string
+  countryCode: string
+  englishName: string
   title: string
-  type: string | null
 }
+
+export type DisplayTitlePreference = 'ORIGINAL' | 'CUSTOM' | 'LANGUAGE'
 
 export interface Movie {
   id: string
@@ -84,9 +89,11 @@ export interface Movie {
   imdbId: string
   tmdbId: string | null
   originalTitle: string
-  alternativeTitles: AlternativeTitle[]
+  originalLanguage: string | null
+  translations: Translation[]
   customTitle: string | null
-  displayTitlePreference: string
+  displayTitlePreference: DisplayTitlePreference
+  displayLanguageCode: string | null
   year: number | null
   director: string | null
   runtimeMinutes: number | null
@@ -114,9 +121,11 @@ export interface Series {
   imdbId: string
   tmdbId: string | null
   originalTitle: string
-  alternativeTitles: AlternativeTitle[]
+  originalLanguage: string | null
+  translations: Translation[]
   customTitle: string | null
-  displayTitlePreference: string
+  displayTitlePreference: DisplayTitlePreference
+  displayLanguageCode: string | null
   year: number | null
   genre: string[] | null
   originCountry: string[] | null

@@ -1,6 +1,5 @@
 package br.com.gabryel.movieclub.routing.series
 
-import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeSearchRow
@@ -8,9 +7,10 @@ import br.com.gabryel.movieclub.db.repositories.dto.SeasonReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeasonRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
+import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.routing.actingMemberId
-import br.com.gabryel.movieclub.routing.movie.AlternativeTitleResponse
+import br.com.gabryel.movieclub.routing.movie.TranslationResponse
 import br.com.gabryel.movieclub.routing.toDisplayTitlePreferenceOrBadRequest
 import br.com.gabryel.movieclub.routing.toIntOrBadRequest
 import br.com.gabryel.movieclub.routing.toUuidOrBadRequest
@@ -75,6 +75,7 @@ fun Route.seriesRoutes(seriesService: SeriesService, seasonService: SeasonServic
                 call.actingMemberId(),
                 body.customTitle,
                 body.preference.toDisplayTitlePreferenceOrBadRequest(),
+                body.languageCode,
             )
             call.respond(series.toResponse())
         }
@@ -186,9 +187,11 @@ private fun SeriesRow.toResponse() = SeriesResponse(
     imdbId = imdbId,
     tmdbId = tmdbId,
     originalTitle = originalTitle,
-    alternativeTitles = alternativeTitles.map { it.toResponse() },
+    originalLanguage = originalLanguage,
+    translations = translations.map { it.toResponse() },
     customTitle = customTitle,
     displayTitlePreference = displayTitlePreference.name,
+    displayLanguageCode = displayLanguageCode,
     year = year,
     genre = genre,
     originCountry = originCountry,
@@ -199,7 +202,7 @@ private fun SeriesRow.toResponse() = SeriesResponse(
     posterS3Key = posterS3Key,
 )
 
-private fun AlternativeTitle.toResponse() = AlternativeTitleResponse(isoCode, title, type)
+private fun Translation.toResponse() = TranslationResponse(languageCode, countryCode, englishName, title)
 
 private fun TmdbTvSearchItem.toResponse() = SeriesSearchResultResponse(
     tmdbId = id.toString(),

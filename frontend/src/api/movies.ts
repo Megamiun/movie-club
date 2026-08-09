@@ -12,8 +12,10 @@ export const moviesApi = {
   addByTmdbId: (meetingId: string, tmdbId: string, watchLink?: string) =>
     api.post<Movie>(`/meetings/${meetingId}/movies`, { tmdbId, watchLink }),
 
-  update: (movieId: string, body: { customTitle?: string; preference?: string; watchLink?: string }) =>
-    api.patch<Movie>(`/movies/${movieId}`, body),
+  update: (
+    movieId: string,
+    body: { customTitle?: string; preference?: string; languageCode?: string; watchLink?: string },
+  ) => api.patch<Movie>(`/movies/${movieId}`, body),
 
   refreshMetadata: (movieId: string) => api.post<Movie>(`/movies/${movieId}/refresh-metadata`),
 

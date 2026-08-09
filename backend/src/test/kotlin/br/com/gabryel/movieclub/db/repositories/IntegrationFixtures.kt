@@ -26,6 +26,8 @@ internal object IntegrationFixtures {
     fun insertClub(): Uuid = transaction {
         Clubs.insert {
             it[Clubs.name] = "Integration Test Club ${Uuid.random()}"
+            it[Clubs.preferredLanguages] = emptyList()
+            it[Clubs.ignoredLanguages] = emptyList()
             it[Clubs.createdAt] = Clock.System.now()
         }[Clubs.id].value
     }
@@ -55,7 +57,7 @@ internal object IntegrationFixtures {
         Series.insert {
             it[Series.imdbId] = "tt${Uuid.random().toString().take(7)}"
             it[Series.originalTitle] = "Integration Test Series"
-            it[Series.alternativeTitles] = emptyList()
+            it[Series.translations] = emptyList()
             it[Series.createdAt] = Clock.System.now()
         }[Series.id].value
     }

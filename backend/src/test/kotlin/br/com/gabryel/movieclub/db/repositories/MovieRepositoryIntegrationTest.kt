@@ -115,7 +115,7 @@ class MovieRepositoryIntegrationTest {
     private fun metadata(originalTitle: String = "John Wick") = TmdbMovieMetadata(
         tmdbId = "245891",
         originalTitle = originalTitle,
-        alternativeTitles = emptyList(),
+        translations = emptyList(),
         year = 2014,
         director = "Chad Stahelski",
         runtimeMinutes = 101,

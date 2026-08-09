@@ -158,7 +158,7 @@ class MeetingServiceTest {
         chosenById = chosenById,
         imdbId = "tt0000000",
         originalTitle = "A Movie",
-        alternativeTitles = emptyList(),
+        translations = emptyList(),
         displayTitlePreference = ORIGINAL,
         createdAt = Clock.System.now(),
     )

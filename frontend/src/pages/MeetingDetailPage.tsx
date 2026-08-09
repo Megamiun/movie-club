@@ -124,7 +124,15 @@ export function MeetingDetailPage() {
             </Stack>
 
             <Divider sx={{ my: 3 }} />
-            <MovieSection meetingId={meeting.id} scales={scales ?? []} members={club?.members ?? []} />
+            <MovieSection
+              meetingId={meeting.id}
+              scales={scales ?? []}
+              members={club?.members ?? []}
+              languagePrefs={{
+                preferredLanguages: club?.preferredLanguages ?? [],
+                ignoredLanguages: club?.ignoredLanguages ?? [],
+              }}
+            />
             <Divider sx={{ my: 3 }} />
             <EpisodeSection meetingId={meeting.id} clubId={meeting.clubId} scales={scales ?? []} />
           </>

@@ -7,6 +7,12 @@ import kotlin.uuid.Uuid
 data class ClubRow(
     val id: Uuid,
     val name: String,
+    /** Ordered ISO 639-1 codes, ranked most-preferred first -- used to pick a translated title when a pick's
+     * [br.com.gabryel.movieclub.db.DisplayTitlePreference] is ORIGINAL (see [ignoredLanguages] for the other half
+     * of that resolution). */
+    val preferredLanguages: List<String> = emptyList(),
+    /** ISO 639-1 codes to never default to, even as the original-language title. */
+    val ignoredLanguages: List<String> = emptyList(),
     val createdAt: Instant,
 )
 

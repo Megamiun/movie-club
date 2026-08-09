@@ -74,14 +74,19 @@ class ExposedMovieRepository : MovieRepository {
         findById(movieId)!!
     }
 
-    override fun updateDisplayTitle(movieId: Uuid, customTitle: String?, preference: DisplayTitlePreference): MovieRow =
-        transaction {
-            MeetingMovies.update({ MeetingMovies.id eq movieId }) {
-                it[MeetingMovies.customTitle] = customTitle
-                it[MeetingMovies.displayTitlePreference] = preference
-            }
-            findById(movieId)!!
+    override fun updateDisplayTitle(
+        movieId: Uuid,
+        customTitle: String?,
+        preference: DisplayTitlePreference,
+        displayLanguageCode: String?,
+    ): MovieRow = transaction {
+        MeetingMovies.update({ MeetingMovies.id eq movieId }) {
+            it[MeetingMovies.customTitle] = customTitle
+            it[MeetingMovies.displayTitlePreference] = preference
+            it[MeetingMovies.displayLanguageCode] = displayLanguageCode
         }
+        findById(movieId)!!
+    }
 
     override fun updateWatchLink(movieId: Uuid, watchLink: String?): MovieRow = transaction {
         MeetingMovies.update({ MeetingMovies.id eq movieId }) {
@@ -187,9 +192,11 @@ class ExposedMovieRepository : MovieRepository {
         imdbId = row[Movies.imdbId],
         tmdbId = row[Movies.tmdbId],
         originalTitle = row[Movies.originalTitle],
-        alternativeTitles = row[Movies.alternativeTitles],
+        originalLanguage = row[Movies.originalLanguage],
+        translations = row[Movies.translations],
         customTitle = row[MeetingMovies.customTitle],
         displayTitlePreference = row[MeetingMovies.displayTitlePreference],
+        displayLanguageCode = row[MeetingMovies.displayLanguageCode],
         year = row[Movies.year],
         director = row[Movies.director],
         runtimeMinutes = row[Movies.runtimeMinutes],
@@ -219,7 +226,8 @@ class ExposedMovieRepository : MovieRepository {
 private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbMovieMetadata, mediaItemId: Uuid?) {
     this[Movies.tmdbId] = metadata.tmdbId
     this[Movies.originalTitle] = metadata.originalTitle
-    this[Movies.alternativeTitles] = metadata.alternativeTitles
+    this[Movies.originalLanguage] = metadata.originalLanguage
+    this[Movies.translations] = metadata.translations
     this[Movies.year] = metadata.year
     this[Movies.director] = metadata.director
     this[Movies.runtimeMinutes] = metadata.runtimeMinutes

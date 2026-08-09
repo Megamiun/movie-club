@@ -22,6 +22,8 @@ import kotlin.uuid.Uuid
 data class ClubDetail(
     val id: Uuid,
     val name: String,
+    val preferredLanguages: List<String>,
+    val ignoredLanguages: List<String>,
     val createdAt: Instant,
     val members: List<ClubMemberDetail>,
 )
@@ -68,7 +70,7 @@ class ClubService(
         seedScale(club.id, QUALITY, DEFAULT_QUALITY_LABELS)
         seedScale(club.id, SENTIMENT, DEFAULT_SENTIMENT_LABELS)
 
-        ClubDetail(club.id, club.name, club.createdAt, clubRepository.listMembers(club.id).map { it.toDetail() })
+        club.toDetail(clubRepository.listMembers(club.id).map { it.toDetail() })
     }
 
     private fun seedScale(clubId: Uuid, type: RatingScaleType, labels: List<String>) {
@@ -81,10 +83,21 @@ class ClubService(
     fun getClub(clubId: Uuid, actingMemberId: Uuid): ClubDetail {
         val club = clubRepository.findById(clubId) ?: throw NotFoundException("Club not found")
         requireMembership(clubId, actingMemberId)
-        return ClubDetail(club.id, club.name, club.createdAt, clubRepository.listMembers(clubId).map { it.toDetail() })
+        return club.toDetail(clubRepository.listMembers(clubId).map { it.toDetail() })
     }
 
     fun listMyClubs(memberId: Uuid): List<ClubRow> = clubRepository.listClubsForMember(memberId)
+
+    fun updateLanguagePreferences(
+        clubId: Uuid,
+        actingMemberId: Uuid,
+        preferredLanguages: List<String>,
+        ignoredLanguages: List<String>,
+    ): ClubDetail {
+        requireAdmin(clubId, actingMemberId)
+        val club = clubRepository.updateLanguagePreferences(clubId, preferredLanguages, ignoredLanguages)
+        return club.toDetail(clubRepository.listMembers(clubId).map { it.toDetail() })
+    }
 
     fun addMember(
         clubId: Uuid,
@@ -178,6 +191,9 @@ class ClubService(
         if (!ownsScale) throw BadRequestException("Rating option does not belong to this club")
         return option
     }
+
+    private fun ClubRow.toDetail(members: List<ClubMemberDetail>) =
+        ClubDetail(id, name, preferredLanguages, ignoredLanguages, createdAt, members)
 
     private fun ClubMembershipRow.toDetail() = ClubMemberDetail(memberId, resolveMemberName(memberId), role, rotationOrder)
 

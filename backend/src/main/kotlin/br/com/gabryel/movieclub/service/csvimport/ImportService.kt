@@ -106,7 +106,7 @@ class ImportService(
                     // fetches everything (title included) from TMDB, so this is only a placeholder until then
                     val placeholderMetadata = TmdbMovieMetadata(
                         originalTitle = imdbId,
-                        alternativeTitles = emptyList(),
+                        translations = emptyList(),
                     )
                     val inserted =
                         movieRepository.create(meeting.id, chosenById, imdbId, placeholderMetadata, watchLink = row.watchLink)
@@ -182,7 +182,7 @@ class ImportService(
                 created++
                 val csvMetadata = TmdbSeriesMetadata(
                     originalTitle = header.title,
-                    alternativeTitles = emptyList(),
+                    translations = emptyList(),
                 )
 
                 val inserted = seriesRepository.create(clubId, chosenById, imdbId, csvMetadata)

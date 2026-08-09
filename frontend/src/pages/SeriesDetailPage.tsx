@@ -7,21 +7,26 @@ import { seriesApi } from '../api/series'
 import { clubsApi } from '../api/clubs'
 import { ApiError } from '../api/client'
 import { AsyncState } from '../components/AsyncState'
+import { LanguagePickerDialog } from '../components/LanguagePickerDialog'
 import { RatingForm } from '../components/RatingForm'
 import { useAsync } from '../hooks/useAsync'
 import { ratingLabel } from '../utils/rating'
+import { resolveTitle } from '../utils/title'
 
 export function SeriesDetailPage() {
   const { seriesId } = useParams<{ seriesId: string }>()
   const { data: series, loading, error, reload } = useAsync(() => seriesApi.get(seriesId!), [seriesId])
   const { data: seasons, reload: reloadSeasons } = useAsync(() => seriesApi.listSeasons(seriesId!), [seriesId])
+  const { data: club } = useAsync(() => (series ? clubsApi.get(series.clubId) : Promise.resolve(null)), [
+    series?.clubId,
+  ])
   const { data: scales } = useAsync(
     () => (series ? clubsApi.getRatingScales(series.clubId) : Promise.resolve([])),
     [series?.clubId],
   )
 
   const [customTitle, setCustomTitle] = useState('')
-  const [preference, setPreference] = useState('ORIGINAL')
+  const [preference, setPreference] = useState<'ORIGINAL' | 'CUSTOM'>('ORIGINAL')
   const [seasonNumber, setSeasonNumber] = useState('')
   const [seasonTitle, setSeasonTitle] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
@@ -29,7 +34,7 @@ export function SeriesDetailPage() {
   useEffect(() => {
     if (series) {
       setCustomTitle(series.customTitle ?? '')
-      setPreference(series.displayTitlePreference)
+      setPreference(series.displayTitlePreference === 'CUSTOM' ? 'CUSTOM' : 'ORIGINAL')
     }
   }, [series])
 
@@ -37,6 +42,16 @@ export function SeriesDetailPage() {
     setActionError(null)
     try {
       await seriesApi.updateDisplayTitle(seriesId!, preference, customTitle || undefined)
+      reload()
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  const handlePickLanguage = async (languageCode: string) => {
+    setActionError(null)
+    try {
+      await seriesApi.updateDisplayTitle(seriesId!, 'LANGUAGE', undefined, languageCode)
       reload()
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -79,12 +94,15 @@ export function SeriesDetailPage() {
               &larr; Back to series
             </Button>
             <Typography variant="h4" gutterBottom>
-              {series.customTitle ?? series.originalTitle}
+              {resolveTitle(series, club ?? { preferredLanguages: [], ignoredLanguages: [] })}
             </Typography>
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
               {series.year && <Chip size="small" label={series.year} />}
               {series.creator && <Chip size="small" label={`Created by ${series.creator}`} />}
               {ratingLabel(series) && <Chip size="small" label={ratingLabel(series)} />}
+              {series.displayTitlePreference === 'LANGUAGE' && series.displayLanguageCode && (
+                <Chip size="small" label={series.displayLanguageCode} />
+              )}
             </Stack>
 
             {actionError && (
@@ -100,14 +118,22 @@ export function SeriesDetailPage() {
                 value={customTitle}
                 onChange={(e) => setCustomTitle(e.target.value)}
               />
-              <Select size="small" value={preference} onChange={(e) => setPreference(e.target.value)}>
+              <Select
+                size="small"
+                value={preference}
+                onChange={(e) => setPreference(e.target.value as 'ORIGINAL' | 'CUSTOM')}
+              >
                 <MenuItem value="ORIGINAL">ORIGINAL</MenuItem>
-                <MenuItem value="ENGLISH">ENGLISH</MenuItem>
                 <MenuItem value="CUSTOM">CUSTOM</MenuItem>
               </Select>
               <Button size="small" variant="outlined" onClick={handleUpdateTitle}>
                 Save title
               </Button>
+              <LanguagePickerDialog
+                translations={series.translations}
+                selectedLanguageCode={series.displayTitlePreference === 'LANGUAGE' ? series.displayLanguageCode : null}
+                onSelect={handlePickLanguage}
+              />
               <IconButton size="small" onClick={handleRefresh} title="Refresh metadata">
                 <RefreshIcon fontSize="small" />
               </IconButton>

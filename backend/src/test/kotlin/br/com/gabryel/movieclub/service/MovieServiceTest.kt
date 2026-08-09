@@ -2,18 +2,19 @@ package br.com.gabryel.movieclub.service
 
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.CUSTOM
+import br.com.gabryel.movieclub.db.DisplayTitlePreference.LANGUAGE
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
 import br.com.gabryel.movieclub.db.MediaItemType.MOVIE
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
-import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
+import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.service.omdb.OmdbClient
@@ -95,7 +96,7 @@ class MovieServiceTest {
                 metadata = match {
                     it.tmdbId == "411088" &&
                         it.originalTitle == "Contratiempo" &&
-                        it.alternativeTitles == emptyList<AlternativeTitle>() &&
+                        it.translations == emptyList<Translation>() &&
                         it.year == 2017 &&
                         it.director == null &&
                         it.runtimeMinutes == 107 &&
@@ -190,6 +191,18 @@ class MovieServiceTest {
     }
 
     @Test
+    fun `updateDisplayTitle throws BadRequestException when LANGUAGE has no languageCode`() {
+        val movieId = Uuid.random()
+        every { movieRepository.findById(movieId) } returns movie(id = movieId)
+        every { meetingRepository.findById(meetingId) } returns meeting()
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+        assertFailsWith<BadRequestException> {
+            movieService.updateDisplayTitle(movieId, memberId, preference = LANGUAGE)
+        }
+    }
+
+    @Test
     fun `requireMovieAccess denies non-members`() {
         val movieId = Uuid.random()
         every { movieRepository.findById(movieId) } returns movie(id = movieId)
@@ -210,7 +223,7 @@ class MovieServiceTest {
         imdbId = "tt4857264",
         tmdbId = "411088",
         originalTitle = "Contratiempo",
-        alternativeTitles = listOf(AlternativeTitle("US", "The Invisible Guest")),
+        translations = listOf(Translation("en", "US", "English", "The Invisible Guest")),
         displayTitlePreference = ORIGINAL,
         year = 2017,
         director = "Oriol Paulo",

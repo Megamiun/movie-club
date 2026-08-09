@@ -1,6 +1,6 @@
 package br.com.gabryel.movieclub.routing.series
 
-import br.com.gabryel.movieclub.routing.movie.AlternativeTitleResponse
+import br.com.gabryel.movieclub.routing.movie.TranslationResponse
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -32,6 +32,7 @@ internal data class EpisodeSearchResultResponse(
 internal data class UpdateSeriesRequest(
     val customTitle: String? = null,
     val preference: String,
+    val languageCode: String? = null,
 )
 
 @Serializable
@@ -42,9 +43,11 @@ internal data class SeriesResponse(
     val imdbId: String,
     val tmdbId: String?,
     val originalTitle: String,
-    val alternativeTitles: List<AlternativeTitleResponse>,
+    val originalLanguage: String?,
+    val translations: List<TranslationResponse>,
     val customTitle: String?,
     val displayTitlePreference: String,
+    val displayLanguageCode: String?,
     val year: Int?,
     val genre: List<String>?,
     val originCountry: List<String>?,

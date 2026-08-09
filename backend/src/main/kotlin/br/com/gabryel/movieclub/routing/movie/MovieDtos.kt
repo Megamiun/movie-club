@@ -22,6 +22,7 @@ internal data class MovieSearchResultResponse(
 internal data class UpdateMovieRequest(
     val customTitle: String? = null,
     val preference: String? = null,
+    val languageCode: String? = null,
     val watchLink: String? = null,
 )
 
@@ -33,10 +34,11 @@ internal data class RateMovieRequest(
 )
 
 @Serializable
-internal data class AlternativeTitleResponse(
-    val isoCode: String,
+internal data class TranslationResponse(
+    val languageCode: String,
+    val countryCode: String,
+    val englishName: String,
     val title: String,
-    val type: String?,
 )
 
 @Serializable
@@ -47,9 +49,11 @@ internal data class MovieResponse(
     val imdbId: String,
     val tmdbId: String?,
     val originalTitle: String,
-    val alternativeTitles: List<AlternativeTitleResponse>,
+    val originalLanguage: String?,
+    val translations: List<TranslationResponse>,
     val customTitle: String?,
     val displayTitlePreference: String,
+    val displayLanguageCode: String?,
     val year: Int?,
     val director: String?,
     val runtimeMinutes: Int?,

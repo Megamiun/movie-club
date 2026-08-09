@@ -21,8 +21,8 @@ export const seriesApi = {
 
   get: (seriesId: string) => api.get<Series>(`/series/${seriesId}`),
 
-  updateDisplayTitle: (seriesId: string, preference: string, customTitle?: string) =>
-    api.patch<Series>(`/series/${seriesId}`, { customTitle, preference }),
+  updateDisplayTitle: (seriesId: string, preference: string, customTitle?: string, languageCode?: string) =>
+    api.patch<Series>(`/series/${seriesId}`, { customTitle, preference, languageCode }),
 
   refreshMetadata: (seriesId: string) => api.post<Series>(`/series/${seriesId}/refresh-metadata`),
 

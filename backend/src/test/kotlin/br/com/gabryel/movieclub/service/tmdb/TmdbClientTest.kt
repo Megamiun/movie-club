@@ -1,6 +1,6 @@
 package br.com.gabryel.movieclub.service.tmdb
 
-import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
+import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.BadRequestException
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.Json
@@ -30,6 +30,7 @@ class TmdbClientTest {
         val details = TmdbMovieDetails(
             originalTitle = "John Wick",
             title = "John Wick",
+            originalLanguage = "en",
             releaseDate = "2014-10-24",
             runtime = 101,
             genres = listOf(TmdbGenre("Action"), TmdbGenre("Thriller")),
@@ -39,8 +40,10 @@ class TmdbClientTest {
             credits = TmdbCredits(
                 crew = listOf(TmdbCrewMember("Chad Stahelski", "Director"), TmdbCrewMember("Someone Else", "Writer")),
             ),
-            alternativeTitles = TmdbMovieAlternativeTitles(
-                titles = listOf(TmdbAlternativeTitleEntry("BR", "De Volta ao Jogo", "")),
+            translations = TmdbTranslations(
+                translations = listOf(
+                    TmdbTranslationEntry("BR", "pt", "Portuguese", TmdbTranslationData(title = "De Volta ao Jogo")),
+                ),
             ),
         )
 
@@ -48,6 +51,7 @@ class TmdbClientTest {
 
         assertEquals("245891", metadata.tmdbId)
         assertEquals("John Wick", metadata.originalTitle)
+        assertEquals("en", metadata.originalLanguage)
         assertEquals(2014, metadata.year)
         assertEquals("Chad Stahelski", metadata.director)
         assertEquals(101, metadata.runtimeMinutes)
@@ -55,18 +59,18 @@ class TmdbClientTest {
         assertEquals(listOf("US"), metadata.originCountry)
         assertEquals(listOf("United States of America"), metadata.productionCountries)
         assertEquals(BigDecimal("7.5"), metadata.tmdbRating)
-        assertEquals(listOf(AlternativeTitle("BR", "De Volta ao Jogo")), metadata.alternativeTitles)
+        assertEquals(listOf(Translation("pt", "BR", "Portuguese", "De Volta ao Jogo")), metadata.translations)
     }
 
     @Test
-    fun `TmdbMovieDetails toMetadata is null-safe when credits and alternative_titles are absent`() {
+    fun `TmdbMovieDetails toMetadata is null-safe when credits and translations are absent`() {
         val details = TmdbMovieDetails(originalTitle = "Untitled", title = "Untitled")
 
         val metadata = details.toMetadata(tmdbId = 1)
 
         assertNull(metadata.director)
         assertNull(metadata.year)
-        assertEquals(emptyList(), metadata.alternativeTitles)
+        assertEquals(emptyList(), metadata.translations)
     }
 
     @Test
@@ -74,14 +78,17 @@ class TmdbClientTest {
         val details = TmdbTvDetails(
             originalName = "Breaking Bad",
             name = "Breaking Bad",
+            originalLanguage = "en",
             firstAirDate = "2008-01-20",
             genres = listOf(TmdbGenre("Drama")),
             originCountry = listOf("US"),
             productionCountries = listOf(TmdbProductionCountry("US", "United States of America")),
             voteAverage = 8.9,
             createdBy = listOf(TmdbCreator("Vince Gilligan")),
-            alternativeTitles = TmdbTvAlternativeTitles(
-                results = listOf(TmdbAlternativeTitleEntry("BR", "A Química do Mal", "working title")),
+            translations = TmdbTranslations(
+                translations = listOf(
+                    TmdbTranslationEntry("BR", "pt", "Portuguese", TmdbTranslationData(name = "A Química do Mal")),
+                ),
             ),
         )
 
@@ -89,13 +96,14 @@ class TmdbClientTest {
 
         assertEquals("1396", metadata.tmdbId)
         assertEquals("Breaking Bad", metadata.originalTitle)
+        assertEquals("en", metadata.originalLanguage)
         assertEquals(2008, metadata.year)
         assertEquals("Vince Gilligan", metadata.creator)
         assertEquals(listOf("Drama"), metadata.genre)
         assertEquals(listOf("United States of America"), metadata.productionCountries)
         assertEquals(
-            listOf(AlternativeTitle("BR", "A Química do Mal", "working title")),
-            metadata.alternativeTitles,
+            listOf(Translation("pt", "BR", "Portuguese", "A Química do Mal")),
+            metadata.translations,
         )
     }
 
@@ -128,15 +136,22 @@ class TmdbClientTest {
     }
 
     @Test
-    fun `movie alternative_titles JSON nests under 'titles', tv nests under 'results'`() {
-        val movieJson = """{"titles":[{"iso_3166_1":"BR","title":"De Volta ao Jogo","type":""}]}"""
-        val tvJson = """{"results":[{"iso_3166_1":"BR","title":"A Química do Mal","type":""}]}"""
+    fun `toTranslations reads movie's data-title or tv's data-name, dropping entries with neither`() {
+        val translations = TmdbTranslations(
+            translations = listOf(
+                TmdbTranslationEntry("BR", "pt", "Portuguese", TmdbTranslationData(title = "De Volta ao Jogo")),
+                TmdbTranslationEntry("US", "en", "English", TmdbTranslationData(name = "John Wick")),
+                TmdbTranslationEntry("FR", "fr", "French", TmdbTranslationData()),
+            ),
+        )
 
-        val movieParsed = Json.decodeFromString<TmdbMovieAlternativeTitles>(movieJson)
-        val tvParsed = Json.decodeFromString<TmdbTvAlternativeTitles>(tvJson)
-
-        assertEquals("De Volta ao Jogo", movieParsed.titles.single().title)
-        assertEquals("A Química do Mal", tvParsed.results.single().title)
+        assertEquals(
+            listOf(
+                Translation("pt", "BR", "Portuguese", "De Volta ao Jogo"),
+                Translation("en", "US", "English", "John Wick"),
+            ),
+            translations.toTranslations(),
+        )
     }
 
     @Test

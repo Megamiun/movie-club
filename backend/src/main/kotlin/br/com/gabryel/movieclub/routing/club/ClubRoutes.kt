@@ -84,6 +84,17 @@ fun Route.clubRoutes(clubService: ClubService) {
             call.respond(NoContent)
         }
 
+        patch("/clubs/{clubId}/language-preferences") {
+            val body = call.receive<UpdateLanguagePreferencesRequest>()
+            val club = clubService.updateLanguagePreferences(
+                call.uuidPathParam("clubId"),
+                call.actingMemberId(),
+                body.preferredLanguages,
+                body.ignoredLanguages,
+            )
+            call.respond(club.toDetailResponse())
+        }
+
         put("/clubs/{clubId}/rotation") {
             val clubId = call.uuidPathParam("clubId")
             val body = call.receive<UpdateRotationRequest>()
@@ -137,6 +148,8 @@ fun Route.clubRoutes(clubService: ClubService) {
 private fun ClubDetail.toDetailResponse() = ClubDetailResponse(
     id = id.toString(),
     name = name,
+    preferredLanguages = preferredLanguages,
+    ignoredLanguages = ignoredLanguages,
     members = members.map { ClubMemberResponse(it.memberId.toString(), it.name, it.role.name, it.rotationOrder) },
 )
 

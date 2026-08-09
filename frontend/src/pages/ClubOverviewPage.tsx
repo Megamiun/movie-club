@@ -39,6 +39,7 @@ export function ClubOverviewPage() {
       <MembersSection club={club} refresh={reload} />
       <RotationSection club={club} />
       <RatingScalesSection clubId={club.id} />
+      <LanguagePreferencesSection club={club} />
     </Stack>
   )
 }
@@ -311,6 +312,164 @@ function RatingScaleCard({
         ))}
       </Stack>
     </Paper>
+  )
+}
+
+function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
+  const langKey = `${club.preferredLanguages.join(',')}|${club.ignoredLanguages.join(',')}`
+  const [preferred, setPreferred] = useState(club.preferredLanguages)
+  const [ignored, setIgnored] = useState(club.ignoredLanguages)
+  const [newPreferred, setNewPreferred] = useState('')
+  const [newIgnored, setNewIgnored] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    setPreferred(club.preferredLanguages)
+    setIgnored(club.ignoredLanguages)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [langKey])
+
+  const movePreferred = (index: number, direction: -1 | 1) => {
+    const target = index + direction
+    if (target < 0 || target >= preferred.length) return
+    const next = [...preferred]
+    ;[next[index], next[target]] = [next[target], next[index]]
+    setPreferred(next)
+    setSaved(false)
+  }
+
+  const addPreferred = (event: FormEvent) => {
+    event.preventDefault()
+    const code = newPreferred.trim().toLowerCase()
+    if (!code || preferred.includes(code)) return
+    setPreferred([...preferred, code])
+    setNewPreferred('')
+    setSaved(false)
+  }
+
+  const removePreferred = (code: string) => {
+    setPreferred(preferred.filter((c) => c !== code))
+    setSaved(false)
+  }
+
+  const addIgnored = (event: FormEvent) => {
+    event.preventDefault()
+    const code = newIgnored.trim().toLowerCase()
+    if (!code || ignored.includes(code)) return
+    setIgnored([...ignored, code])
+    setNewIgnored('')
+    setSaved(false)
+  }
+
+  const removeIgnored = (code: string) => {
+    setIgnored(ignored.filter((c) => c !== code))
+    setSaved(false)
+  }
+
+  const save = async () => {
+    setError(null)
+    try {
+      await clubsApi.updateLanguagePreferences(club.id, preferred, ignored)
+      setSaved(true)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  return (
+    <Box>
+      <Typography variant="h6" gutterBottom>
+        Language preferences
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        ISO 639-1 codes (e.g. "en", "pt") used to pick a display title for movies/series that don't have a custom
+        title or a specific language chosen.
+      </Typography>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      {saved && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaved(false)}>
+          Language preferences saved.
+        </Alert>
+      )}
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+        <Paper sx={{ p: 2, flex: 1 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Preferred (ranked, most preferred first)
+          </Typography>
+          <Stack spacing={1} sx={{ mb: 1 }}>
+            {preferred.length === 0 && (
+              <Typography color="text.secondary" variant="body2">
+                None set.
+              </Typography>
+            )}
+            {preferred.map((code, index) => (
+              <Stack key={code} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <Chip label={code} size="small" />
+                <Box sx={{ flexGrow: 1 }} />
+                <IconButton size="small" onClick={() => movePreferred(index, -1)} disabled={index === 0}>
+                  <ArrowUpwardIcon fontSize="small" />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  onClick={() => movePreferred(index, 1)}
+                  disabled={index === preferred.length - 1}
+                >
+                  <ArrowDownwardIcon fontSize="small" />
+                </IconButton>
+                <IconButton size="small" onClick={() => removePreferred(code)}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+            ))}
+          </Stack>
+          <Box component="form" onSubmit={addPreferred} sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              size="small"
+              label="Language code"
+              value={newPreferred}
+              onChange={(e) => setNewPreferred(e.target.value)}
+            />
+            <Button type="submit" variant="outlined">
+              Add
+            </Button>
+          </Box>
+        </Paper>
+        <Paper sx={{ p: 2, flex: 1 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Ignored (never default to these)
+          </Typography>
+          <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
+            {ignored.length === 0 && (
+              <Typography color="text.secondary" variant="body2">
+                None set.
+              </Typography>
+            )}
+            {ignored.map((code) => (
+              <Chip key={code} label={code} size="small" onDelete={() => removeIgnored(code)} />
+            ))}
+          </Stack>
+          <Box component="form" onSubmit={addIgnored} sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              size="small"
+              label="Language code"
+              value={newIgnored}
+              onChange={(e) => setNewIgnored(e.target.value)}
+            />
+            <Button type="submit" variant="outlined">
+              Add
+            </Button>
+          </Box>
+        </Paper>
+      </Stack>
+      <Button variant="contained" sx={{ mt: 2 }} onClick={save}>
+        Save language preferences
+      </Button>
+    </Box>
   )
 }
 

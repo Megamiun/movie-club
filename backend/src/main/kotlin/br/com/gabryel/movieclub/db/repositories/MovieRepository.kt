@@ -24,7 +24,12 @@ interface MovieRepository {
 
     fun updateMeeting(movieId: Uuid, newMeetingId: Uuid): MovieRow
 
-    fun updateDisplayTitle(movieId: Uuid, customTitle: String? = null, preference: DisplayTitlePreference): MovieRow
+    fun updateDisplayTitle(
+        movieId: Uuid,
+        customTitle: String? = null,
+        preference: DisplayTitlePreference,
+        displayLanguageCode: String? = null,
+    ): MovieRow
 
     fun updateWatchLink(movieId: Uuid, watchLink: String? = null): MovieRow
 

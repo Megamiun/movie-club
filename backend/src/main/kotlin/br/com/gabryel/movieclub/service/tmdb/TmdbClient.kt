@@ -1,9 +1,9 @@
 package br.com.gabryel.movieclub.service.tmdb
 
-import br.com.gabryel.movieclub.db.repositories.dto.AlternativeTitle
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbEpisodeMetadata
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbMovieMetadata
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
+import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.BadRequestException
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -108,36 +108,41 @@ data class TmdbProductionCountry(
     val name: String,
 )
 
+/** Movie's `data.title` and TV's `data.name` are the same concept (the translated title) under different keys --
+ * a genuine inconsistency in TMDB's own API, not a typo here. Both are optional: many translation entries only
+ * cover overview text, with no title override at all. */
 @Serializable
-data class TmdbAlternativeTitleEntry(
-    @SerialName("iso_3166_1") val isoCode: String,
-    val title: String,
-    val type: String = "",
+data class TmdbTranslationData(
+    val title: String? = null,
+    val name: String? = null,
 )
 
-/** Movie alternative-titles responses nest their list under `"titles"`; TV's nests under `"results"` (see
- * [TmdbTvAlternativeTitles]) -- a genuine inconsistency in TMDB's own API, not a typo here. */
 @Serializable
-data class TmdbMovieAlternativeTitles(
-    val titles: List<TmdbAlternativeTitleEntry> = emptyList(),
-) {
-    fun toAlternativeTitles(): List<AlternativeTitle> = titles.toAlternativeTitles()
-}
+data class TmdbTranslationEntry(
+    @SerialName("iso_3166_1") val countryCode: String,
+    @SerialName("iso_639_1") val languageCode: String,
+    @SerialName("english_name") val englishName: String,
+    val data: TmdbTranslationData,
+)
 
 @Serializable
-data class TmdbTvAlternativeTitles(
-    val results: List<TmdbAlternativeTitleEntry> = emptyList(),
+data class TmdbTranslations(
+    val translations: List<TmdbTranslationEntry> = emptyList(),
 ) {
-    fun toAlternativeTitles(): List<AlternativeTitle> = results.toAlternativeTitles()
+    /** Drops entries with no title override -- resolution only ever needs a language it can show a *title* in,
+     * not a fully-translated overview. */
+    fun toTranslations(): List<Translation> = translations.mapNotNull { entry ->
+        (entry.data.title ?: entry.data.name)?.takeIf(String::isNotBlank)?.let { title ->
+            Translation(entry.languageCode, entry.countryCode, entry.englishName, title)
+        }
+    }
 }
-
-private fun List<TmdbAlternativeTitleEntry>.toAlternativeTitles(): List<AlternativeTitle> =
-    map { AlternativeTitle(it.isoCode, it.title, it.type.takeIf(String::isNotBlank)) }
 
 @Serializable
 data class TmdbMovieDetails(
     @SerialName("original_title") val originalTitle: String,
     val title: String,
+    @SerialName("original_language") val originalLanguage: String? = null,
     @SerialName("release_date") val releaseDate: String? = null,
     val runtime: Int? = null,
     val genres: List<TmdbGenre> = emptyList(),
@@ -146,7 +151,7 @@ data class TmdbMovieDetails(
     @SerialName("vote_average") val voteAverage: Double? = null,
     @SerialName("poster_path") val posterPath: String? = null,
     val credits: TmdbCredits? = null,
-    @SerialName("alternative_titles") val alternativeTitles: TmdbMovieAlternativeTitles? = null,
+    val translations: TmdbTranslations? = null,
     @SerialName("external_ids") val externalIds: TmdbExternalIds? = null,
 ) {
     val year: Int? get() = releaseDate?.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull()
@@ -155,7 +160,8 @@ data class TmdbMovieDetails(
     fun toMetadata(tmdbId: Int, fetchedAt: Instant = Clock.System.now()) = TmdbMovieMetadata(
         tmdbId = tmdbId.toString(),
         originalTitle = originalTitle,
-        alternativeTitles = alternativeTitles?.toAlternativeTitles().orEmpty(),
+        originalLanguage = originalLanguage,
+        translations = translations?.toTranslations().orEmpty(),
         year = year,
         director = director,
         runtimeMinutes = runtime,
@@ -181,6 +187,7 @@ data class TmdbSeasonSummary(
 data class TmdbTvDetails(
     @SerialName("original_name") val originalName: String,
     val name: String,
+    @SerialName("original_language") val originalLanguage: String? = null,
     @SerialName("first_air_date") val firstAirDate: String? = null,
     val genres: List<TmdbGenre> = emptyList(),
     @SerialName("origin_country") val originCountry: List<String> = emptyList(),
@@ -188,7 +195,7 @@ data class TmdbTvDetails(
     @SerialName("vote_average") val voteAverage: Double? = null,
     @SerialName("poster_path") val posterPath: String? = null,
     @SerialName("created_by") val createdBy: List<TmdbCreator> = emptyList(),
-    @SerialName("alternative_titles") val alternativeTitles: TmdbTvAlternativeTitles? = null,
+    val translations: TmdbTranslations? = null,
     val seasons: List<TmdbSeasonSummary> = emptyList(),
     @SerialName("external_ids") val externalIds: TmdbExternalIds? = null,
 ) {
@@ -198,7 +205,8 @@ data class TmdbTvDetails(
     fun toMetadata(tmdbId: Int, fetchedAt: Instant = Clock.System.now()) = TmdbSeriesMetadata(
         tmdbId = tmdbId.toString(),
         originalTitle = originalName,
-        alternativeTitles = alternativeTitles?.toAlternativeTitles().orEmpty(),
+        originalLanguage = originalLanguage,
+        translations = translations?.toTranslations().orEmpty(),
         year = year,
         creator = creator,
         genre = genres.map { it.name },
@@ -255,13 +263,13 @@ class TmdbClient(private val accessToken: String) {
     suspend fun getMovieDetails(tmdbId: Int): TmdbMovieDetails =
         http.get("$BASE_URL/movie/$tmdbId") {
             authorized()
-            parameter("append_to_response", "credits,external_ids,alternative_titles")
+            parameter("append_to_response", "credits,external_ids,translations")
         }.body()
 
     suspend fun getTvDetails(tmdbId: Int): TmdbTvDetails =
         http.get("$BASE_URL/tv/$tmdbId") {
             authorized()
-            parameter("append_to_response", "alternative_titles,external_ids")
+            parameter("append_to_response", "translations,external_ids")
         }.body()
 
     suspend fun getEpisodeDetails(tvId: Int, seasonNumber: Int, episodeNumber: Int): TmdbEpisodeDetails =

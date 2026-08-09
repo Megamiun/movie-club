@@ -21,6 +21,7 @@ import { AsyncState } from '../components/AsyncState'
 import { TmdbSearchAutocomplete } from '../components/TmdbSearchAutocomplete'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
+import { resolveTitle } from '../utils/title'
 
 export function SeriesListPage() {
   const { club } = useOutletContext<ClubOutletContext>()
@@ -60,7 +61,7 @@ export function SeriesListPage() {
           {series?.map((s) => (
             <ListItemButton key={s.id} component={RouterLink} to={`/series/${s.id}`} divider>
               <ListItemText
-                primary={s.customTitle ?? s.originalTitle}
+                primary={resolveTitle(s, club)}
                 secondary={[s.year, s.creator].filter(Boolean).join(' · ')}
               />
             </ListItemButton>

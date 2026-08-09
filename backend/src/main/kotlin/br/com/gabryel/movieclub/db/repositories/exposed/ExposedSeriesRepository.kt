@@ -79,10 +79,12 @@ class ExposedSeriesRepository : SeriesRepository {
         seriesId: Uuid,
         customTitle: String?,
         preference: DisplayTitlePreference,
+        displayLanguageCode: String?,
     ): SeriesRow = transaction {
         ClubSeries.update({ ClubSeries.id eq seriesId }) {
             it[ClubSeries.customTitle] = customTitle
             it[ClubSeries.displayTitlePreference] = preference
+            it[ClubSeries.displayLanguageCode] = displayLanguageCode
         }
         findById(seriesId)!!
     }
@@ -170,9 +172,11 @@ class ExposedSeriesRepository : SeriesRepository {
         imdbId = row[Series.imdbId],
         tmdbId = row[Series.tmdbId],
         originalTitle = row[Series.originalTitle],
-        alternativeTitles = row[Series.alternativeTitles],
+        originalLanguage = row[Series.originalLanguage],
+        translations = row[Series.translations],
         customTitle = row[ClubSeries.customTitle],
         displayTitlePreference = row[ClubSeries.displayTitlePreference],
+        displayLanguageCode = row[ClubSeries.displayLanguageCode],
         year = row[Series.year],
         genre = row[Series.genre],
         originCountry = row[Series.originCountry],
@@ -200,7 +204,8 @@ class ExposedSeriesRepository : SeriesRepository {
 private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbSeriesMetadata, mediaItemId: Uuid?) {
     this[Series.tmdbId] = metadata.tmdbId
     this[Series.originalTitle] = metadata.originalTitle
-    this[Series.alternativeTitles] = metadata.alternativeTitles
+    this[Series.originalLanguage] = metadata.originalLanguage
+    this[Series.translations] = metadata.translations
     this[Series.year] = metadata.year
     this[Series.genre] = metadata.genre
     this[Series.originCountry] = metadata.originCountry
