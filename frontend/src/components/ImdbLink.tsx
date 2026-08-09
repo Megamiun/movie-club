@@ -1,12 +1,29 @@
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
-import { IconButton } from '@mui/material'
+import { IconButton, Link } from '@mui/material'
 
-export function ImdbLink({ imdbId }: { imdbId: string }) {
+export function ImdbLink({ imdbId, variant = 'icon' }: { imdbId: string; variant?: 'icon' | 'text' }) {
+  const href = `https://www.imdb.com/title/${imdbId}/`
+
+  if (variant === 'text') {
+    return (
+      <Link
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        underline="always"
+        variant="body2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        IMDB
+      </Link>
+    )
+  }
+
   return (
     <IconButton
       size="small"
       component="a"
-      href={`https://www.imdb.com/title/${imdbId}/`}
+      href={href}
       target="_blank"
       rel="noreferrer"
       title="Open on IMDB"

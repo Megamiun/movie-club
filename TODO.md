@@ -50,3 +50,23 @@
 - [ ] Add Move to Watchlist button in meeting
 - [ ] Add move to meeting button in Watchlist
 - [ ] Allow taking movies/episodes from one meeting to another via drag and drop
+- [ ] Give each member a color inside the club(editable)
+- [ ] Use this color and initials in the first column of the meetings table
+- [x] Use flag instead of country name(Show name over hover)
+  - Meetings list only (that's where country was shown). Emoji flag derived from `originCountry` ISO codes (regional-indicator-symbol trick, `frontend/src/utils/country.ts`) instead of the `productionCountries` name list; each flag has a `Tooltip` with the full name via `Intl.DisplayNames`
+- [ ] Totally delete TMDB rating field, only show IMDB
+  - [ ] No need to show IMDB in table
+- [ ] Make sure series/seasons/episodes are always linked to imdb items
+- [ ] Put ratings just after name of the series, use smaller font, make their size constant
+- [ ] Extra points: Try to join together both ratings in a single item, with a gradient from one color to the other
+  - If too hard of bad for reading, do an ellipse with the one half each color.
+- [x] Change from link icon to underlined in meetings list
+  - `ImdbLink` gained a `variant: 'icon' | 'text'` prop; meetings list uses `'text'`, everywhere else keeps the icon
+- [x] Limit genres to 2, followed by a "+ x", all are shown if hovered
+  - New `TruncatedList` component (`frontend/src/components/TruncatedList.tsx`), meetings list only for now
+- [x] Convert duration to format like '1h25m' or '45m'
+  - `frontend/src/utils/duration.ts`, meetings list only for now
+- [x] Only show year on meetings page, but allow to hover to see whole date
+  - Clarified: this was about episode air dates, not the meeting's own date. Episode rows show just the year (from `air_date` or the series' `year` as fallback), with the full `air_date` as a hover tooltip when known
+- [ ] Director should also link to imdb director page
+  - [ ] Also save them to DB, get from tmdb, save imdb id

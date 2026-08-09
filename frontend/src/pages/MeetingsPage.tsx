@@ -12,6 +12,7 @@ import {
   TableContainer,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import { Fragment, useState, type FormEvent } from 'react'
@@ -26,9 +27,12 @@ import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
 import { InlineRatingEditor } from '../components/InlineRatingEditor'
 import { MemberAutocomplete } from '../components/MemberAutocomplete'
+import { TruncatedList } from '../components/TruncatedList'
 import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
+import { countryFlag, countryName } from '../utils/country'
+import { formatDuration } from '../utils/duration'
 import { memberName } from '../utils/members'
 import { ratingLabel } from '../utils/rating'
 import { resolveTitle } from '../utils/title'
@@ -221,7 +225,7 @@ function MovieRow({
       <TableCell>
         <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
           <span>{resolveTitle(movie, club)}</span>
-          <ImdbLink imdbId={movie.imdbId} />
+          <ImdbLink imdbId={movie.imdbId} variant="text" />
         </Stack>
         {error && (
           <Typography variant="caption" color="error" display="block">
@@ -231,12 +235,12 @@ function MovieRow({
       </TableCell>
       <TableCell>{movie.year ?? '—'}</TableCell>
       <TableCell>{movie.director ?? '—'}</TableCell>
-      <TableCell>{movie.runtimeMinutes ? `${movie.runtimeMinutes}min` : '—'}</TableCell>
-      <TableCell>{movie.genre && movie.genre.length > 0 ? movie.genre.join(', ') : '—'}</TableCell>
+      <TableCell>{movie.runtimeMinutes ? formatDuration(movie.runtimeMinutes) : '—'}</TableCell>
       <TableCell>
-        {movie.productionCountries && movie.productionCountries.length > 0
-          ? movie.productionCountries.join(', ')
-          : '—'}
+        <TruncatedList items={movie.genre ?? []} />
+      </TableCell>
+      <TableCell>
+        <CountryFlags codes={movie.originCountry} />
       </TableCell>
       <TableCell>{ratingLabel(movie) ?? '—'}</TableCell>
       {club.members.map((clubMember) => {
@@ -284,6 +288,7 @@ function EpisodeRow({
   }
 
   const rating = episode.tmdbRating ? `TMDB ${episode.tmdbRating}` : series ? ratingLabel(series) : null
+  const displayYear = episode.airDate ? episode.airDate.slice(0, 4) : (series?.year ?? null)
 
   return (
     <TableRow>
@@ -294,7 +299,7 @@ function EpisodeRow({
             Ep. {episode.number}
             {episode.title ? ` — ${episode.title}` : ''}
           </span>
-          {series && <ImdbLink imdbId={series.imdbId} />}
+          {series && <ImdbLink imdbId={series.imdbId} variant="text" />}
         </Stack>
         {error && (
           <Typography variant="caption" color="error" display="block">
@@ -302,14 +307,22 @@ function EpisodeRow({
           </Typography>
         )}
       </TableCell>
-      <TableCell>{episode.airDate ?? series?.year ?? '—'}</TableCell>
-      <TableCell>{episode.director ?? series?.creator ?? '—'}</TableCell>
-      <TableCell>{episode.runtimeMinutes ? `${episode.runtimeMinutes}min` : '—'}</TableCell>
-      <TableCell>{series?.genre && series.genre.length > 0 ? series.genre.join(', ') : '—'}</TableCell>
       <TableCell>
-        {series?.productionCountries && series.productionCountries.length > 0
-          ? series.productionCountries.join(', ')
-          : '—'}
+        {episode.airDate ? (
+          <Tooltip title={episode.airDate}>
+            <span>{displayYear}</span>
+          </Tooltip>
+        ) : (
+          (displayYear ?? '—')
+        )}
+      </TableCell>
+      <TableCell>{episode.director ?? series?.creator ?? '—'}</TableCell>
+      <TableCell>{episode.runtimeMinutes ? formatDuration(episode.runtimeMinutes) : '—'}</TableCell>
+      <TableCell>
+        <TruncatedList items={series?.genre ?? []} />
+      </TableCell>
+      <TableCell>
+        <CountryFlags codes={series?.originCountry} />
       </TableCell>
       <TableCell>{rating ?? '—'}</TableCell>
       {club.members.map((clubMember) => {
@@ -330,3 +343,16 @@ function EpisodeRow({
   )
 }
 
+
+function CountryFlags({ codes }: { codes: string[] | null | undefined }) {
+  if (!codes || codes.length === 0) return <>—</>
+  return (
+    <Stack direction="row" spacing={0.5} component="span">
+      {codes.map((code) => (
+        <Tooltip key={code} title={countryName(code)}>
+          <span>{countryFlag(code)}</span>
+        </Tooltip>
+      ))}
+    </Stack>
+  )
+}
