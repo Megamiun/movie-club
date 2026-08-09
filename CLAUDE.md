@@ -200,11 +200,16 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Two per Club (quality + sentiment); ordered list of configurable labels
 - Seeded with Portuguese defaults at Club creation
 - Each option also carries a `color` (hex string, e.g. `#2E7D32`), used for chart/UI display — required, not optional,
-  since every option needs one to render consistently. There's no admin API yet to customize scale options (labels or
-  colors) after Club creation; `createOption` is only ever called from the default-seeding path.
-- Default seeding applies the same six-step green-to-red gradient (
-  `#2E7D32, #7CB342, #C0CA33, #FDD835, #FB8C00, #E53935`) by position to both default scales, since both are six options
-  ordered best-to-worst
+  since every option needs one to render consistently. Admins can rename/recolor/reorder options after Club creation
+  (`PATCH /clubs/{clubId}/rating-options/{optionId}`, `PUT .../rating-scales/{scaleId}/order`); `createOption` itself
+  is still only ever called from the default-seeding path, since there's no "add a new option" endpoint
+- Default seeding gives each scale its *own* six-color best-to-worst palette, matching the original spreadsheet's own
+  chip colors per option (see `samples/img_1.png` for quality, `img_2.png` for sentiment) rather than a single shared
+  gradient reused across both scales — quality mixes pastel and solid chips, sentiment is consistently pastel;
+  quality's positive end is green, sentiment's is blue. `V17`/`V18__rating_scale_default_colors*.sql` retrofit
+  existing clubs' still-default-colored options to this palette (each matched by exact old label+color together, so
+  a club that already customized a color is untouched). Since chips range from pale to solid, the frontend picks
+  white-vs-dark chip text per option by luminance (`frontend/src/utils/color.ts`) rather than assuming either
 
 ## Schedule Model
 

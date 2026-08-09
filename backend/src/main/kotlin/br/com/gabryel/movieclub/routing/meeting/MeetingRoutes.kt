@@ -98,14 +98,11 @@ private fun MeetingWithPicks.toResponse() = MeetingWithPicksResponse(
 
 private fun MeetingMoviePick.toResponse() = MeetingMoviePickResponse(
     movie = movie.toResponse(),
-    myQualityOptionId = myReview?.qualityOptionId?.toString(),
-    mySentimentOptionId = myReview?.sentimentOptionId?.toString(),
-    myComment = myReview?.comment,
+    reviews = reviews.map { it.toResponse() },
 )
 
 private fun MeetingEpisodePick.toResponse() = MeetingEpisodePickResponse(
     episode = episode.toResponse(),
-    myQualityOptionId = myReview?.qualityOptionId?.toString(),
-    mySentimentOptionId = myReview?.sentimentOptionId?.toString(),
-    myComment = myReview?.comment,
+    reviews = reviews.map { it.toResponse() },
+    seriesTitle = seriesTitle,
 )

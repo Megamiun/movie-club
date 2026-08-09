@@ -1,6 +1,20 @@
 import AddIcon from '@mui/icons-material/Add'
-import { Alert, Box, Button, Link, Paper, Stack, TextField, Typography } from '@mui/material'
-import { useState, type FormEvent } from 'react'
+import {
+  Alert,
+  Box,
+  Button,
+  Link,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableRow,
+  TextField,
+  Typography,
+} from '@mui/material'
+import { Fragment, useState, type FormEvent } from 'react'
 import { Link as RouterLink, useOutletContext } from 'react-router-dom'
 import { clubsApi } from '../api/clubs'
 import { episodesApi } from '../api/series'
@@ -12,6 +26,7 @@ import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
 import { InlineRatingEditor } from '../components/InlineRatingEditor'
 import { MemberAutocomplete } from '../components/MemberAutocomplete'
+import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { memberName } from '../utils/members'
@@ -20,6 +35,7 @@ import { resolveTitle } from '../utils/title'
 
 export function MeetingsPage() {
   const { club } = useOutletContext<ClubOutletContext>()
+  const { member } = useAuth()
   const { data: meetings, loading, error, reload } = useAsync(() => meetingsApi.list(club.id), [club.id])
   const { data: scales } = useAsync(() => clubsApi.getRatingScales(club.id), [club.id])
   const [date, setDate] = useState('')
@@ -40,6 +56,7 @@ export function MeetingsPage() {
   }
 
   const sorted = [...(meetings ?? [])].sort((a, b) => a.date.localeCompare(b.date))
+  const columnCount = 8 + club.members.length
 
   return (
     <Box>
@@ -51,11 +68,23 @@ export function MeetingsPage() {
         {sorted.length === 0 ? (
           <Typography color="text.secondary">No meetings yet.</Typography>
         ) : (
-          <Stack spacing={1}>
-            {sorted.map((meeting) => (
-              <MeetingCard key={meeting.id} meeting={meeting} club={club} scales={scales ?? []} onChange={reload} />
-            ))}
-          </Stack>
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableBody>
+                {sorted.map((meeting) => (
+                  <MeetingRows
+                    key={meeting.id}
+                    meeting={meeting}
+                    club={club}
+                    scales={scales ?? []}
+                    myMemberId={member?.id ?? null}
+                    columnCount={columnCount}
+                    onChange={reload}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
       </AsyncState>
 
@@ -93,72 +122,87 @@ export function MeetingsPage() {
   )
 }
 
-function MeetingCard({
+function MeetingRows({
   meeting,
   club,
   scales,
+  myMemberId,
+  columnCount,
   onChange,
 }: {
   meeting: MeetingWithPicks
   club: ClubOutletContext['club']
   scales: RatingScale[]
+  myMemberId: string | null
+  columnCount: number
   onChange: () => void
 }) {
   const hasPicks = meeting.movies.length > 0 || meeting.episodes.length > 0
 
   return (
-    <Paper variant="outlined" sx={{ p: 1.5 }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
-        <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover" sx={{ fontWeight: 600 }}>
-          {meeting.date}
-        </Link>
-        <Typography variant="body2" color="text.secondary">
-          {meeting.assignedMemberId ? memberName(club.members, meeting.assignedMemberId) : 'Shared / merged'}
-        </Typography>
-      </Stack>
-
-      {!hasPicks && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Nothing picked yet
-        </Typography>
-      )}
-
-      <Stack spacing={0.75} sx={{ mt: hasPicks ? 1 : 0 }}>
-        {meeting.movies.map((pick) => (
-          <MoviePickRow key={pick.movie.id} pick={pick} club={club} scales={scales} onChange={onChange} />
-        ))}
-        {meeting.episodes.map((pick) => (
-          <EpisodePickRow key={pick.episode.id} pick={pick} scales={scales} onChange={onChange} />
-        ))}
-      </Stack>
-    </Paper>
+    <Fragment>
+      <TableRow sx={{ '& td': { bgcolor: 'action.hover', fontWeight: 600 } }}>
+        <TableCell colSpan={columnCount}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
+            <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover">
+              {meeting.date}
+            </Link>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 400 }}>
+              {meeting.assignedMemberId ? memberName(club.members, meeting.assignedMemberId) : 'Shared / merged'}
+              {!hasPicks && ' · Nothing picked yet'}
+            </Typography>
+          </Stack>
+        </TableCell>
+      </TableRow>
+      {meeting.movies.map((pick) => (
+        <MovieRow key={pick.movie.id} pick={pick} club={club} scales={scales} myMemberId={myMemberId} onChange={onChange} />
+      ))}
+      {groupEpisodesBySeries(meeting.episodes).map((group) => (
+        <Fragment key={group.seriesTitle ?? group.picks[0].episode.id}>
+          {group.seriesTitle && (
+            <TableRow>
+              <TableCell colSpan={columnCount} sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
+                {group.seriesTitle}
+              </TableCell>
+            </TableRow>
+          )}
+          {group.picks.map((pick) => (
+            <EpisodeRow key={pick.episode.id} pick={pick} club={club} scales={scales} myMemberId={myMemberId} onChange={onChange} />
+          ))}
+        </Fragment>
+      ))}
+    </Fragment>
   )
 }
 
-function MoviePickRow({
+function groupEpisodesBySeries(episodes: MeetingEpisodePick[]) {
+  const order: (string | null)[] = []
+  const bySeriesTitle = new Map<string | null, MeetingEpisodePick[]>()
+  for (const pick of episodes) {
+    if (!bySeriesTitle.has(pick.seriesTitle)) {
+      bySeriesTitle.set(pick.seriesTitle, [])
+      order.push(pick.seriesTitle)
+    }
+    bySeriesTitle.get(pick.seriesTitle)!.push(pick)
+  }
+  return order.map((seriesTitle) => ({ seriesTitle, picks: bySeriesTitle.get(seriesTitle)! }))
+}
+
+function MovieRow({
   pick,
   club,
   scales,
+  myMemberId,
   onChange,
 }: {
   pick: MeetingMoviePick
   club: ClubOutletContext['club']
   scales: RatingScale[]
+  myMemberId: string | null
   onChange: () => void
 }) {
-  const { movie, myQualityOptionId, mySentimentOptionId } = pick
+  const { movie } = pick
   const [error, setError] = useState<string | null>(null)
-
-  const details = [
-    movie.year,
-    movie.director,
-    movie.runtimeMinutes ? `${movie.runtimeMinutes}min` : null,
-    movie.genre && movie.genre.length > 0 ? movie.genre.join(', ') : null,
-    movie.productionCountries && movie.productionCountries.length > 0 ? movie.productionCountries.join(', ') : null,
-    ratingLabel(movie),
-  ]
-    .filter(Boolean)
-    .join(' · ')
 
   const handleSaveRating = async (qualityOptionId?: string, sentimentOptionId?: string) => {
     setError(null)
@@ -171,51 +215,62 @@ function MoviePickRow({
   }
 
   return (
-    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-        {resolveTitle(movie, club)}
-      </Typography>
-      <ImdbLink imdbId={movie.imdbId} />
-      {details && (
-        <Typography variant="body2" color="text.secondary">
-          {details}
-        </Typography>
-      )}
-      <InlineRatingEditor
-        scales={scales}
-        qualityOptionId={myQualityOptionId}
-        sentimentOptionId={mySentimentOptionId}
-        onSave={handleSaveRating}
-      />
-      {error && (
-        <Typography variant="caption" color="error">
-          {error}
-        </Typography>
-      )}
-    </Stack>
+    <TableRow>
+      <TableCell>{memberName(club.members, movie.chosenById)}</TableCell>
+      <TableCell>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+          <span>{resolveTitle(movie, club)}</span>
+          <ImdbLink imdbId={movie.imdbId} />
+        </Stack>
+        {error && (
+          <Typography variant="caption" color="error" display="block">
+            {error}
+          </Typography>
+        )}
+      </TableCell>
+      <TableCell>{movie.year ?? '—'}</TableCell>
+      <TableCell>{movie.director ?? '—'}</TableCell>
+      <TableCell>{movie.runtimeMinutes ? `${movie.runtimeMinutes}min` : '—'}</TableCell>
+      <TableCell>{movie.genre && movie.genre.length > 0 ? movie.genre.join(', ') : '—'}</TableCell>
+      <TableCell>
+        {movie.productionCountries && movie.productionCountries.length > 0
+          ? movie.productionCountries.join(', ')
+          : '—'}
+      </TableCell>
+      <TableCell>{ratingLabel(movie) ?? '—'}</TableCell>
+      {club.members.map((clubMember) => {
+        const review = pick.reviews.find((r) => r.memberId === clubMember.memberId)
+        return (
+          <TableCell key={clubMember.memberId}>
+            <InlineRatingEditor
+              scales={scales}
+              qualityOptionId={review?.qualityOptionId ?? null}
+              sentimentOptionId={review?.sentimentOptionId ?? null}
+              editable={clubMember.memberId === myMemberId}
+              onSave={handleSaveRating}
+            />
+          </TableCell>
+        )
+      })}
+    </TableRow>
   )
 }
 
-function EpisodePickRow({
+function EpisodeRow({
   pick,
+  club,
   scales,
+  myMemberId,
   onChange,
 }: {
   pick: MeetingEpisodePick
+  club: ClubOutletContext['club']
   scales: RatingScale[]
+  myMemberId: string | null
   onChange: () => void
 }) {
-  const { episode, myQualityOptionId, mySentimentOptionId } = pick
+  const { episode } = pick
   const [error, setError] = useState<string | null>(null)
-
-  const details = [
-    episode.airDate,
-    episode.director,
-    episode.runtimeMinutes ? `${episode.runtimeMinutes}min` : null,
-    episode.tmdbRating ? `TMDB ${episode.tmdbRating}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
 
   const handleSaveRating = async (qualityOptionId?: string, sentimentOptionId?: string) => {
     setError(null)
@@ -228,27 +283,38 @@ function EpisodePickRow({
   }
 
   return (
-    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+    <TableRow>
+      <TableCell>—</TableCell>
+      <TableCell>
         Ep. {episode.number}
         {episode.title ? ` — ${episode.title}` : ''}
-      </Typography>
-      {details && (
-        <Typography variant="body2" color="text.secondary">
-          {details}
-        </Typography>
-      )}
-      <InlineRatingEditor
-        scales={scales}
-        qualityOptionId={myQualityOptionId}
-        sentimentOptionId={mySentimentOptionId}
-        onSave={handleSaveRating}
-      />
-      {error && (
-        <Typography variant="caption" color="error">
-          {error}
-        </Typography>
-      )}
-    </Stack>
+        {error && (
+          <Typography variant="caption" color="error" display="block">
+            {error}
+          </Typography>
+        )}
+      </TableCell>
+      <TableCell>{episode.airDate ?? '—'}</TableCell>
+      <TableCell>{episode.director ?? '—'}</TableCell>
+      <TableCell>{episode.runtimeMinutes ? `${episode.runtimeMinutes}min` : '—'}</TableCell>
+      <TableCell>—</TableCell>
+      <TableCell>—</TableCell>
+      <TableCell>{episode.tmdbRating ? `TMDB ${episode.tmdbRating}` : '—'}</TableCell>
+      {club.members.map((clubMember) => {
+        const review = pick.reviews.find((r) => r.memberId === clubMember.memberId)
+        return (
+          <TableCell key={clubMember.memberId}>
+            <InlineRatingEditor
+              scales={scales}
+              qualityOptionId={review?.qualityOptionId ?? null}
+              sentimentOptionId={review?.sentimentOptionId ?? null}
+              editable={clubMember.memberId === myMemberId}
+              onSave={handleSaveRating}
+            />
+          </TableCell>
+        )
+      })}
+    </TableRow>
   )
 }
+

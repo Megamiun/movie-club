@@ -91,6 +91,16 @@ class ExposedEpisodeRepository : EpisodeRepository {
             }
     }
 
+    override fun findSeriesTitle(episodeId: Uuid, clubId: Uuid): String? = transaction {
+        (ClubSeries innerJoin Series)
+            .innerJoin(Seasons, { Series.id }, { Seasons.seriesId })
+            .innerJoin(Episodes, { Seasons.id }, { Episodes.seasonId })
+            .selectAll()
+            .where { (ClubSeries.clubId eq clubId) and (Episodes.id eq episodeId) }
+            .map { row -> row[ClubSeries.customTitle] ?: row[Series.originalTitle] }
+            .singleOrNull()
+    }
+
     override fun assignToMeeting(episodeId: Uuid, meetingId: Uuid) {
         transaction {
             val alreadyAssigned = MeetingEpisodes

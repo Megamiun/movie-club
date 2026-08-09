@@ -1,7 +1,9 @@
 package br.com.gabryel.movieclub.routing.meeting
 
 import br.com.gabryel.movieclub.routing.movie.MovieResponse
+import br.com.gabryel.movieclub.routing.movie.MovieReviewResponse
 import br.com.gabryel.movieclub.routing.series.EpisodeResponse
+import br.com.gabryel.movieclub.routing.series.EpisodeReviewResponse
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -26,17 +28,14 @@ internal data class MeetingResponse(
 @Serializable
 internal data class MeetingMoviePickResponse(
     val movie: MovieResponse,
-    val myQualityOptionId: String?,
-    val mySentimentOptionId: String?,
-    val myComment: String?,
+    val reviews: List<MovieReviewResponse>,
 )
 
 @Serializable
 internal data class MeetingEpisodePickResponse(
     val episode: EpisodeResponse,
-    val myQualityOptionId: String?,
-    val mySentimentOptionId: String?,
-    val myComment: String?,
+    val reviews: List<EpisodeReviewResponse>,
+    val seriesTitle: String?,
 )
 
 @Serializable

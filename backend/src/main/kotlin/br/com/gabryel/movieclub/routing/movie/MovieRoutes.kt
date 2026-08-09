@@ -132,7 +132,7 @@ private fun TmdbMovieSearchItem.toResponse() = MovieSearchResultResponse(
     posterUrl = posterPath?.let { "https://image.tmdb.org/t/p/w92$it" },
 )
 
-private fun MovieReviewRow.toResponse() = MovieReviewResponse(
+internal fun MovieReviewRow.toResponse() = MovieReviewResponse(
     movieId = movieId.toString(),
     memberId = memberId.toString(),
     qualityOptionId = qualityOptionId?.toString(),

@@ -45,9 +45,12 @@ private val DEFAULT_QUALITY_LABELS = listOf("Excepcional!", "Muito bom", "Bom", 
 private val DEFAULT_SENTIMENT_LABELS =
     listOf("Adorei", "Gostei!", "Ambivalente", "Indiferente", "Desgostei", "Detestei")
 
-/** Best-to-worst color gradient (green -> red) applied by position to any default scale -- both default scales are
- * six options ordered best-first, so the same gradient fits either one. */
-private val DEFAULT_RATING_COLORS = listOf("#2E7D32", "#7CB342", "#C0CA33", "#FDD835", "#FB8C00", "#E53935")
+/** Matches the original spreadsheet's own per-option chip colors (see `samples/img_1.png`/`img_2.png`) rather than
+ * a generic shared gradient -- each scale has its own distinct best-to-worst palette, not just a lighter/darker
+ * shade of the same color. Quality's chips are mostly solid/dark; sentiment's are consistently pastel -- the
+ * frontend picks white-vs-dark text per chip by luminance (`contrastTextColor`) rather than assuming either style. */
+private val DEFAULT_QUALITY_COLORS = listOf("#D9EAD3", "#1C4587", "#9FC5E8", "#A67C52", "#B45F06", "#CC0000")
+private val DEFAULT_SENTIMENT_COLORS = listOf("#9FC5E8", "#B6D7A8", "#D9D9A3", "#FFE599", "#F9CB9C", "#EA9999")
 
 class ClubService(
     private val clubRepository: ClubRepository,
@@ -67,16 +70,16 @@ class ClubService(
         val club = clubRepository.create(name)
         clubRepository.addMember(club.id, creatorMemberId, ADMIN, rotationOrder = 0)
 
-        seedScale(club.id, QUALITY, DEFAULT_QUALITY_LABELS)
-        seedScale(club.id, SENTIMENT, DEFAULT_SENTIMENT_LABELS)
+        seedScale(club.id, QUALITY, DEFAULT_QUALITY_LABELS, DEFAULT_QUALITY_COLORS)
+        seedScale(club.id, SENTIMENT, DEFAULT_SENTIMENT_LABELS, DEFAULT_SENTIMENT_COLORS)
 
         club.toDetail(clubRepository.listMembers(club.id).map { it.toDetail() })
     }
 
-    private fun seedScale(clubId: Uuid, type: RatingScaleType, labels: List<String>) {
+    private fun seedScale(clubId: Uuid, type: RatingScaleType, labels: List<String>, colors: List<String>) {
         val scale = ratingScaleRepository.createScale(clubId, type)
         labels.forEachIndexed { position, label ->
-            ratingScaleRepository.createOption(scale.id, label, position, DEFAULT_RATING_COLORS[position])
+            ratingScaleRepository.createOption(scale.id, label, position, colors[position])
         }
     }
 

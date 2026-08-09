@@ -251,7 +251,7 @@ private fun SeasonReviewRow.toResponse() = SeasonReviewResponse(
     comment,
 )
 
-private fun EpisodeReviewRow.toResponse() = EpisodeReviewResponse(
+internal fun EpisodeReviewRow.toResponse() = EpisodeReviewResponse(
     episodeId.toString(),
     memberId.toString(),
     qualityOptionId?.toString(),

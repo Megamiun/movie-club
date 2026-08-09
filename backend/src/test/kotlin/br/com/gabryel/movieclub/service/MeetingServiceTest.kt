@@ -72,7 +72,7 @@ class MeetingServiceTest {
     }
 
     @Test
-    fun `getMeeting composes the meeting with its movies, episodes, and the acting member's own reviews`() {
+    fun `getMeeting composes the meeting with its movies, episodes, and everyone's reviews`() {
         val meetingRow = meeting()
         val movieRow = movie(meetingId = meetingRow.id)
         val episodeRow = EpisodeRow(id = Uuid.random(), seasonId = Uuid.random(), number = 1, title = "Pilot")
@@ -81,13 +81,14 @@ class MeetingServiceTest {
         every { clubService.requireMembership(clubId, memberId) } returns membership()
         every { movieRepository.listByMeeting(meetingRow.id) } returns listOf(movieRow)
         every { episodeRepository.listByMeeting(meetingRow.id) } returns listOf(episodeRow)
-        every { movieRepository.findReview(movieRow.id, memberId) } returns movieReview
-        every { episodeRepository.findReview(episodeRow.id, memberId) } returns null
+        every { movieRepository.listReviews(movieRow.id) } returns listOf(movieReview)
+        every { episodeRepository.listReviews(episodeRow.id) } returns emptyList()
+        every { episodeRepository.findSeriesTitle(episodeRow.id, clubId) } returns "Breaking Bad"
 
         val result = meetingService.getMeeting(meetingRow.id, memberId)
 
-        assertEquals(listOf(MeetingMoviePick(movieRow, movieReview)), result.movies)
-        assertEquals(listOf(MeetingEpisodePick(episodeRow, null)), result.episodes)
+        assertEquals(listOf(MeetingMoviePick(movieRow, listOf(movieReview))), result.movies)
+        assertEquals(listOf(MeetingEpisodePick(episodeRow, emptyList(), "Breaking Bad")), result.episodes)
     }
 
     @Test
@@ -100,11 +101,11 @@ class MeetingServiceTest {
         every { movieRepository.listByMeeting(meetingA.id) } returns listOf(movieA)
         every { movieRepository.listByMeeting(meetingB.id) } returns emptyList()
         every { episodeRepository.listByMeeting(any()) } returns emptyList()
-        every { movieRepository.findReview(movieA.id, memberId) } returns null
+        every { movieRepository.listReviews(movieA.id) } returns emptyList()
 
         val result = meetingService.listMeetings(clubId, memberId)
 
-        assertEquals(listOf(MeetingMoviePick(movieA, null)), result.first { it.id == meetingA.id }.movies)
+        assertEquals(listOf(MeetingMoviePick(movieA, emptyList())), result.first { it.id == meetingA.id }.movies)
         assertEquals(emptyList(), result.first { it.id == meetingB.id }.movies)
     }
 
