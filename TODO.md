@@ -91,11 +91,16 @@
   - Follow-up: the movie/episode title itself is now the underlined link (was a plain title + separate "IMDB" text before)
 - [x] Limit genres to 2, followed by a "+ x", all are shown if hovered
   - New `TruncatedList` component (`frontend/src/components/TruncatedList.tsx`), meetings list only for now
-  - [ ] For genres, limit total length, if second genre is too long, also don't show it, should always fit in one line
+  - [x] For genres, limit total length, if second genre is too long, also don't show it, should always fit in one line
+    - New optional `maxChars` prop -- caps the joined shown-items length, folding anything that'd exceed it into
+      the "+N" count instead of wrapping the row. Meetings list genre columns pass `maxChars={20}`. First item is
+      always shown in full even alone over budget, so there's never nothing to show
 - [x] Convert duration to format like '1h25m' or '45m'
   - `frontend/src/utils/duration.ts`, meetings list only for now
-  - [ ] Align to the right
-  - [ ] Fill the minutes with spaces(or 0) if the minutes part is just one character
+  - [x] Align to the right
+  - [x] Fill the minutes with spaces(or 0) if the minutes part is just one character
+    - Minutes zero-pad to 2 digits, but only alongside an "h" part (`1h05m`) -- a bare `05m` with no hours reads
+      oddly and has nothing to align against, so that form stays unpadded
 - [x] Only show year on meetings page, but allow to hover to see whole date
   - Clarified: this was about episode air dates, not the meeting's own date. Episode rows show just the year (from `air_date` or the series' `year` as fallback), with the full `air_date` as a hover tooltip when known
 - [x] Director should also link to imdb director page

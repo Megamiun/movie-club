@@ -446,9 +446,9 @@ function MovieRow({
           '—'
         )}
       </TableCell>
-      <TableCell>{movie.runtimeMinutes ? formatDuration(movie.runtimeMinutes) : '—'}</TableCell>
+      <TableCell align="right">{movie.runtimeMinutes ? formatDuration(movie.runtimeMinutes) : '—'}</TableCell>
       <TableCell>
-        <TruncatedList items={movie.genre ?? []} />
+        <TruncatedList items={movie.genre ?? []} maxChars={20} />
       </TableCell>
       <TableCell>
         <CountryFlags codes={movie.originCountry} />
@@ -556,9 +556,9 @@ function EpisodeRow({
           (episode.director ?? series?.creator ?? '—')
         )}
       </TableCell>
-      <TableCell>{episode.runtimeMinutes ? formatDuration(episode.runtimeMinutes) : '—'}</TableCell>
+      <TableCell align="right">{episode.runtimeMinutes ? formatDuration(episode.runtimeMinutes) : '—'}</TableCell>
       <TableCell>
-        <TruncatedList items={series?.genre ?? []} />
+        <TruncatedList items={series?.genre ?? []} maxChars={20} />
       </TableCell>
       <TableCell>
         <CountryFlags codes={series?.originCountry} />
