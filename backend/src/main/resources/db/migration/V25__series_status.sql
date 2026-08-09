@@ -1,0 +1,2 @@
+ALTER TABLE series
+    ADD COLUMN status VARCHAR(32);

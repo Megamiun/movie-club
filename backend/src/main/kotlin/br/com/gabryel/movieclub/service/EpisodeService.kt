@@ -6,6 +6,7 @@ import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
+import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeSearchRow
@@ -18,6 +19,8 @@ import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import kotlin.uuid.Uuid
 
+private val ENDED_STATUSES = setOf("Ended", "Canceled")
+
 class EpisodeService(
     private val episodeRepository: EpisodeRepository,
     private val seasonRepository: SeasonRepository,
@@ -26,6 +29,7 @@ class EpisodeService(
     private val clubService: ClubService,
     private val tmdbClient: TmdbClient,
     private val omdbClient: OmdbClient,
+    private val watchlistRepository: WatchlistRepository,
 ) {
     /** Unlike [br.com.gabryel.movieclub.service.MovieService.addMovie]/`SeriesService.addSeries`, TMDB enrichment
      * here is always best-effort: an episode has no id of its own to look up by, only the parent series' `tmdbId`
@@ -100,10 +104,19 @@ class EpisodeService(
     /** One suggestion per series the club follows -- the earliest episode of that series it hasn't scheduled to
      * any meeting yet (see [EpisodeRepository.findNextUnscheduled]). Series with nothing left to suggest (every
      * known episode already scheduled, or none imported yet) are silently skipped rather than erroring, since this
-     * is a convenience prompt, not something the caller picks a series for up front. */
+     * is a convenience prompt, not something the caller picks a series for up front.
+     *
+     * Also skips a series that's no longer running (TMDB `status` "Ended"/"Canceled") unless the club is actively
+     * watchlisting it -- an ended show with nothing new coming isn't worth nudging towards continuing, but a club
+     * that's deliberately queued it up to catch up on clearly still wants the suggestion. A series with no `status`
+     * yet (not refreshed since this field was added) is treated as still running rather than filtered out, since
+     * "unknown" shouldn't silently hide an otherwise-valid suggestion. */
     fun listNextSuggestions(clubId: Uuid, actingMemberId: Uuid): List<EpisodeSearchRow> {
         clubService.requireMembership(clubId, actingMemberId)
         return seriesRepository.listByClub(clubId).mapNotNull { series ->
+            if (series.status in ENDED_STATUSES && !watchlistRepository.existsByClubAndMediaItemImdbId(clubId, series.imdbId))
+                return@mapNotNull null
+
             val next = episodeRepository.findNextUnscheduled(clubId, series.globalSeriesId) ?: return@mapNotNull null
             val season = seasonRepository.findById(next.seasonId) ?: return@mapNotNull null
             EpisodeSearchRow(episode = next, seasonNumber = season.number, seriesTitle = series.customTitle ?: series.originalTitle)

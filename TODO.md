@@ -45,7 +45,10 @@
   - New "Movies" club tab (`MoviesPage`, between Meetings and Series). TMDB search + a meeting picker + "Add to meeting"/"Add to watchlist" buttons, composing the existing search/add endpoints -- no new backend endpoint
 - [x] When adding a series episode to a meeting, try to suggest next episode of current series
   - New `GET /clubs/{clubId}/episodes/next-suggestions` (`EpisodeRepository.findNextUnscheduled`) returns one suggestion per followed series -- its earliest episode not yet scheduled to any of the club's meetings, skipping series with nothing left to suggest. Shown as clickable "Up next" chips in the meeting detail page's Episodes section, alongside the existing search box
-  - [ ] Only show suggestions from already running series, or from series in our watchlist
+  - [x] Only show suggestions from already running series, or from series in our watchlist
+    - New `series.status` column (TMDB's own status string); a series with status "Ended"/"Canceled" is skipped
+      unless the club is watchlisting it. Unknown status (not refreshed since this field was added) is treated as
+      still running rather than filtered
 - [x] Allow Club to have a list of ranked preferred languages
 - [x] Allow Club to have a list of ignored languages
 - [x] Instead of keeping alternative titles, use translations field, which calls translations API

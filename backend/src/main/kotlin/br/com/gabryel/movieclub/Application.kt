@@ -79,6 +79,7 @@ fun Application.module() {
         episodeRepository,
     )
     val seasonService = SeasonService(seasonRepository, seriesRepository, clubService)
+    val watchlistRepository = ExposedWatchlistRepository()
     val episodeService = EpisodeService(
         episodeRepository,
         seasonRepository,
@@ -87,8 +88,8 @@ fun Application.module() {
         clubService,
         tmdbClient,
         omdbClient,
+        watchlistRepository,
     )
-    val watchlistRepository = ExposedWatchlistRepository()
     val watchlistService = WatchlistService(watchlistRepository, clubService, mediaItemRepository, tmdbClient, omdbClient)
     val importService = ImportService(
         clubService,

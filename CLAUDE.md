@@ -242,7 +242,13 @@ enforces those automatically. This section is for conventions ktlint can't check
   the earliest (season, then episode number) episode of that series not yet scheduled to any of the club's own
   meetings (`GET /clubs/{clubId}/episodes/next-suggestions`, `EpisodeRepository.findNextUnscheduled`). Series with
   nothing left to suggest (fully scheduled, or no episodes imported yet) are silently omitted, not an empty/error
-  state. Scoped per club: another club scheduling the same global episode doesn't affect this club's own suggestion
+  state. Scoped per club: another club scheduling the same global episode doesn't affect this club's own suggestion.
+  A series is also skipped once it's no longer running (TMDB's own `status` field, e.g. "Ended"/"Canceled" — new
+  `series.status` column, refreshed the same way as the rest of a series' cached TMDB metadata) *unless* the club is
+  actively watchlisting it (`WatchlistRepository.existsByClubAndMediaItemImdbId`, keyed by `imdb_id` rather than a
+  `mediaItemId` since `SeriesRow` doesn't carry one) — an ended show isn't worth nudging towards continuing on its
+  own, but a club that's deliberately queued it up to catch up on clearly still wants the nudge. A series with no
+  `status` yet (not refreshed since this field was added) is treated as still running, not filtered out
 - CSV import of series sources the **full** Season/Episode catalog from TMDB up front (`SeriesService.importSeasonsAndEpisodes`
   — every season, every episode, including ones the club never watched), then matches each CSV row onto it by
   `(season_number, episode_number)` rather than trusting the CSV's own row structure to define the catalog. A CSV row

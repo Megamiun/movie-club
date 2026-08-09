@@ -192,6 +192,7 @@ data class TmdbTvDetails(
     val translations: TmdbTranslations? = null,
     val seasons: List<TmdbSeasonSummary> = emptyList(),
     @SerialName("external_ids") val externalIds: TmdbExternalIds? = null,
+    val status: String? = null,
 ) {
     val year: Int? get() = firstAirDate?.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull()
     val creator: String? get() = createdBy.firstOrNull()?.name
@@ -206,6 +207,7 @@ data class TmdbTvDetails(
         genre = genres.map { it.name },
         originCountry = originCountry,
         productionCountries = productionCountries.map { it.name },
+        status = status,
         metadataFetchedAt = fetchedAt,
     )
 }

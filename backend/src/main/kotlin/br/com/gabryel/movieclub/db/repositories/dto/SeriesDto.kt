@@ -30,6 +30,7 @@ data class SeriesRow(
     val imdbRating: BigDecimal? = null,
     val creator: String? = null,
     val posterS3Key: String? = null,
+    val status: String? = null,
     val metadataFetchedAt: Instant? = null,
     val createdAt: Instant,
 )
@@ -58,5 +59,6 @@ data class TmdbSeriesMetadata(
     val productionCountries: List<String>? = null,
     val imdbRating: BigDecimal? = null,
     val creator: String? = null,
+    val status: String? = null,
     val metadataFetchedAt: Instant? = null,
 )

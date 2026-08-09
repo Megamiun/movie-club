@@ -86,6 +86,14 @@ class ExposedWatchlistRepository : WatchlistRepository {
         }
     }
 
+    override fun existsByClubAndMediaItemImdbId(clubId: Uuid, imdbId: String): Boolean = transaction {
+        joined()
+            .selectAll()
+            .where { (WatchlistEntries.clubId eq clubId) and (MediaItems.imdbId eq imdbId) }
+            .limit(1)
+            .any()
+    }
+
     private fun joined() = WatchlistEntries innerJoin MediaItems
 
     private fun toRow(row: ResultRow) = WatchlistEntryRow(

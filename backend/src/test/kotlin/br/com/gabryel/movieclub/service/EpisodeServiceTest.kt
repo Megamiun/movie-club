@@ -6,6 +6,7 @@ import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
+import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
@@ -45,6 +46,7 @@ class EpisodeServiceTest {
     private val clubService = mockk<ClubService>()
     private val tmdbClient = mockk<TmdbClient>()
     private val omdbClient = mockk<OmdbClient>()
+    private val watchlistRepository = mockk<WatchlistRepository>()
     private val episodeService = EpisodeService(
         episodeRepository,
         seasonRepository,
@@ -53,6 +55,7 @@ class EpisodeServiceTest {
         clubService,
         tmdbClient,
         omdbClient,
+        watchlistRepository,
     )
 
     private val clubId = Uuid.random()
@@ -270,6 +273,31 @@ class EpisodeServiceTest {
         assertEquals(1, result.size)
         assertEquals("Breaking Bad", result.single().seriesTitle)
         assertEquals(1, result.single().seasonNumber)
+    }
+
+    @Test
+    fun `listNextSuggestions skips an ended series the club isn't watchlisting`() {
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { seriesRepository.listByClub(clubId) } returns listOf(series().copy(status = "Ended"))
+        every { watchlistRepository.existsByClubAndMediaItemImdbId(clubId, "tt0903747") } returns false
+
+        val result = episodeService.listNextSuggestions(clubId, memberId)
+
+        assertEquals(0, result.size)
+        verify(exactly = 0) { episodeRepository.findNextUnscheduled(any(), any()) }
+    }
+
+    @Test
+    fun `listNextSuggestions still suggests an ended series the club is watchlisting`() {
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { seriesRepository.listByClub(clubId) } returns listOf(series().copy(status = "Ended"))
+        every { watchlistRepository.existsByClubAndMediaItemImdbId(clubId, "tt0903747") } returns true
+        every { episodeRepository.findNextUnscheduled(clubId, globalSeriesId) } returns episode()
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+
+        val result = episodeService.listNextSuggestions(clubId, memberId)
+
+        assertEquals(1, result.size)
     }
 
     @Test

@@ -19,4 +19,9 @@ interface WatchlistRepository {
     fun updatePosition(id: Uuid, position: Int): WatchlistEntryRow
 
     fun delete(id: Uuid)
+
+    /** Whether any member of [clubId] is watchlisting the MediaItem with this [imdbId] -- keyed by `imdb_id`
+     * rather than a `mediaItemId` so callers like `SeriesRow` (which has no `mediaItemId` field of its own) don't
+     * need one just for this check. */
+    fun existsByClubAndMediaItemImdbId(clubId: Uuid, imdbId: String): Boolean
 }
