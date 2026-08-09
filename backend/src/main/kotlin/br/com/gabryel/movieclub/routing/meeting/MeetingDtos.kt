@@ -4,6 +4,7 @@ import br.com.gabryel.movieclub.routing.movie.MovieResponse
 import br.com.gabryel.movieclub.routing.movie.MovieReviewResponse
 import br.com.gabryel.movieclub.routing.series.EpisodeResponse
 import br.com.gabryel.movieclub.routing.series.EpisodeReviewResponse
+import br.com.gabryel.movieclub.routing.series.SeriesResponse
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -35,7 +36,7 @@ internal data class MeetingMoviePickResponse(
 internal data class MeetingEpisodePickResponse(
     val episode: EpisodeResponse,
     val reviews: List<EpisodeReviewResponse>,
-    val seriesTitle: String?,
+    val series: SeriesResponse?,
 )
 
 @Serializable

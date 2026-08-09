@@ -21,7 +21,7 @@ import { episodesApi } from '../api/series'
 import { meetingsApi } from '../api/meetings'
 import { moviesApi } from '../api/movies'
 import { ApiError } from '../api/client'
-import type { MeetingEpisodePick, MeetingMoviePick, MeetingWithPicks, RatingScale } from '../api/types'
+import type { MeetingEpisodePick, MeetingMoviePick, MeetingWithPicks, RatingScale, Series } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
 import { InlineRatingEditor } from '../components/InlineRatingEditor'
@@ -158,14 +158,8 @@ function MeetingRows({
         <MovieRow key={pick.movie.id} pick={pick} club={club} scales={scales} myMemberId={myMemberId} onChange={onChange} />
       ))}
       {groupEpisodesBySeries(meeting.episodes).map((group) => (
-        <Fragment key={group.seriesTitle ?? group.picks[0].episode.id}>
-          {group.seriesTitle && (
-            <TableRow>
-              <TableCell colSpan={columnCount} sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
-                {group.seriesTitle}
-              </TableCell>
-            </TableRow>
-          )}
+        <Fragment key={group.series?.id ?? group.picks[0].episode.id}>
+          {group.series && <SeriesHeaderRow series={group.series} club={club} memberCount={club.members.length} />}
           {group.picks.map((pick) => (
             <EpisodeRow key={pick.episode.id} pick={pick} club={club} scales={scales} myMemberId={myMemberId} onChange={onChange} />
           ))}
@@ -177,15 +171,51 @@ function MeetingRows({
 
 function groupEpisodesBySeries(episodes: MeetingEpisodePick[]) {
   const order: (string | null)[] = []
-  const bySeriesTitle = new Map<string | null, MeetingEpisodePick[]>()
+  const bySeriesId = new Map<string | null, { series: Series | null; picks: MeetingEpisodePick[] }>()
   for (const pick of episodes) {
-    if (!bySeriesTitle.has(pick.seriesTitle)) {
-      bySeriesTitle.set(pick.seriesTitle, [])
-      order.push(pick.seriesTitle)
+    const key = pick.series?.id ?? null
+    if (!bySeriesId.has(key)) {
+      bySeriesId.set(key, { series: pick.series, picks: [] })
+      order.push(key)
     }
-    bySeriesTitle.get(pick.seriesTitle)!.push(pick)
+    bySeriesId.get(key)!.picks.push(pick)
   }
-  return order.map((seriesTitle) => ({ seriesTitle, picks: bySeriesTitle.get(seriesTitle)! }))
+  return order.map((key) => bySeriesId.get(key)!)
+}
+
+function SeriesHeaderRow({
+  series,
+  club,
+  memberCount,
+}: {
+  series: Series
+  club: ClubOutletContext['club']
+  memberCount: number
+}) {
+  return (
+    <TableRow sx={{ '& td': { color: 'text.secondary' } }}>
+      <TableCell>{memberName(club.members, series.chosenById)}</TableCell>
+      <TableCell>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+          <span>{resolveTitle(series, club)}</span>
+          <ImdbLink imdbId={series.imdbId} />
+        </Stack>
+      </TableCell>
+      <TableCell>{series.year ?? '—'}</TableCell>
+      <TableCell>{series.creator ?? '—'}</TableCell>
+      <TableCell>—</TableCell>
+      <TableCell>{series.genre && series.genre.length > 0 ? series.genre.join(', ') : '—'}</TableCell>
+      <TableCell>
+        {series.productionCountries && series.productionCountries.length > 0
+          ? series.productionCountries.join(', ')
+          : '—'}
+      </TableCell>
+      <TableCell>{ratingLabel(series) ?? '—'}</TableCell>
+      {Array.from({ length: memberCount }).map((_, index) => (
+        <TableCell key={index} />
+      ))}
+    </TableRow>
+  )
 }
 
 function MovieRow({

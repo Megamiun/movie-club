@@ -3,11 +3,13 @@ package br.com.gabryel.movieclub.service
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
+import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
+import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ConflictException
 import br.com.gabryel.movieclub.exception.NotFoundException
@@ -19,9 +21,10 @@ import kotlin.uuid.Uuid
  * access-control reason to filter this down to just the acting member. */
 data class MeetingMoviePick(val movie: MovieRow, val reviews: List<MovieReviewRow>)
 
-/** [seriesTitle] is the acting club's own pick's title for the episode's parent series -- used to group a
- * meeting's episodes by series (see [br.com.gabryel.movieclub.db.repositories.EpisodeRepository.findSeriesTitle]). */
-data class MeetingEpisodePick(val episode: EpisodeRow, val reviews: List<EpisodeReviewRow>, val seriesTitle: String?)
+/** [series] is the acting club's own pick of the episode's parent series (full row, same shape a Series page would
+ * show -- title, year, genre, country, rating, etc.), not just a title, so the meetings list can show as much about
+ * the series as it does about a movie pick. Null if the club doesn't actually follow that series. */
+data class MeetingEpisodePick(val episode: EpisodeRow, val reviews: List<EpisodeReviewRow>, val series: SeriesRow?)
 
 /** [listMeetings]/[getMeeting] compose the bare [MeetingRow] with its picks so the meetings list can show what was
  * watched without a separate round trip per meeting -- the other mutation endpoints (postpone/swap/merge/delete)
@@ -39,6 +42,7 @@ class MeetingService(
     private val meetingRepository: MeetingRepository,
     private val movieRepository: MovieRepository,
     private val episodeRepository: EpisodeRepository,
+    private val seriesRepository: SeriesRepository,
     private val clubService: ClubService,
 ) {
     fun createMeeting(clubId: Uuid, actingMemberId: Uuid, date: LocalDate, assignedMemberId: Uuid? = null): MeetingRow {
@@ -114,7 +118,9 @@ class MeetingService(
             MeetingMoviePick(it, movieRepository.listReviews(it.id))
         },
         episodes = episodeRepository.listByMeeting(id).map {
-            MeetingEpisodePick(it, episodeRepository.listReviews(it.id), episodeRepository.findSeriesTitle(it.id, clubId))
+            val seriesImdbId = episodeRepository.findSeriesImdbId(it.id)
+            val series = seriesImdbId?.let { imdbId -> seriesRepository.findByClubAndImdbId(clubId, imdbId) }
+            MeetingEpisodePick(it, episodeRepository.listReviews(it.id), series)
         },
     )
 }

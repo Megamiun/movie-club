@@ -20,10 +20,10 @@ interface EpisodeRepository {
      * an existing episode to assign to a meeting instead of requiring its raw id. */
     fun searchByClub(clubId: Uuid, query: String, limit: Int = 20): List<EpisodeSearchRow>
 
-    /** [clubId]'s own pick's title for the episode's parent series (custom title if set, else the global series'
-     * original title) -- null if [clubId] doesn't actually follow that series. Used to group a meeting's episodes
-     * by series. */
-    fun findSeriesTitle(episodeId: Uuid, clubId: Uuid): String?
+    /** The `imdb_id` of the episode's parent (global) series -- lets a caller resolve a club's own pick of that
+     * series (e.g. via `SeriesRepository.findByClubAndImdbId`) without `EpisodeRepository` depending on
+     * `SeriesRepository` itself. Used by `MeetingService` to show/group a meeting's episodes by series. */
+    fun findSeriesImdbId(episodeId: Uuid): String?
 
     /** Schedules the global episode for [meetingId] -- idempotent, since multiple clubs (or repeated calls) may
      * each want the same episode assigned to their own meeting. */

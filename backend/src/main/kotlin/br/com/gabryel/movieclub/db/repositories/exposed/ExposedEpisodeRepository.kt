@@ -91,13 +91,13 @@ class ExposedEpisodeRepository : EpisodeRepository {
             }
     }
 
-    override fun findSeriesTitle(episodeId: Uuid, clubId: Uuid): String? = transaction {
-        (ClubSeries innerJoin Series)
+    override fun findSeriesImdbId(episodeId: Uuid): String? = transaction {
+        Series
             .innerJoin(Seasons, { Series.id }, { Seasons.seriesId })
             .innerJoin(Episodes, { Seasons.id }, { Episodes.seasonId })
             .selectAll()
-            .where { (ClubSeries.clubId eq clubId) and (Episodes.id eq episodeId) }
-            .map { row -> row[ClubSeries.customTitle] ?: row[Series.originalTitle] }
+            .where { Episodes.id eq episodeId }
+            .map { it[Series.imdbId] }
             .singleOrNull()
     }
 

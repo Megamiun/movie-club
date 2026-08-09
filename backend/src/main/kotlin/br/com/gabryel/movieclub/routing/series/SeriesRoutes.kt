@@ -180,7 +180,7 @@ fun Route.seriesRoutes(seriesService: SeriesService, seasonService: SeasonServic
     }
 }
 
-private fun SeriesRow.toResponse() = SeriesResponse(
+internal fun SeriesRow.toResponse() = SeriesResponse(
     id = id.toString(),
     clubId = clubId.toString(),
     chosenById = chosenById.toString(),

@@ -6,11 +6,13 @@ import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
+import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
+import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ConflictException
 import br.com.gabryel.movieclub.exception.ForbiddenException
@@ -29,8 +31,10 @@ class MeetingServiceTest {
     private val meetingRepository = mockk<MeetingRepository>()
     private val movieRepository = mockk<MovieRepository>()
     private val episodeRepository = mockk<EpisodeRepository>()
+    private val seriesRepository = mockk<SeriesRepository>()
     private val clubService = mockk<ClubService>()
-    private val meetingService = MeetingService(meetingRepository, movieRepository, episodeRepository, clubService)
+    private val meetingService =
+        MeetingService(meetingRepository, movieRepository, episodeRepository, seriesRepository, clubService)
 
     private val clubId = Uuid.random()
     private val memberId = Uuid.random()
@@ -81,14 +85,16 @@ class MeetingServiceTest {
         every { clubService.requireMembership(clubId, memberId) } returns membership()
         every { movieRepository.listByMeeting(meetingRow.id) } returns listOf(movieRow)
         every { episodeRepository.listByMeeting(meetingRow.id) } returns listOf(episodeRow)
+        val seriesRow = series()
         every { movieRepository.listReviews(movieRow.id) } returns listOf(movieReview)
         every { episodeRepository.listReviews(episodeRow.id) } returns emptyList()
-        every { episodeRepository.findSeriesTitle(episodeRow.id, clubId) } returns "Breaking Bad"
+        every { episodeRepository.findSeriesImdbId(episodeRow.id) } returns "tt0903747"
+        every { seriesRepository.findByClubAndImdbId(clubId, "tt0903747") } returns seriesRow
 
         val result = meetingService.getMeeting(meetingRow.id, memberId)
 
         assertEquals(listOf(MeetingMoviePick(movieRow, listOf(movieReview))), result.movies)
-        assertEquals(listOf(MeetingEpisodePick(episodeRow, emptyList(), "Breaking Bad")), result.episodes)
+        assertEquals(listOf(MeetingEpisodePick(episodeRow, emptyList(), seriesRow)), result.episodes)
     }
 
     @Test
@@ -206,4 +212,16 @@ class MeetingServiceTest {
     )
 
     private fun membership(role: ClubRole = MEMBER) = ClubMembershipRow(clubId, memberId, role, 0, Clock.System.now())
+
+    private fun series(id: Uuid = Uuid.random(), globalSeriesId: Uuid = Uuid.random()) = SeriesRow(
+        id = id,
+        globalSeriesId = globalSeriesId,
+        clubId = clubId,
+        chosenById = memberId,
+        imdbId = "tt0903747",
+        originalTitle = "Breaking Bad",
+        translations = emptyList(),
+        displayTitlePreference = ORIGINAL,
+        createdAt = Clock.System.now(),
+    )
 }

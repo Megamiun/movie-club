@@ -81,7 +81,7 @@ export interface MeetingMoviePick {
 export interface MeetingEpisodePick {
   episode: Episode
   reviews: EpisodeReview[]
-  seriesTitle: string | null
+  series: Series | null
 }
 
 export interface MeetingWithPicks extends Meeting {

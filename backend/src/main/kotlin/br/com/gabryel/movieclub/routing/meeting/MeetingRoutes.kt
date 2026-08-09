@@ -104,5 +104,5 @@ private fun MeetingMoviePick.toResponse() = MeetingMoviePickResponse(
 private fun MeetingEpisodePick.toResponse() = MeetingEpisodePickResponse(
     episode = episode.toResponse(),
     reviews = reviews.map { it.toResponse() },
-    seriesTitle = seriesTitle,
+    series = series?.toResponse(),
 )
