@@ -1,21 +1,24 @@
-import { Chip, MenuItem, Popover, Select, Stack, Typography } from '@mui/material'
+import { Box, MenuItem, Popover, Select, Stack, Tooltip } from '@mui/material'
 import { useState } from 'react'
 import type { RatingScale } from '../api/types'
-import { contrastTextColor } from '../utils/color'
 
 /**
- * Quality and sentiment are always shown as two separately-colored chips (never merged into one label) since they're
- * independent scales with their own color palettes -- see samples/img_1.png (quality) vs img_2.png (sentiment).
- * When `editable` is false (viewing another member's rating), the chips are read-only.
+ * Quality + sentiment merge into one small, fixed-size pill split into each rating's own color (half and half)
+ * instead of two separately-labeled chips -- a row of many members' ratings sitting right after a pick's title
+ * needs to stay compact and constant-width, which variable-length label text can't do. The pill itself carries no
+ * text; the full labels surface on hover via [Tooltip], and clicking it (when [editable]) still opens the same
+ * quality/sentiment [Select] popover as before.
  */
 export function InlineRatingEditor({
   scales,
+  memberName,
   qualityOptionId,
   sentimentOptionId,
   editable,
   onSave,
 }: {
   scales: RatingScale[]
+  memberName: string
   qualityOptionId: string | null
   sentimentOptionId: string | null
   editable: boolean
@@ -27,47 +30,32 @@ export function InlineRatingEditor({
   const qualityOption = quality?.options.find((o) => o.id === qualityOptionId)
   const sentimentOption = sentiment?.options.find((o) => o.id === sentimentOptionId)
 
-  if (!editable && !qualityOption && !sentimentOption) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        —
-      </Typography>
-    )
-  }
+  if (!editable && !qualityOption && !sentimentOption) return null
+
+  const background =
+    qualityOption && sentimentOption
+      ? `linear-gradient(90deg, ${qualityOption.color} 50%, ${sentimentOption.color} 50%)`
+      : (qualityOption?.color ?? sentimentOption?.color)
+
+  const tooltip = `${memberName}: ${qualityOption?.label ?? 'no quality rating'} / ${sentimentOption?.label ?? 'no sentiment rating'}`
 
   return (
     <>
-      <Stack
-        direction="row"
-        spacing={0.5}
-        sx={editable ? { cursor: 'pointer' } : undefined}
-        onClick={editable ? (e) => setAnchorEl(e.currentTarget) : undefined}
-      >
-        {(editable || qualityOption) && (
-          <Chip
-            size="small"
-            label={qualityOption?.label ?? 'Quality'}
-            variant={qualityOption ? 'filled' : 'outlined'}
-            sx={
-              qualityOption
-                ? { bgcolor: qualityOption.color, color: contrastTextColor(qualityOption.color) }
-                : undefined
-            }
-          />
-        )}
-        {(editable || sentimentOption) && (
-          <Chip
-            size="small"
-            label={sentimentOption?.label ?? 'Sentiment'}
-            variant={sentimentOption ? 'filled' : 'outlined'}
-            sx={
-              sentimentOption
-                ? { bgcolor: sentimentOption.color, color: contrastTextColor(sentimentOption.color) }
-                : undefined
-            }
-          />
-        )}
-      </Stack>
+      <Tooltip title={tooltip}>
+        <Box
+          onClick={editable ? (e) => setAnchorEl(e.currentTarget) : undefined}
+          sx={{
+            width: 16,
+            height: 16,
+            borderRadius: '50%',
+            flexShrink: 0,
+            cursor: editable ? 'pointer' : 'default',
+            background: background ?? 'transparent',
+            border: background ? 'none' : '1.5px dashed',
+            borderColor: 'divider',
+          }}
+        />
+      </Tooltip>
       {editable && (
         <Popover
           open={Boolean(anchorEl)}

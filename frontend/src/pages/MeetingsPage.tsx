@@ -77,7 +77,7 @@ export function MeetingsPage() {
   }
 
   const sorted = [...(meetings ?? [])].sort((a, b) => a.date.localeCompare(b.date))
-  const columnCount = 8 + club.members.length
+  const columnCount = 8
 
   return (
     <Box>
@@ -312,9 +312,25 @@ function MovieRow({
         <MemberBadge member={club.members.find((m) => m.memberId === movie.chosenById)} />
       </TableCell>
       <TableCell>
-        <ImdbLink imdbId={movie.imdbId} variant="text">
-          {resolveTitle(movie, club)}
-        </ImdbLink>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+          <ImdbLink imdbId={movie.imdbId} variant="text">
+            {resolveTitle(movie, club)}
+          </ImdbLink>
+          {club.members.map((clubMember) => {
+            const review = pick.reviews.find((r) => r.memberId === clubMember.memberId)
+            return (
+              <InlineRatingEditor
+                key={clubMember.memberId}
+                scales={scales}
+                memberName={clubMember.name}
+                qualityOptionId={review?.qualityOptionId ?? null}
+                sentimentOptionId={review?.sentimentOptionId ?? null}
+                editable={clubMember.memberId === myMemberId}
+                onSave={handleSaveRating}
+              />
+            )
+          })}
+        </Stack>
         {error && (
           <Typography variant="caption" color="error" display="block">
             {error}
@@ -343,20 +359,6 @@ function MovieRow({
         <CountryFlags codes={movie.originCountry} />
       </TableCell>
       <TableCell>{ratingLabel(movie) ?? '—'}</TableCell>
-      {club.members.map((clubMember) => {
-        const review = pick.reviews.find((r) => r.memberId === clubMember.memberId)
-        return (
-          <TableCell key={clubMember.memberId}>
-            <InlineRatingEditor
-              scales={scales}
-              qualityOptionId={review?.qualityOptionId ?? null}
-              sentimentOptionId={review?.sentimentOptionId ?? null}
-              editable={clubMember.memberId === myMemberId}
-              onSave={handleSaveRating}
-            />
-          </TableCell>
-        )
-      })}
     </TableRow>
   )
 }
@@ -406,17 +408,33 @@ function EpisodeRow({
         {series ? <MemberBadge member={club.members.find((m) => m.memberId === series.chosenById)} /> : '—'}
       </TableCell>
       <TableCell>
-        {episode.imdbId || series ? (
-          <ImdbLink imdbId={episode.imdbId ?? series!.imdbId} variant="text">
-            Ep. {episode.number}
-            {episode.title ? ` — ${episode.title}` : ''}
-          </ImdbLink>
-        ) : (
-          <span>
-            Ep. {episode.number}
-            {episode.title ? ` — ${episode.title}` : ''}
-          </span>
-        )}
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+          {episode.imdbId || series ? (
+            <ImdbLink imdbId={episode.imdbId ?? series!.imdbId} variant="text">
+              Ep. {episode.number}
+              {episode.title ? ` — ${episode.title}` : ''}
+            </ImdbLink>
+          ) : (
+            <span>
+              Ep. {episode.number}
+              {episode.title ? ` — ${episode.title}` : ''}
+            </span>
+          )}
+          {club.members.map((clubMember) => {
+            const review = pick.reviews.find((r) => r.memberId === clubMember.memberId)
+            return (
+              <InlineRatingEditor
+                key={clubMember.memberId}
+                scales={scales}
+                memberName={clubMember.name}
+                qualityOptionId={review?.qualityOptionId ?? null}
+                sentimentOptionId={review?.sentimentOptionId ?? null}
+                editable={clubMember.memberId === myMemberId}
+                onSave={handleSaveRating}
+              />
+            )
+          })}
+        </Stack>
         {error && (
           <Typography variant="caption" color="error" display="block">
             {error}
@@ -449,20 +467,6 @@ function EpisodeRow({
         <CountryFlags codes={series?.originCountry} />
       </TableCell>
       <TableCell>{rating ?? '—'}</TableCell>
-      {club.members.map((clubMember) => {
-        const review = pick.reviews.find((r) => r.memberId === clubMember.memberId)
-        return (
-          <TableCell key={clubMember.memberId}>
-            <InlineRatingEditor
-              scales={scales}
-              qualityOptionId={review?.qualityOptionId ?? null}
-              sentimentOptionId={review?.sentimentOptionId ?? null}
-              editable={clubMember.memberId === myMemberId}
-              onSave={handleSaveRating}
-            />
-          </TableCell>
-        )
-      })}
     </TableRow>
   )
 }
