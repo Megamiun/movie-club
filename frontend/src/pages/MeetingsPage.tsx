@@ -3,24 +3,30 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
-  List,
-  ListItemButton,
-  ListItemText,
+  Link,
+  Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from '@mui/material'
-import { useState, type FormEvent } from 'react'
+import { Fragment, useState, type FormEvent } from 'react'
 import { Link as RouterLink, useOutletContext } from 'react-router-dom'
 import { meetingsApi } from '../api/meetings'
 import { ApiError } from '../api/client'
-import type { MeetingWithPicks } from '../api/types'
+import type { Episode, Movie, MeetingWithPicks } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { ImdbLink } from '../components/ImdbLink'
 import { MemberAutocomplete } from '../components/MemberAutocomplete'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { memberName } from '../utils/members'
+import { ratingLabel } from '../utils/rating'
 import { resolveTitle } from '../utils/title'
 
 export function MeetingsPage() {
@@ -52,12 +58,32 @@ export function MeetingsPage() {
       </Typography>
 
       <AsyncState loading={loading} error={error}>
-        <List>
-          {sorted.length === 0 && <Typography color="text.secondary">No meetings yet.</Typography>}
-          {sorted.map((meeting) => (
-            <MeetingRow key={meeting.id} meeting={meeting} club={club} />
-          ))}
-        </List>
+        {sorted.length === 0 ? (
+          <Typography color="text.secondary">No meetings yet.</Typography>
+        ) : (
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Assigned</TableCell>
+                  <TableCell>Title</TableCell>
+                  <TableCell>Year</TableCell>
+                  <TableCell>Director</TableCell>
+                  <TableCell>Runtime</TableCell>
+                  <TableCell>Genre</TableCell>
+                  <TableCell>Country</TableCell>
+                  <TableCell>Rating</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {sorted.map((meeting) => (
+                  <MeetingRows key={meeting.id} meeting={meeting} club={club} />
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </AsyncState>
 
       <Box component="form" onSubmit={handleCreate} sx={{ mt: 3 }}>
@@ -94,37 +120,74 @@ export function MeetingsPage() {
   )
 }
 
-function MeetingRow({ meeting, club }: { meeting: MeetingWithPicks; club: ClubOutletContext['club'] }) {
-  const picks = [
-    ...meeting.movies.map((movie) => `${resolveTitle(movie, club)}${movie.year ? ` (${movie.year})` : ''}`),
-    ...meeting.episodes.map((episode) => `Ep. ${episode.number}${episode.title ? ` — ${episode.title}` : ''}`),
-  ]
+function MeetingRows({ meeting, club }: { meeting: MeetingWithPicks; club: ClubOutletContext['club'] }) {
+  const hasPicks = meeting.movies.length > 0 || meeting.episodes.length > 0
 
   return (
-    <ListItemButton component={RouterLink} to={`/meetings/${meeting.id}`} divider>
-      <ListItemText
-        primary={meeting.date}
-        secondary={
-          <>
-            {meeting.assignedMemberId
-              ? `Assigned: ${memberName(club.members, meeting.assignedMemberId)}`
-              : 'Shared / merged'}
-            {picks.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" component="span">
-                {' '}
-                &middot; Nothing picked yet
-              </Typography>
-            ) : (
-              <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: 'wrap' }}>
-                {picks.map((pick, index) => (
-                  <Chip key={index} size="small" label={pick} variant="outlined" />
-                ))}
-              </Stack>
-            )}
-          </>
-        }
-        slotProps={{ secondary: { component: 'div' } }}
-      />
-    </ListItemButton>
+    <Fragment>
+      <TableRow sx={{ '& td': { bgcolor: 'action.hover', fontWeight: 500 } }}>
+        <TableCell>
+          <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover">
+            {meeting.date}
+          </Link>
+        </TableCell>
+        <TableCell>
+          {meeting.assignedMemberId ? memberName(club.members, meeting.assignedMemberId) : 'Shared / merged'}
+        </TableCell>
+        <TableCell colSpan={7} sx={{ fontWeight: 400, color: 'text.secondary' }}>
+          {!hasPicks && 'Nothing picked yet'}
+        </TableCell>
+      </TableRow>
+      {meeting.movies.map((movie) => (
+        <MovieRow key={movie.id} movie={movie} club={club} />
+      ))}
+      {meeting.episodes.map((episode) => (
+        <EpisodeRow key={episode.id} episode={episode} />
+      ))}
+    </Fragment>
+  )
+}
+
+function MovieRow({ movie, club }: { movie: Movie; club: ClubOutletContext['club'] }) {
+  return (
+    <TableRow>
+      <TableCell />
+      <TableCell />
+      <TableCell>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+          <span>{resolveTitle(movie, club)}</span>
+          <ImdbLink imdbId={movie.imdbId} />
+        </Stack>
+      </TableCell>
+      <TableCell>{movie.year ?? '—'}</TableCell>
+      <TableCell>{movie.director ?? '—'}</TableCell>
+      <TableCell>{movie.runtimeMinutes ? `${movie.runtimeMinutes}min` : '—'}</TableCell>
+      <TableCell>{movie.genre && movie.genre.length > 0 ? movie.genre.join(', ') : '—'}</TableCell>
+      <TableCell>
+        {movie.productionCountries && movie.productionCountries.length > 0
+          ? movie.productionCountries.join(', ')
+          : '—'}
+      </TableCell>
+      <TableCell>{ratingLabel(movie) ?? '—'}</TableCell>
+    </TableRow>
+  )
+}
+
+function EpisodeRow({ episode }: { episode: Episode }) {
+  return (
+    <TableRow>
+      <TableCell />
+      <TableCell />
+      <TableCell>
+        Ep. {episode.number}
+        {episode.title ? ` — ${episode.title}` : ''}
+      </TableCell>
+      <TableCell>{episode.airDate ?? '—'}</TableCell>
+      <TableCell>{episode.director ?? '—'}</TableCell>
+      <TableCell>{episode.runtimeMinutes ? `${episode.runtimeMinutes}min` : '—'}</TableCell>
+      <TableCell>—</TableCell>
+      <TableCell>—</TableCell>
+      <TableCell>{episode.tmdbRating ? `TMDB ${episode.tmdbRating}` : '—'}</TableCell>
+    </TableRow>
   )
 }
