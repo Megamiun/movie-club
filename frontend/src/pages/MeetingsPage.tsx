@@ -23,7 +23,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import { Fragment, useEffect, useState, type DragEvent, type FormEvent } from 'react'
+import { Fragment, useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react'
 import { Link as RouterLink, useOutletContext } from 'react-router-dom'
 import { clubsApi } from '../api/clubs'
 import { episodesApi } from '../api/series'
@@ -104,6 +104,21 @@ export function MeetingsPage() {
   const effectiveYear = selectedYear && years.includes(selectedYear) ? selectedYear : defaultYear
   const meetingsForYear = sorted.filter((meeting) => meeting.date.slice(0, 4) === effectiveYear)
 
+  const rowRefs = useRef(new Map<string, HTMLTableRowElement>())
+  const focusedYearRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (effectiveYear !== currentYear) return
+    if (meetingsForYear.length === 0) return
+    if (focusedYearRef.current === effectiveYear) return
+    focusedYearRef.current = effectiveYear
+
+    const today = new Date().toISOString().slice(0, 10)
+    const target = meetingsForYear.find((meeting) => meeting.date >= today) ?? meetingsForYear.at(-1)
+    const row = target && rowRefs.current.get(target.id)
+    row?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [effectiveYear, currentYear, meetingsForYear])
+
   return (
     <Box>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -140,6 +155,10 @@ export function MeetingsPage() {
                       columnCount={columnCount}
                       seasonNumbers={seasonNumbers}
                       onChange={silentReload}
+                      registerRow={(el) => {
+                        if (el) rowRefs.current.set(meeting.id, el)
+                        else rowRefs.current.delete(meeting.id)
+                      }}
                     />
                   ))}
                 </TableBody>
@@ -243,6 +262,7 @@ function MeetingRows({
   columnCount,
   seasonNumbers,
   onChange,
+  registerRow,
 }: {
   meeting: MeetingWithPicks
   club: ClubOutletContext['club']
@@ -251,6 +271,7 @@ function MeetingRows({
   columnCount: number
   seasonNumbers: Map<string, SeasonCodeInfo> | null
   onChange: () => void
+  registerRow: (el: HTMLTableRowElement | null) => void
 }) {
   const hasPicks = meeting.movies.length > 0 || meeting.episodes.length > 0
   const [isDragOver, setIsDragOver] = useState(false)
@@ -291,6 +312,7 @@ function MeetingRows({
   return (
     <Fragment>
       <TableRow
+        ref={registerRow}
         {...dropProps}
         sx={{ '& td': { bgcolor: isDragOver ? 'action.selected' : 'action.hover', fontWeight: 600 } }}
       >

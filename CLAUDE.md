@@ -346,7 +346,10 @@ enforces those automatically. This section is for conventions ktlint can't check
 - The Meetings page groups meetings into year tabs (client-side, derived from each `Meeting.date` — no `year` field
   or endpoint of its own), matching how the schedule itself is generated a year at a time. Sorted newest-first
   (leftmost tab = latest year). Defaults to the current calendar year, or the most recent year with any meetings if
-  the current year has none yet
+  the current year has none yet. Landing on (not just switching to) the current-year tab auto-scrolls the earliest
+  meeting dated today-or-later into view (`block: 'center'`) — the latest meeting instead if every meeting that
+  year is already in the past. Scrolls once per year selection (a `useRef` guard, not a data-driven effect), so the
+  5-second background poll refreshing meeting data doesn't keep re-scrolling the page out from under the reader
 
 ### Key scenarios
 

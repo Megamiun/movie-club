@@ -136,7 +136,9 @@
     changes from other members show up without a manual refresh or any visible disruption
 - [ ] For all colors selections, only allow pastel colors for now
   - [ ] Use this in the UI for the bg and text color should be the stronger version of the color
-- [ ] Focus in the next meeting when opening the current year
+- [x] Focus in the next meeting when opening the current year
+  - Auto-scrolls the earliest today-or-later meeting into view (centered) once per year-tab selection, not
+    re-triggered by the 5s background poll. Verified live: landed exactly on the correct upcoming meeting
 - [x] IMDB rating should be episode rating, not series rating
   - `episodes.imdb_rating`, fetched from OMDb via the episode's own `imdb_id` the moment `refreshMetadata` resolves
     it (same best-effort pattern as Movie/Series). Meetings table prefers the episode's own rating, falling back to
