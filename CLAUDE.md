@@ -317,6 +317,13 @@ enforces those automatically. This section is for conventions ktlint can't check
   a delete, a drag-and-drop move — patches state in place) and on a 5-second `setInterval`, so other members'
   concurrent changes show up without a manual refresh. A failed background poll is silently dropped rather than
   surfaced, since whatever's already on screen is still valid
+- Light/dark theme: `theme.ts` already declared `colorSchemes: { light: true, dark: true }` (MUI's CSS-vars mode)
+  plus `defaultColorScheme: 'light'` so a fresh visitor always starts light rather than following OS preference. A
+  sun/moon `IconButton` in `AppLayout`'s nav bar calls MUI's own `useColorScheme().setMode(...)`, toggling directly
+  between `'light'`/`'dark'` (no third "system" state, to keep it a simple binary toggle matching the app's other
+  personal-preference toggles) — MUI persists the chosen mode to `localStorage` itself, no app code needed for that
+  part. No component-level dark-mode-specific styling was needed elsewhere; the app already used theme-relative
+  color tokens (`text.secondary`, `Paper`, etc.) throughout rather than hardcoded hex values
 
 ## Schedule Model
 

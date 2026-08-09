@@ -1,7 +1,25 @@
+import DarkModeIcon from '@mui/icons-material/DarkMode'
+import LightModeIcon from '@mui/icons-material/LightMode'
 import LogoutIcon from '@mui/icons-material/Logout'
 import { AppBar, Box, Button, Container, IconButton, Toolbar, Typography } from '@mui/material'
+import { useColorScheme } from '@mui/material/styles'
 import { Link as RouterLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+
+function ThemeModeToggle() {
+  const { mode, setMode } = useColorScheme()
+  const isDark = mode === 'dark'
+
+  return (
+    <IconButton
+      color="inherit"
+      onClick={() => setMode(isDark ? 'light' : 'dark')}
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      {isDark ? <LightModeIcon /> : <DarkModeIcon />}
+    </IconButton>
+  )
+}
 
 export function AppLayout() {
   const { member, logout } = useAuth()
@@ -24,9 +42,10 @@ export function AppLayout() {
           >
             Movie Club
           </Typography>
+          <ThemeModeToggle />
           {member && (
             <>
-              <Typography variant="body2" sx={{ mr: 2 }}>
+              <Typography variant="body2" sx={{ mr: 2, ml: 1 }}>
                 {member.name} (@{member.username})
               </Typography>
               {member.isSiteAdmin && (

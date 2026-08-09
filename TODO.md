@@ -122,7 +122,9 @@
   - [x] Always use dashed border for the ratings, even if the user has not added his rating.
     - Outline switched from solid to dashed, and the early-return that hid the whole box (including the outline)
       for a fully unrated, non-editable cell was removed -- the box, and its outline, now always render
-- [ ] Make both a light and dark theme available
+- [x] Make both a light and dark theme available
+  - Sun/moon toggle in the nav bar using MUI's own `useColorScheme()` (theme already declared `colorSchemes` for
+    both). Verified live in a browser -- good contrast throughout, no hardcoded-color issues found
 - [x] Don't refresh the whole page when rating changes
   - `useAsync` gained a `silentReload` (refetches without ever setting `loading`, so `AsyncState` never swaps the
     table for a spinner). Meetings table uses it for every pick mutation plus a 5s background poll, so concurrent
@@ -158,6 +160,8 @@
     to the same shared util for consistency, `EpisodeSearchAutocomplete` was left as-is
     - [ ] On Display, fill the episode and season numbers with the 0, until the number of the episode is the same as the largest season/episode
 - [ ] Director should be in it`s own normalized table(People probably), and episodes, series and so on, should point to it
+- [ ] Validate/Suggest languages
+  - [ ] Languages can be just language or have a country, such as pt or pt-BR or pt-PT
 
 # Stretch goals (only start after asked)
 - [ ] Use rectangular (flat) country flags instead of the wavy emoji ones
