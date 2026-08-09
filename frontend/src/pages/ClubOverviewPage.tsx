@@ -32,6 +32,8 @@ import { ApiError } from '../api/client'
 import type { ClubDetail, ClubMember, MemberSummary, RatingOption, RatingScale } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { MemberSearchAutocomplete } from '../components/MemberSearchAutocomplete'
+import { PastelColorPicker } from '../components/PastelColorPicker'
+import { hueToPastelHex } from '../utils/pastelColor'
 import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
@@ -216,15 +218,7 @@ function MemberColorEditor({
     return <Box sx={{ width: 24, height: 24, borderRadius: '50%', bgcolor: color }} />
   }
 
-  return (
-    <Box
-      component="input"
-      type="color"
-      value={color}
-      onChange={(e) => handleChange(e.target.value)}
-      sx={{ width: 32, height: 32, border: 'none', p: 0, background: 'none', cursor: 'pointer' }}
-    />
-  )
+  return <PastelColorPicker value={color} onChange={setColor} onCommit={handleChange} width={100} height={24} />
 }
 
 function RotationSection({ club }: { club: ClubDetail }) {
@@ -314,7 +308,7 @@ function RatingScaleCard({
   const sortedOptions = [...scale.options].sort((a, b) => a.position - b.position)
   const [error, setError] = useState<string | null>(null)
   const [newLabel, setNewLabel] = useState('')
-  const [newColor, setNewColor] = useState('#9e9e9e')
+  const [newColor, setNewColor] = useState(hueToPastelHex(0))
 
   const handleMove = async (index: number, direction: -1 | 1) => {
     const target = index + direction
@@ -373,13 +367,7 @@ function RatingScaleCard({
       </Stack>
       <Box component="form" onSubmit={handleAdd} sx={{ mt: 1.5 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Box
-            component="input"
-            type="color"
-            value={newColor}
-            onChange={(e) => setNewColor(e.target.value)}
-            sx={{ width: 32, height: 32, border: 'none', p: 0, background: 'none', cursor: 'pointer' }}
-          />
+          <PastelColorPicker value={newColor} onChange={setNewColor} width={80} height={24} />
           <TextField
             size="small"
             variant="standard"
@@ -576,11 +564,12 @@ function RatingOptionEditor({
   const [error, setError] = useState<string | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
-  const handleBlurSave = async () => {
-    if (label === option.label && color === option.color) return
+  const handleBlurSave = async (colorOverride?: string) => {
+    const savedColor = colorOverride ?? color
+    if (label === option.label && savedColor === option.color) return
     setError(null)
     try {
-      await clubsApi.updateRatingOption(clubId, option.id, { label, color })
+      await clubsApi.updateRatingOption(clubId, option.id, { label, color: savedColor })
       onChange()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -589,20 +578,13 @@ function RatingOptionEditor({
 
   return (
     <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-      <Box
-        component="input"
-        type="color"
-        value={color}
-        onChange={(e) => setColor(e.target.value)}
-        onBlur={handleBlurSave}
-        sx={{ width: 32, height: 32, border: 'none', p: 0, background: 'none', cursor: 'pointer' }}
-      />
+      <PastelColorPicker value={color} onChange={setColor} onCommit={handleBlurSave} width={100} height={24} />
       <TextField
         size="small"
         variant="standard"
         value={label}
         onChange={(e) => setLabel(e.target.value)}
-        onBlur={handleBlurSave}
+        onBlur={() => handleBlurSave()}
         sx={{ flexGrow: 1 }}
       />
       <IconButton size="small" onClick={() => onMove(-1)} disabled={!canMoveUp}>

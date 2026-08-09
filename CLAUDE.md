@@ -302,6 +302,14 @@ enforces those automatically. This section is for conventions ktlint can't check
   `SeasonRepository`/`EpisodeRepository` before deleting the option row itself — repositories still don't depend on
   each other, so this cross-entity composition lives in the service, same as `SeriesService`'s own multi-repository
   work) — the last remaining option in a scale can't be deleted, since there'd be nothing to reassign to
+- Every place a user picks a color by hand (a rating option's color, a new option's initial color, a member's own
+  color) uses a shared `PastelColorPicker` (`frontend/src/components/PastelColorPicker.tsx`) instead of a native
+  `<input type="color">` — a hue-only slider at a fixed pastel saturation/lightness (`frontend/src/utils/
+  pastelColor.ts`), so every color it can produce is pastel by construction rather than relying on the user staying
+  within some band. Storage is still a plain hex string, unchanged. This only constrains user *choices* going
+  forward — the seeded default palettes above are deliberately not all-pastel (quality mixes pastel and solid) and
+  aren't retroactively touched; a pre-existing non-pastel color is left alone until the member/admin actually
+  drags the picker themselves, at which point the thumb starts at that color's closest hue on the pastel band
 - Default seeding gives each scale its *own* six-color best-to-worst palette, matching the original spreadsheet's own
   chip colors per option (see `samples/img_1.png` for quality, `img_2.png` for sentiment) rather than a single shared
   gradient reused across both scales — quality mixes pastel and solid chips, sentiment is consistently pastel;

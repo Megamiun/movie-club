@@ -134,8 +134,15 @@
   - `useAsync` gained a `silentReload` (refetches without ever setting `loading`, so `AsyncState` never swaps the
     table for a spinner). Meetings table uses it for every pick mutation plus a 5s background poll, so concurrent
     changes from other members show up without a manual refresh or any visible disruption
-- [ ] For all colors selections, only allow pastel colors for now
+- [x] For all colors selections, only allow pastel colors for now
+  - New shared `PastelColorPicker` (hue-only slider at a fixed pastel saturation/lightness) replaces every native
+    `<input type="color">` (member color, rating option color, new-option color). Storage stays a plain hex string.
+    Only constrains new picks going forward -- seeded default palettes (deliberately not all-pastel) and any
+    pre-existing custom color are left untouched until actually re-picked. Verified live: dragging the picker
+    persists a genuinely pastel hex (e.g. `#d1b6ed`) to the DB
   - [ ] Use this in the UI for the bg and text color should be the stronger version of the color
+    - Separate from the picker itself -- would mean deriving a second, more saturated color from the stored
+      pastel for text/accents wherever it's currently just background. Not attempted here, left for its own pass
 - [x] Focus in the next meeting when opening the current year
   - Auto-scrolls the earliest today-or-later meeting into view (centered) once per year-tab selection, not
     re-triggered by the 5s background poll. Verified live: landed exactly on the correct upcoming meeting
@@ -175,6 +182,7 @@
 - [ ] Director should be in it`s own normalized table(People probably), and episodes, series and so on, should point to it
 - [ ] Validate/Suggest languages
   - [ ] Languages can be just language or have a country, such as pt or pt-BR or pt-PT
+- [ ] Add icons to the top to show series or episodes, show movies by default, allow for user to turn off or on any
 
 # Stretch goals (only start after asked)
 - [ ] Use rectangular (flat) country flags instead of the wavy emoji ones
