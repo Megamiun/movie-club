@@ -4,6 +4,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import DeleteIcon from '@mui/icons-material/Delete'
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -22,9 +23,11 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import { useEffect, useState, type FormEvent } from 'react'
+import { flushSync } from 'react-dom'
 import { useOutletContext } from 'react-router-dom'
 import { authApi } from '../api/auth'
 import { clubsApi } from '../api/clubs'
@@ -37,6 +40,7 @@ import { hueToPastelHex } from '../utils/pastelColor'
 import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
+import { ISO_639_1_CODES, isValidLanguageCode, languageName, normalizeLanguageCode } from '../utils/language'
 import { memberName } from '../utils/members'
 
 export function ClubOverviewPage() {
@@ -247,19 +251,23 @@ function RotationSection({ club }: { club: ClubDetail }) {
     // Reads/writes `order` through the functional updater form rather than the closed-over `order` variable --
     // two rapid clicks (e.g. up-up) can both fire from the same render before React re-renders in between, and a
     // plain `[...order]` read in that window would have both computations start from the same stale array,
-    // silently dropping whichever move's setOrder call resolves first.
+    // silently dropping whichever move's setOrder call resolves first. Wrapped in `flushSync` -- see the longer
+    // note on `LanguagePreferencesSection.persist` below for why: without it, nothing guarantees `setOrder`'s
+    // updater runs before `next`/`previous` are read a few lines later.
     let previous: string[] = []
     let next: string[] = []
-    setOrder((current) => {
-      previous = current
-      const target = index + direction
-      if (target < 0 || target >= current.length) {
-        next = current
-        return current
-      }
-      next = [...current]
-      ;[next[index], next[target]] = [next[target], next[index]]
-      return next
+    flushSync(() => {
+      setOrder((current) => {
+        previous = current
+        const target = index + direction
+        if (target < 0 || target >= current.length) {
+          next = current
+          return current
+        }
+        next = [...current]
+        ;[next[index], next[target]] = [next[target], next[index]]
+        return next
+      })
     })
     if (next === previous) return
     setError(null)
@@ -427,21 +435,26 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
   // variables -- two rapid actions (e.g. removing two chips back to back) can both fire from the same render
   // before React re-renders in between, and a plain array read in that window would have both computations start
   // from the same stale list, silently dropping whichever action's setState call resolves first. Identity
-  // (`(c) => c`) is passed for whichever list a given call site doesn't touch.
+  // (`(c) => c`) is passed for whichever list a given call site doesn't touch. The two `setState` calls are wrapped
+  // in `flushSync` -- without it, nothing guarantees the updater callbacks below run before the `nextPreferred`/
+  // `nextIgnored` they populate are read a few lines later, and the API call below was firing with `[]`/`[]` (their
+  // pre-`flushSync` initial values) instead of the actual new lists, silently wiping both on every single edit.
   const persist = async (updatePreferred: (current: string[]) => string[], updateIgnored: (current: string[]) => string[]) => {
     let previousPreferred: string[] = []
     let nextPreferred: string[] = []
     let previousIgnored: string[] = []
     let nextIgnored: string[] = []
-    setPreferred((current) => {
-      previousPreferred = current
-      nextPreferred = updatePreferred(current)
-      return nextPreferred
-    })
-    setIgnored((current) => {
-      previousIgnored = current
-      nextIgnored = updateIgnored(current)
-      return nextIgnored
+    flushSync(() => {
+      setPreferred((current) => {
+        previousPreferred = current
+        nextPreferred = updatePreferred(current)
+        return nextPreferred
+      })
+      setIgnored((current) => {
+        previousIgnored = current
+        nextIgnored = updateIgnored(current)
+        return nextIgnored
+      })
     })
     setError(null)
     try {
@@ -465,8 +478,13 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
 
   const addPreferred = (event: FormEvent) => {
     event.preventDefault()
-    const code = newPreferred.trim().toLowerCase()
-    if (!code || preferred.includes(code)) return
+    if (!newPreferred.trim()) return
+    if (!isValidLanguageCode(newPreferred)) {
+      setError(`"${newPreferred.trim()}" isn't a recognized language code`)
+      return
+    }
+    const code = normalizeLanguageCode(newPreferred)!
+    if (preferred.includes(code)) return
     setNewPreferred('')
     persist((current) => (current.includes(code) ? current : [...current, code]), (current) => current)
   }
@@ -477,8 +495,13 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
 
   const addIgnored = (event: FormEvent) => {
     event.preventDefault()
-    const code = newIgnored.trim().toLowerCase()
-    if (!code || ignored.includes(code)) return
+    if (!newIgnored.trim()) return
+    if (!isValidLanguageCode(newIgnored)) {
+      setError(`"${newIgnored.trim()}" isn't a recognized language code`)
+      return
+    }
+    const code = normalizeLanguageCode(newIgnored)!
+    if (ignored.includes(code)) return
     setNewIgnored('')
     persist((current) => current, (current) => (current.includes(code) ? current : [...current, code]))
   }
@@ -493,8 +516,8 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
         Language preferences
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        ISO 639-1 codes (e.g. "en", "pt") used to pick a display title for movies/series that don't have a custom
-        title or a specific language chosen.
+        ISO 639-1 codes (e.g. "en", "pt"), optionally region-qualified (e.g. "pt-BR" vs "pt-PT"), used to pick a
+        display title for movies/series that don't have a custom title or a specific language chosen.
       </Typography>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -514,7 +537,9 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
             )}
             {preferred.map((code, index) => (
               <Stack key={code} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <Chip label={code} size="small" />
+                <Tooltip title={languageName(code)}>
+                  <Chip label={code} size="small" />
+                </Tooltip>
                 <Box sx={{ flexGrow: 1 }} />
                 <IconButton size="small" onClick={() => movePreferred(index, -1)} disabled={index === 0}>
                   <ArrowUpwardIcon fontSize="small" />
@@ -533,12 +558,7 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
             ))}
           </Stack>
           <Box component="form" onSubmit={addPreferred} sx={{ display: 'flex', gap: 1 }}>
-            <TextField
-              size="small"
-              label="Language code"
-              value={newPreferred}
-              onChange={(e) => setNewPreferred(e.target.value)}
-            />
+            <LanguageCodeAutocomplete value={newPreferred} onChange={setNewPreferred} />
             <Button type="submit" variant="outlined">
               Add
             </Button>
@@ -555,16 +575,13 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
               </Typography>
             )}
             {ignored.map((code) => (
-              <Chip key={code} label={code} size="small" onDelete={() => removeIgnored(code)} />
+              <Tooltip key={code} title={languageName(code)}>
+                <Chip label={code} size="small" onDelete={() => removeIgnored(code)} />
+              </Tooltip>
             ))}
           </Stack>
           <Box component="form" onSubmit={addIgnored} sx={{ display: 'flex', gap: 1 }}>
-            <TextField
-              size="small"
-              label="Language code"
-              value={newIgnored}
-              onChange={(e) => setNewIgnored(e.target.value)}
-            />
+            <LanguageCodeAutocomplete value={newIgnored} onChange={setNewIgnored} />
             <Button type="submit" variant="outlined">
               Add
             </Button>
@@ -572,6 +589,34 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
         </Paper>
       </Stack>
     </Box>
+  )
+}
+
+/** Free-solo suggest-as-you-type language code input, shared by both the preferred and ignored add-forms above --
+ * suggests from the bare ISO 639-1 list (`ISO_639_1_CODES`), matching on either the code itself or its English
+ * name, but doesn't block typing a region-qualified code (e.g. "pt-BR") that isn't itself a suggested option.
+ * Validation happens on submit (see `addPreferred`/`addIgnored`), not here -- this only offers suggestions. */
+function LanguageCodeAutocomplete({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <Autocomplete
+      freeSolo
+      size="small"
+      sx={{ minWidth: 220 }}
+      options={ISO_639_1_CODES}
+      filterOptions={(options, state) => {
+        const query = state.inputValue.trim().toLowerCase()
+        if (!query) return []
+        return options.filter((code) => code.startsWith(query) || languageName(code).toLowerCase().includes(query)).slice(0, 8)
+      }}
+      renderOption={(props, code) => (
+        <li {...props} key={code}>
+          {code} — {languageName(code)}
+        </li>
+      )}
+      inputValue={value}
+      onInputChange={(_, newValue) => onChange(newValue)}
+      renderInput={(params) => <TextField {...params} label="Language code" />}
+    />
   )
 }
 
