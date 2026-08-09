@@ -27,6 +27,7 @@ import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
 import { InlineRatingEditor } from '../components/InlineRatingEditor'
 import { MemberAutocomplete } from '../components/MemberAutocomplete'
+import { MemberBadge } from '../components/MemberBadge'
 import { TruncatedList } from '../components/TruncatedList'
 import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
@@ -221,7 +222,9 @@ function MovieRow({
 
   return (
     <TableRow>
-      <TableCell>{memberName(club.members, movie.chosenById)}</TableCell>
+      <TableCell>
+        <MemberBadge member={club.members.find((m) => m.memberId === movie.chosenById)} />
+      </TableCell>
       <TableCell>
         <ImdbLink imdbId={movie.imdbId} variant="text">
           {resolveTitle(movie, club)}
@@ -303,7 +306,9 @@ function EpisodeRow({
 
   return (
     <TableRow>
-      <TableCell>{series ? memberName(club.members, series.chosenById) : '—'}</TableCell>
+      <TableCell>
+        {series ? <MemberBadge member={club.members.find((m) => m.memberId === series.chosenById)} /> : '—'}
+      </TableCell>
       <TableCell>
         {series ? (
           <ImdbLink imdbId={series.imdbId} variant="text">

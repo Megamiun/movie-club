@@ -48,16 +48,23 @@ class ExposedClubRepository : ClubRepository {
             .singleOrNull()
     }
 
-    override fun addMember(clubId: Uuid, memberId: Uuid, role: ClubRole, rotationOrder: Int): ClubMembershipRow = transaction {
+    override fun addMember(
+        clubId: Uuid,
+        memberId: Uuid,
+        role: ClubRole,
+        rotationOrder: Int,
+        color: String?,
+    ): ClubMembershipRow = transaction {
         val joinedAt = Clock.System.now()
         ClubMembers.insert {
             it[ClubMembers.clubId] = clubId
             it[ClubMembers.memberId] = memberId
             it[ClubMembers.role] = role
             it[ClubMembers.rotationOrder] = rotationOrder
+            it[ClubMembers.color] = color
             it[ClubMembers.joinedAt] = joinedAt
         }
-        ClubMembershipRow(clubId, memberId, role, rotationOrder, joinedAt)
+        ClubMembershipRow(clubId, memberId, role, rotationOrder, joinedAt, color)
     }
 
     override fun findMembership(clubId: Uuid, memberId: Uuid): ClubMembershipRow? = transaction {
@@ -97,6 +104,13 @@ class ExposedClubRepository : ClubRepository {
         findMembership(clubId, memberId)!!
     }
 
+    override fun updateColor(clubId: Uuid, memberId: Uuid, color: String): ClubMembershipRow = transaction {
+        ClubMembers.update({ (ClubMembers.clubId eq clubId) and (ClubMembers.memberId eq memberId) }) {
+            it[ClubMembers.color] = color
+        }
+        findMembership(clubId, memberId)!!
+    }
+
     override fun countAdmins(clubId: Uuid): Int = transaction {
         ClubMembers
             .selectAll()
@@ -125,5 +139,6 @@ class ExposedClubRepository : ClubRepository {
         role = row[ClubMembers.role],
         rotationOrder = row[ClubMembers.rotationOrder],
         joinedAt = row[ClubMembers.joinedAt],
+        color = row[ClubMembers.color],
     )
 }

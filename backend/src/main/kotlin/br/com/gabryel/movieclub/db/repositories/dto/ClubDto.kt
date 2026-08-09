@@ -22,4 +22,5 @@ data class ClubMembershipRow(
     val role: ClubRole,
     val rotationOrder: Int,
     val joinedAt: Instant,
+    val color: String? = null,
 )

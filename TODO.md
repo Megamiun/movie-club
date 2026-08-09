@@ -50,8 +50,9 @@
 - [ ] Add Move to Watchlist button in meeting
 - [ ] Add move to meeting button in Watchlist
 - [ ] Allow taking movies/episodes from one meeting to another via drag and drop
-- [ ] Give each member a color inside the club(editable)
-- [ ] Use this color and initials in the first column of the meetings table
+- [x] Give each member a color inside the club(editable)
+- [x] Use this color and initials in the first column of the meetings table
+  - `color` on `club_members` (V20 migration, backfilled for existing members by rotation order), auto-assigned from an 8-color palette when a member joins. Editable by the member themselves or any club admin (color swatch in the club Overview page's Members table). Meetings table's chosen-by column now shows a `MemberBadge` (colored initials avatar) instead of the plain name
 - [x] Use flag instead of country name(Show name over hover)
   - Meetings list only (that's where country was shown). Emoji flag derived from `originCountry` ISO codes (regional-indicator-symbol trick, `frontend/src/utils/country.ts`) instead of the `productionCountries` name list; each flag has a `Tooltip` with the full name via `Intl.DisplayNames`
 - [ ] Totally delete TMDB rating field, only show IMDB

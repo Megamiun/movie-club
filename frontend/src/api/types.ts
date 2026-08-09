@@ -20,6 +20,7 @@ export interface ClubMember {
   name: string
   role: string
   rotationOrder: number
+  color: string | null
 }
 
 export interface MemberSummary {

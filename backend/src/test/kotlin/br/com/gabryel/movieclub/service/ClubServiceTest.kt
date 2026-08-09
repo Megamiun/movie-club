@@ -83,7 +83,7 @@ class ClubServiceTest {
         every { clubRepository.findMembership(clubId, memberId) } returns membership(role = MEMBER)
 
         assertFailsWith<ForbiddenException> { clubService.addMember(clubId, memberId, Uuid.random()) }
-        verify(exactly = 0) { clubRepository.addMember(any(), any(), any(), any()) }
+        verify(exactly = 0) { clubRepository.addMember(any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -106,7 +106,8 @@ class ClubServiceTest {
         )
 
         val addedMembership = membership(memberId = targetId, role = MEMBER, rotationOrder = 2)
-        every { clubRepository.addMember(clubId, targetId, MEMBER, 2) } returns addedMembership
+        // "#66BB6A" is MEMBER_COLOR_PALETTE[2] in ClubService -- auto-assigned by rotation order at add time
+        every { clubRepository.addMember(clubId, targetId, MEMBER, 2, "#66BB6A") } returns addedMembership
         every { memberRepository.findById(targetId) } returns registeredMember(targetId)
 
         val result = clubService.addMember(clubId, memberId, targetId)
@@ -183,6 +184,49 @@ class ClubServiceTest {
     }
 
     @Test
+    fun `updateColor allows a member to change their own color`() {
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = MEMBER)
+        every { clubRepository.updateColor(clubId, memberId, "#123456") } returns membership(color = "#123456")
+        every { memberRepository.findById(memberId) } returns registeredMember(memberId)
+
+        val result = clubService.updateColor(clubId, memberId, memberId, "#123456")
+
+        assertEquals("#123456", result.color)
+    }
+
+    @Test
+    fun `updateColor throws ForbiddenException when a non-admin tries to change someone else's color`() {
+        val targetId = Uuid.random()
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = MEMBER)
+
+        assertFailsWith<ForbiddenException> { clubService.updateColor(clubId, memberId, targetId, "#123456") }
+        verify(exactly = 0) { clubRepository.updateColor(any(), any(), any()) }
+    }
+
+    @Test
+    fun `updateColor allows an admin to change another member's color`() {
+        val targetId = Uuid.random()
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = ADMIN)
+        every { clubRepository.findMembership(clubId, targetId) } returns membership(memberId = targetId)
+        every { clubRepository.updateColor(clubId, targetId, "#123456") } returns
+            membership(memberId = targetId, color = "#123456")
+        every { memberRepository.findById(targetId) } returns registeredMember(targetId)
+
+        val result = clubService.updateColor(clubId, memberId, targetId, "#123456")
+
+        assertEquals("#123456", result.color)
+    }
+
+    @Test
+    fun `updateColor throws NotFoundException when the target isn't a member of this club`() {
+        val targetId = Uuid.random()
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = ADMIN)
+        every { clubRepository.findMembership(clubId, targetId) } returns null
+
+        assertFailsWith<NotFoundException> { clubService.updateColor(clubId, memberId, targetId, "#123456") }
+    }
+
+    @Test
     fun `updateRatingOption throws ForbiddenException when acting member is not admin`() {
         every { clubRepository.findMembership(clubId, memberId) } returns membership(role = MEMBER)
 
@@ -252,8 +296,12 @@ class ClubServiceTest {
 
     private fun clubRow() = ClubRow(clubId, "Movie Club", createdAt = Clock.System.now())
 
-    private fun membership(memberId: Uuid = this.memberId, role: ClubRole = MEMBER, rotationOrder: Int = 0) =
-        ClubMembershipRow(clubId, memberId, role, rotationOrder, Clock.System.now())
+    private fun membership(
+        memberId: Uuid = this.memberId,
+        role: ClubRole = MEMBER,
+        rotationOrder: Int = 0,
+        color: String? = null,
+    ) = ClubMembershipRow(clubId, memberId, role, rotationOrder, Clock.System.now(), color)
 
     private fun registeredMember(id: Uuid) = RegisteredMember(id, "member@example.com", "Member Name", "member_name", "hash")
 

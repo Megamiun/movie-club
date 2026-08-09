@@ -33,6 +33,7 @@ data class ClubMemberDetail(
     val name: String,
     val role: ClubRole,
     val rotationOrder: Int,
+    val color: String? = null,
 )
 
 data class RatingScaleWithOptions(
@@ -52,6 +53,12 @@ private val DEFAULT_SENTIMENT_LABELS =
 private val DEFAULT_QUALITY_COLORS = listOf("#D9EAD3", "#1C4587", "#9FC5E8", "#A67C52", "#B45F06", "#CC0000")
 private val DEFAULT_SENTIMENT_COLORS = listOf("#9FC5E8", "#B6D7A8", "#D9D9A3", "#FFE599", "#F9CB9C", "#EA9999")
 
+/** Auto-assigned to a member's own initials badge (meetings table, rotation list) when they join, cycling by
+ * rotation order -- distinct from the rating-scale palettes above, which color rating *options*, not people.
+ * Editable afterwards via [ClubService.updateColor]. */
+private val MEMBER_COLOR_PALETTE =
+    listOf("#EF5350", "#42A5F5", "#66BB6A", "#FFCA28", "#AB47BC", "#26A69A", "#EC407A", "#8D6E63")
+
 class ClubService(
     private val clubRepository: ClubRepository,
     private val ratingScaleRepository: RatingScaleRepository,
@@ -68,7 +75,7 @@ class ClubService(
 
     fun createClub(name: String, creatorMemberId: Uuid): ClubDetail = transaction {
         val club = clubRepository.create(name)
-        clubRepository.addMember(club.id, creatorMemberId, ADMIN, rotationOrder = 0)
+        clubRepository.addMember(club.id, creatorMemberId, ADMIN, rotationOrder = 0, color = MEMBER_COLOR_PALETTE[0])
 
         seedScale(club.id, QUALITY, DEFAULT_QUALITY_LABELS, DEFAULT_QUALITY_COLORS)
         seedScale(club.id, SENTIMENT, DEFAULT_SENTIMENT_LABELS, DEFAULT_SENTIMENT_COLORS)
@@ -113,7 +120,8 @@ class ClubService(
             throw BadRequestException("Member already belongs to this club")
 
         val nextRotationOrder = (clubRepository.listMembers(clubId).maxOfOrNull { it.rotationOrder } ?: -1) + 1
-        return clubRepository.addMember(clubId, targetMemberId, role, nextRotationOrder).toDetail()
+        val color = MEMBER_COLOR_PALETTE[nextRotationOrder % MEMBER_COLOR_PALETTE.size]
+        return clubRepository.addMember(clubId, targetMemberId, role, nextRotationOrder, color).toDetail()
     }
 
     fun changeRole(clubId: Uuid, actingMemberId: Uuid, targetMemberId: Uuid, newRole: ClubRole): ClubMemberDetail {
@@ -147,6 +155,18 @@ class ClubService(
         orderedMemberIds.forEachIndexed { index, memberId ->
             clubRepository.updateRotationOrder(clubId, memberId, index)
         }
+    }
+
+    /** A member's color is personal, like their watchlist -- self-service by default, with admins able to fix up
+     * anyone's (e.g. two members picking clashing colors) rather than gating it behind [requireAdmin] entirely. */
+    fun updateColor(clubId: Uuid, actingMemberId: Uuid, targetMemberId: Uuid, color: String): ClubMemberDetail {
+        val actingMembership = requireMembership(clubId, actingMemberId)
+        if (actingMemberId != targetMemberId && actingMembership.role != ADMIN)
+            throw ForbiddenException("Can only change your own color")
+        if (clubRepository.findMembership(clubId, targetMemberId) == null)
+            throw NotFoundException("Member not found in this club")
+
+        return clubRepository.updateColor(clubId, targetMemberId, color).toDetail()
     }
 
     fun getRatingScales(clubId: Uuid, actingMemberId: Uuid): List<RatingScaleWithOptions> {
@@ -198,7 +218,8 @@ class ClubService(
     private fun ClubRow.toDetail(members: List<ClubMemberDetail>) =
         ClubDetail(id, name, preferredLanguages, ignoredLanguages, createdAt, members)
 
-    private fun ClubMembershipRow.toDetail() = ClubMemberDetail(memberId, resolveMemberName(memberId), role, rotationOrder)
+    private fun ClubMembershipRow.toDetail() =
+        ClubMemberDetail(memberId, resolveMemberName(memberId), role, rotationOrder, color)
 
     private fun resolveMemberName(memberId: Uuid): String =
         memberRepository.findById(memberId)?.displayName ?: memberId.toString()

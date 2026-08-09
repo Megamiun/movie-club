@@ -6,6 +6,7 @@ import br.com.gabryel.movieclub.routing.actingMemberId
 import br.com.gabryel.movieclub.routing.toUuidOrBadRequest
 import br.com.gabryel.movieclub.routing.uuidPathParam
 import br.com.gabryel.movieclub.service.ClubDetail
+import br.com.gabryel.movieclub.service.ClubMemberDetail
 import br.com.gabryel.movieclub.service.ClubService
 import io.ktor.http.HttpStatusCode.Companion.Created
 import io.ktor.http.HttpStatusCode.Companion.NoContent
@@ -46,15 +47,7 @@ fun Route.clubRoutes(clubService: ClubService) {
                 body.memberId.toUuidOrBadRequest(),
                 body.role.toClubRoleOrBadRequest(),
             )
-            call.respond(
-                Created,
-                ClubMemberResponse(
-                    membership.memberId.toString(),
-                    membership.name,
-                    membership.role.name,
-                    membership.rotationOrder,
-                ),
-            )
+            call.respond(Created, membership.toResponse())
         }
 
         patch("/clubs/{clubId}/members/{memberId}") {
@@ -67,14 +60,15 @@ fun Route.clubRoutes(clubService: ClubService) {
                 targetMemberId,
                 body.role.toClubRoleOrBadRequest(),
             )
-            call.respond(
-                ClubMemberResponse(
-                    membership.memberId.toString(),
-                    membership.name,
-                    membership.role.name,
-                    membership.rotationOrder,
-                ),
-            )
+            call.respond(membership.toResponse())
+        }
+
+        patch("/clubs/{clubId}/members/{memberId}/color") {
+            val clubId = call.uuidPathParam("clubId")
+            val targetMemberId = call.uuidPathParam("memberId")
+            val body = call.receive<UpdateColorRequest>()
+            val membership = clubService.updateColor(clubId, call.actingMemberId(), targetMemberId, body.color)
+            call.respond(membership.toResponse())
         }
 
         delete("/clubs/{clubId}/members/{memberId}") {
@@ -150,8 +144,11 @@ private fun ClubDetail.toDetailResponse() = ClubDetailResponse(
     name = name,
     preferredLanguages = preferredLanguages,
     ignoredLanguages = ignoredLanguages,
-    members = members.map { ClubMemberResponse(it.memberId.toString(), it.name, it.role.name, it.rotationOrder) },
+    members = members.map { it.toResponse() },
 )
+
+private fun ClubMemberDetail.toResponse() =
+    ClubMemberResponse(memberId.toString(), name, role.name, rotationOrder, color)
 
 private fun String.toClubRoleOrBadRequest() = ClubRole.entries
     .find { it.name == this } ?: throw BadRequestException("Invalid role: $this")

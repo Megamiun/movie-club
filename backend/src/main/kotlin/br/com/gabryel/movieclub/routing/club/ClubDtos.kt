@@ -19,6 +19,7 @@ internal data class ClubMemberResponse(
     val name: String,
     val role: String,
     val rotationOrder: Int,
+    val color: String?,
 )
 
 @Serializable
@@ -50,6 +51,11 @@ internal data class ChangeRoleRequest(
 @Serializable
 internal data class UpdateRotationRequest(
     val memberIds: List<String>,
+)
+
+@Serializable
+internal data class UpdateColorRequest(
+    val color: String,
 )
 
 @Serializable

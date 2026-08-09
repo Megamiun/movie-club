@@ -24,9 +24,10 @@ import { useOutletContext } from 'react-router-dom'
 import { authApi } from '../api/auth'
 import { clubsApi } from '../api/clubs'
 import { ApiError } from '../api/client'
-import type { ClubDetail, MemberSummary, RatingOption, RatingScale } from '../api/types'
+import type { ClubDetail, ClubMember, MemberSummary, RatingOption, RatingScale } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { MemberSearchAutocomplete } from '../components/MemberSearchAutocomplete'
+import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { memberName } from '../utils/members'
@@ -45,6 +46,9 @@ export function ClubOverviewPage() {
 }
 
 function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => void }) {
+  const { member: me } = useAuth()
+  const myMembership = club.members.find((m) => m.memberId === me?.id)
+  const isAdmin = myMembership?.role === 'ADMIN'
   const [selectedMember, setSelectedMember] = useState<MemberSummary | null>(null)
   const [role, setRole] = useState('MEMBER')
   const [inviteEmail, setInviteEmail] = useState('')
@@ -108,6 +112,7 @@ function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => vo
         <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell>Color</TableCell>
               <TableCell>Name</TableCell>
               <TableCell>Role</TableCell>
               <TableCell>Rotation position</TableCell>
@@ -117,6 +122,14 @@ function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => vo
           <TableBody>
             {club.members.map((m) => (
               <TableRow key={m.memberId}>
+                <TableCell>
+                  <MemberColorEditor
+                    clubId={club.id}
+                    member={m}
+                    editable={isAdmin || m.memberId === me?.id}
+                    onChange={refresh}
+                  />
+                </TableCell>
                 <TableCell>{m.name}</TableCell>
                 <TableCell>
                   <Select size="small" value={m.role} onChange={(e) => handleRoleChange(m.memberId, e.target.value)}>
@@ -168,6 +181,44 @@ function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => vo
         </Button>
       </Box>
     </Box>
+  )
+}
+
+function MemberColorEditor({
+  clubId,
+  member,
+  editable,
+  onChange,
+}: {
+  clubId: string
+  member: ClubMember
+  editable: boolean
+  onChange: () => void
+}) {
+  const [color, setColor] = useState(member.color ?? '#9E9E9E')
+
+  const handleChange = async (value: string) => {
+    setColor(value)
+    try {
+      await clubsApi.updateColor(clubId, member.memberId, value)
+      onChange()
+    } catch {
+      setColor(member.color ?? '#9E9E9E')
+    }
+  }
+
+  if (!editable) {
+    return <Box sx={{ width: 24, height: 24, borderRadius: '50%', bgcolor: color }} />
+  }
+
+  return (
+    <Box
+      component="input"
+      type="color"
+      value={color}
+      onChange={(e) => handleChange(e.target.value)}
+      sx={{ width: 32, height: 32, border: 'none', p: 0, background: 'none', cursor: 'pointer' }}
+    />
   )
 }
 

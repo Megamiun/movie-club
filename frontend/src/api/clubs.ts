@@ -19,6 +19,9 @@ export const clubsApi = {
   updateRotation: (clubId: string, memberIds: string[]) =>
     api.put<void>(`/clubs/${clubId}/rotation`, { memberIds }),
 
+  updateColor: (clubId: string, memberId: string, color: string) =>
+    api.patch<ClubMember>(`/clubs/${clubId}/members/${memberId}/color`, { color }),
+
   updateLanguagePreferences: (clubId: string, preferredLanguages: string[], ignoredLanguages: string[]) =>
     api.patch<ClubDetail>(`/clubs/${clubId}/language-preferences`, { preferredLanguages, ignoredLanguages }),
 

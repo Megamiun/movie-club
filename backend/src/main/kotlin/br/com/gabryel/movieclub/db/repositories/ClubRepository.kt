@@ -12,7 +12,7 @@ interface ClubRepository {
 
     fun updateLanguagePreferences(clubId: Uuid, preferredLanguages: List<String>, ignoredLanguages: List<String>): ClubRow
 
-    fun addMember(clubId: Uuid, memberId: Uuid, role: ClubRole, rotationOrder: Int): ClubMembershipRow
+    fun addMember(clubId: Uuid, memberId: Uuid, role: ClubRole, rotationOrder: Int, color: String? = null): ClubMembershipRow
 
     fun findMembership(clubId: Uuid, memberId: Uuid): ClubMembershipRow?
 
@@ -23,6 +23,8 @@ interface ClubRepository {
     fun updateRole(clubId: Uuid, memberId: Uuid, role: ClubRole): ClubMembershipRow
 
     fun updateRotationOrder(clubId: Uuid, memberId: Uuid, rotationOrder: Int): ClubMembershipRow
+
+    fun updateColor(clubId: Uuid, memberId: Uuid, color: String): ClubMembershipRow
 
     fun countAdmins(clubId: Uuid): Int
 

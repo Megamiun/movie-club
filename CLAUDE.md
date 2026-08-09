@@ -79,6 +79,12 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Authenticates via email/password; accounts created only through invite tokens
 - Belongs to one or more Clubs with a role
 - Has a personal **Watchlist** per Club (visible to all club members)
+- Has a `color` (hex string) per club membership — on `club_members`, not on Member itself, since it's a per-club
+  identity, not a global one (deliberately mirrors rating options' own per-club `color`). Auto-assigned from an
+  8-color palette by rotation order when a member joins (`ClubService.MEMBER_COLOR_PALETTE`), then freely editable
+  after that — self-service by the member themselves, or by any club admin (`PATCH
+  /clubs/{clubId}/members/{memberId}/color`). Used for the meetings table's chosen-by column (`MemberBadge`, a
+  colored initials avatar) instead of the plain member name
 
 ### Meeting
 
