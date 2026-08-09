@@ -7,6 +7,7 @@ import { clubsApi } from '../api/clubs'
 
 const TABS = [
   { path: '', label: 'Meetings' },
+  { path: 'movies', label: 'Movies' },
   { path: 'series', label: 'Series' },
   { path: 'watchlist', label: 'Watchlist' },
   { path: 'import', label: 'Import' },

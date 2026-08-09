@@ -35,7 +35,8 @@
 - [x] Add a TMDB attribution notice ("This product uses the TMDB API but is not endorsed or certified by TMDB")
   - Site-wide footer in `AppLayout`
 - [x] Separate Series and Movies watchlist in the UI
-- [ ] Add a movie tab where you can search for movies outside a meeting, with a button to add to a meeting or to the wishlist
+- [x] Add a movie tab where you can search for movies outside a meeting, with a button to add to a meeting or to the wishlist
+  - New "Movies" club tab (`MoviesPage`, between Meetings and Series). TMDB search + a meeting picker + "Add to meeting"/"Add to watchlist" buttons, composing the existing search/add endpoints -- no new backend endpoint
 - [ ] When adding a series episode to a meeting, try to suggest next episode of current series
 - [x] Allow Club to have a list of ranked preferred languages
 - [x] Allow Club to have a list of ignored languages

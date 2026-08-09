@@ -165,6 +165,9 @@ enforces those automatically. This section is for conventions ktlint can't check
   already used for merging a whole meeting's movies at once. Both meetings must belong to the same club, and the
   movie can't already be picked at the target. The meetings table (`MeetingsPage`) exposes this as native HTML5
   drag-and-drop — dragging a movie/episode row and dropping it anywhere within a different meeting's block
+- A club-level "Movies" tab (`MoviesPage`) lets a member search TMDB independent of any specific meeting, then add
+  the result straight to a chosen meeting or to their watchlist — a thin UI composing `movieService.searchMovies`,
+  `addMovieByTmdbId`, and `WatchlistService.addEntry`, no new backend endpoint
 
 ### Series → Season → Episode
 
