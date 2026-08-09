@@ -3,15 +3,17 @@ import { useState } from 'react'
 import type { RatingScale } from '../api/types'
 
 /**
- * Quality + sentiment merge into one small, fixed-size pill split into each rating's own color (half and half)
- * instead of two separately-labeled chips -- a row of many members' ratings sitting right after a pick's title
- * needs to stay compact and constant-width, which variable-length label text can't do. The pill itself carries no
- * text; the full labels surface on hover via [Tooltip], and clicking it (when [editable]) still opens the same
- * quality/sentiment [Select] popover as before.
+ * Quality + sentiment merge into one small, fixed-size dot split into each rating's own color (half and half)
+ * instead of two separately-labeled chips -- one column per club member needs to stay compact and constant-width,
+ * which variable-length label text can't do. The dot itself carries no text; the full labels + member name surface
+ * on hover via [Tooltip]. A ring in the member's own club color (see [memberColor]) identifies whose column this
+ * is at a glance, without needing a header row. Clicking (when [editable]) still opens the same quality/sentiment
+ * [Select] popover as before.
  */
 export function InlineRatingEditor({
   scales,
   memberName,
+  memberColor,
   qualityOptionId,
   sentimentOptionId,
   editable,
@@ -19,6 +21,7 @@ export function InlineRatingEditor({
 }: {
   scales: RatingScale[]
   memberName: string
+  memberColor?: string | null
   qualityOptionId: string | null
   sentimentOptionId: string | null
   editable: boolean
@@ -52,7 +55,9 @@ export function InlineRatingEditor({
             cursor: editable ? 'pointer' : 'default',
             background: background ?? 'transparent',
             border: background ? 'none' : '1.5px dashed',
-            borderColor: 'divider',
+            borderColor: background ? undefined : (memberColor ?? 'divider'),
+            outline: background && memberColor ? `2px solid ${memberColor}` : 'none',
+            outlineOffset: '1px',
           }}
         />
       </Tooltip>

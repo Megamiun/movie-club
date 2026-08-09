@@ -69,7 +69,8 @@
 - [x] Put ratings just after name of the series, use smaller font, make their size constant
 - [x] Extra points: Try to join together both ratings in a single item, with a gradient from one color to the other
   - If too hard of bad for reading, do an ellipse with the one half each color.
-  - Went straight for the half-and-half split (the explicitly-sanctioned fallback) rather than a true blended gradient, since a soft blend between two arbitrary hex colors (especially pastel-into-pastel) reads muddy. `InlineRatingEditor` now renders one small (16px) fixed-size circular dot per member instead of two variable-width labeled chips per member-column -- solid if only one of quality/sentiment is set, split via a hard-stop `linear-gradient` if both are, dashed-outline placeholder if editable and empty. No label text on the dot itself (that's what kept the old chips from being constant-size); full labels + member name surface via a `Tooltip` on hover, and click-to-edit opens the same Select popover as before. This eliminates the meetings table's one-column-per-member layout entirely -- ratings now live in the title cell, right after the title, for every pick
+  - Went straight for the half-and-half split (the explicitly-sanctioned fallback) rather than a true blended gradient, since a soft blend between two arbitrary hex colors (especially pastel-into-pastel) reads muddy. `InlineRatingEditor` now renders one small (16px) fixed-size circular dot instead of two variable-width labeled chips -- solid if only one of quality/sentiment is set, split via a hard-stop `linear-gradient` if both are, dashed-outline placeholder if editable and empty. No label text on the dot itself (that's what kept the old chips from being constant-size); full labels + member name surface via a `Tooltip` on hover, and click-to-edit opens the same Select popover as before
+  - Follow-up (after trying it live): moving every member's dot into the title cell made "who rated what" unclear, so this was walked back to one column per member again (see below) -- the compact-dot *style* survives, just not the everything-in-the-title-cell placement
 - [x] Change from link icon to underlined in meetings list
   - `ImdbLink` gained a `variant: 'icon' | 'text'` prop; meetings list uses `'text'`, everywhere else keeps the icon
   - Follow-up: the movie/episode title itself is now the underlined link (was a plain title + separate "IMDB" text before)
@@ -82,3 +83,10 @@
 - [x] Director should also link to imdb director page
   - [x] Also save them to DB, get from tmdb, save imdb id
   - `director_imdb_id` column on `movies`/`episodes` (V19 migration), resolved best-effort from the credited director's TMDB person id via `/person/{id}/external_ids` (never blocks add/refresh on failure, same as the OMDb rating lookup). `ImdbLink` gained a `kind: 'title' | 'name'` prop for linking to a person's IMDB page instead of a title's. Meetings list only for now, existing picks need a metadata refresh to backfill (best-effort field, not retroactively populated)
+- [x] Make the meetings view anual
+  - Tabs, one per year with at least one meeting, defaulting to the current calendar year (falling back to the most recent year with meetings if the current year has none yet). Creating a new meeting switches to its year's tab
+- [x] Give 1 different Columns per person with their ratings
+  - [x] Decide a good way to also make clear who rated it what
+  - Back to one `TableCell` column per club member (like before the compact-pill-in-title experiment above), keeping the same compact 16px dot design. "Who rated what" is now a ring around the dot in that member's own club `color` (see the member-color feature) rather than a header row, which the table deliberately doesn't have -- the dashed empty-rating placeholder picks up the member's color too, so even an unrated column is identifiable at a glance
+- [x] Show a unfilled shape similar to the current for missing ratings
+  - Unchanged from the compact-dot design above: a dashed-outline circle, now colored with the member's own color instead of a generic gray
