@@ -19,6 +19,8 @@ export const moviesApi = {
 
   refreshMetadata: (movieId: string) => api.post<Movie>(`/movies/${movieId}/refresh-metadata`),
 
+  move: (movieId: string, meetingId: string) => api.post<Movie>(`/movies/${movieId}/move`, { meetingId }),
+
   remove: (movieId: string) => api.delete<void>(`/movies/${movieId}`),
 
   rate: (movieId: string, qualityOptionId?: string, sentimentOptionId?: string, comment?: string) =>

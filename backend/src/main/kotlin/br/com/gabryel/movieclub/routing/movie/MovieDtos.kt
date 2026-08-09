@@ -27,6 +27,11 @@ internal data class UpdateMovieRequest(
 )
 
 @Serializable
+internal data class MoveMovieRequest(
+    val meetingId: String,
+)
+
+@Serializable
 internal data class RateMovieRequest(
     val qualityOptionId: String? = null,
     val sentimentOptionId: String? = null,

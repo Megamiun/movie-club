@@ -208,6 +208,48 @@ class MovieServiceTest {
     }
 
     @Test
+    fun `moveToMeeting repoints the pick at the new meeting`() {
+        val movieId = Uuid.random()
+        val newMeetingId = Uuid.random()
+        val moved = movie(id = movieId, meetingId = newMeetingId)
+        every { movieRepository.findById(movieId) } returns movie(id = movieId)
+        every { meetingRepository.findById(meetingId) } returns meeting()
+        every { meetingRepository.findById(newMeetingId) } returns meeting(id = newMeetingId)
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { movieRepository.findByMeetingAndImdbId(newMeetingId, "tt4857264") } returns null
+        every { movieRepository.updateMeeting(movieId, newMeetingId) } returns moved
+
+        assertEquals(moved, movieService.moveToMeeting(movieId, memberId, newMeetingId))
+    }
+
+    @Test
+    fun `moveToMeeting throws BadRequestException when the meetings belong to different clubs`() {
+        val movieId = Uuid.random()
+        val otherClubId = Uuid.random()
+        val newMeetingId = Uuid.random()
+        every { movieRepository.findById(movieId) } returns movie(id = movieId)
+        every { meetingRepository.findById(meetingId) } returns meeting()
+        every { meetingRepository.findById(newMeetingId) } returns meeting(id = newMeetingId, clubId = otherClubId)
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { clubService.requireMembership(otherClubId, memberId) } returns membership(clubId = otherClubId)
+
+        assertFailsWith<BadRequestException> { movieService.moveToMeeting(movieId, memberId, newMeetingId) }
+    }
+
+    @Test
+    fun `moveToMeeting throws BadRequestException when the movie is already in the target meeting`() {
+        val movieId = Uuid.random()
+        val newMeetingId = Uuid.random()
+        every { movieRepository.findById(movieId) } returns movie(id = movieId)
+        every { meetingRepository.findById(meetingId) } returns meeting()
+        every { meetingRepository.findById(newMeetingId) } returns meeting(id = newMeetingId)
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { movieRepository.findByMeetingAndImdbId(newMeetingId, "tt4857264") } returns movie(meetingId = newMeetingId)
+
+        assertFailsWith<BadRequestException> { movieService.moveToMeeting(movieId, memberId, newMeetingId) }
+    }
+
+    @Test
     fun `rate throws BadRequestException when quality option belongs to sentiment scale`() {
         val movieId = Uuid.random()
         val optionId = Uuid.random()
@@ -267,11 +309,11 @@ class MovieServiceTest {
         assertFailsWith<ForbiddenException> { movieService.listReviews(movieId, memberId) }
     }
 
-    private fun meeting() = MeetingRow(meetingId, clubId, LocalDate(2026, 1, 5))
+    private fun meeting(id: Uuid = meetingId, clubId: Uuid = this.clubId) = MeetingRow(id, clubId, LocalDate(2026, 1, 5))
 
-    private fun membership() = ClubMembershipRow(clubId, memberId, MEMBER, 0, Clock.System.now())
+    private fun membership(clubId: Uuid = this.clubId) = ClubMembershipRow(clubId, memberId, MEMBER, 0, Clock.System.now())
 
-    private fun movie(id: Uuid = Uuid.random()) = MovieRow(
+    private fun movie(id: Uuid = Uuid.random(), meetingId: Uuid = this.meetingId) = MovieRow(
         id = id,
         meetingId = meetingId,
         chosenById = memberId,

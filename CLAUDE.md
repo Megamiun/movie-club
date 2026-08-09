@@ -159,6 +159,12 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Per-member **comments** (free text, optional)
 - Deleting a pick removes only that meeting's choice; the shared catalog row (and any other club's pick of it) is
   untouched
+- A pick can be moved to a different meeting (`POST /movies/{movieId}/move`, `MovieService.moveToMeeting`) without
+  losing its reviews/custom title/watch link — it repoints the *same* `MeetingMovies` row's `meeting_id` rather than
+  deleting and re-adding, reusing the same `MovieRepository.updateMeeting` primitive `MeetingService.mergeMeetings`
+  already used for merging a whole meeting's movies at once. Both meetings must belong to the same club, and the
+  movie can't already be picked at the target. The meetings table (`MeetingsPage`) exposes this as native HTML5
+  drag-and-drop — dragging a movie/episode row and dropping it anywhere within a different meeting's block
 
 ### Series → Season → Episode
 
@@ -169,7 +175,10 @@ enforces those automatically. This section is for conventions ktlint can't check
   `custom_title`, `display_title_preference`) is per-club — that pick's id is what routes address as the series id;
   Season/Episode ids are the global ones directly, since they have no per-club fields of their own
 - Because Episode is global but a meeting is inherently club-specific, episode-to-meeting scheduling is its own join (
-  many clubs can each schedule the same global episode to their own different meeting) rather than a field on Episode
+  many clubs can each schedule the same global episode to their own different meeting) rather than a field on Episode.
+  Moving an episode to a different meeting (drag-and-drop on the meetings table, same as Movie above) has no
+  dedicated "move" endpoint or service method — the join row has no fields of its own to preserve, so the frontend
+  just composes the existing `unassignFromMeeting` + `assignToMeeting` calls
 - **Ratings are per member per global entity, not per club-pick** — a member has exactly one rating for a given
   series/season/episode regardless of which club they watched it through; any club sharing that entity sees the same
   rating. This is the opposite of Movie's per-pick reviews, deliberately: Movie supports rewatch-and-re-review,

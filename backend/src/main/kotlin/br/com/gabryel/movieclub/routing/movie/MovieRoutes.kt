@@ -69,6 +69,16 @@ fun Route.movieRoutes(movieService: MovieService) {
             call.respond(movieService.getMovie(movieId, actingMemberId).toResponse())
         }
 
+        post("/movies/{movieId}/move") {
+            val body = call.receive<MoveMovieRequest>()
+            val movie = movieService.moveToMeeting(
+                call.uuidPathParam("movieId"),
+                call.actingMemberId(),
+                body.meetingId.toUuidOrBadRequest(),
+            )
+            call.respond(movie.toResponse())
+        }
+
         post("/movies/{movieId}/refresh-metadata") {
             val movie = movieService.refreshMetadata(call.uuidPathParam("movieId"), call.actingMemberId())
             call.respond(movie.toResponse())

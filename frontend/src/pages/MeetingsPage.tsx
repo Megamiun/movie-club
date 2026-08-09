@@ -15,7 +15,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import { Fragment, useState, type FormEvent } from 'react'
+import { Fragment, useState, type DragEvent, type FormEvent } from 'react'
 import { Link as RouterLink, useOutletContext } from 'react-router-dom'
 import { clubsApi } from '../api/clubs'
 import { episodesApi } from '../api/series'
@@ -37,6 +37,22 @@ import { formatDuration } from '../utils/duration'
 import { memberName } from '../utils/members'
 import { ratingLabel } from '../utils/rating'
 import { resolveTitle } from '../utils/title'
+
+/** Custom MIME type for dragging a movie/episode row between meeting groups in the table below -- namespaced so it
+ * never collides with a browser's own drag types (e.g. dragging text/a link). */
+const PICK_DRAG_TYPE = 'application/x-movieclub-pick'
+
+interface PickDragPayload {
+  kind: 'movie' | 'episode'
+  id: string
+  fromMeetingId: string
+}
+
+interface PickDropProps {
+  onDragOver: (event: DragEvent) => void
+  onDragLeave: () => void
+  onDrop: (event: DragEvent) => void
+}
 
 export function MeetingsPage() {
   const { club } = useOutletContext<ClubOutletContext>()
@@ -143,10 +159,47 @@ function MeetingRows({
   onChange: () => void
 }) {
   const hasPicks = meeting.movies.length > 0 || meeting.episodes.length > 0
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [moveError, setMoveError] = useState<string | null>(null)
+
+  const handleDragOver = (event: DragEvent) => {
+    if (!event.dataTransfer.types.includes(PICK_DRAG_TYPE)) return
+    event.preventDefault()
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = () => setIsDragOver(false)
+
+  const handleDrop = async (event: DragEvent) => {
+    event.preventDefault()
+    setIsDragOver(false)
+    const raw = event.dataTransfer.getData(PICK_DRAG_TYPE)
+    if (!raw) return
+    const payload = JSON.parse(raw) as PickDragPayload
+    if (payload.fromMeetingId === meeting.id) return
+
+    setMoveError(null)
+    try {
+      if (payload.kind === 'movie') {
+        await moviesApi.move(payload.id, meeting.id)
+      } else {
+        await episodesApi.unassignFromMeeting(payload.id, payload.fromMeetingId)
+        await episodesApi.assignToMeeting(payload.id, meeting.id)
+      }
+      onChange()
+    } catch (err) {
+      setMoveError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  const dropProps = { onDragOver: handleDragOver, onDragLeave: handleDragLeave, onDrop: handleDrop }
 
   return (
     <Fragment>
-      <TableRow sx={{ '& td': { bgcolor: 'action.hover', fontWeight: 600 } }}>
+      <TableRow
+        {...dropProps}
+        sx={{ '& td': { bgcolor: isDragOver ? 'action.selected' : 'action.hover', fontWeight: 600 } }}
+      >
         <TableCell colSpan={columnCount}>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
             <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover">
@@ -156,23 +209,46 @@ function MeetingRows({
               {meeting.assignedMemberId ? memberName(club.members, meeting.assignedMemberId) : 'Shared / merged'}
               {!hasPicks && ' · Nothing picked yet'}
             </Typography>
+            {moveError && (
+              <Typography variant="caption" color="error">
+                {moveError}
+              </Typography>
+            )}
           </Stack>
         </TableCell>
       </TableRow>
       {meeting.movies.map((pick) => (
-        <MovieRow key={pick.movie.id} pick={pick} club={club} scales={scales} myMemberId={myMemberId} onChange={onChange} />
+        <MovieRow
+          key={pick.movie.id}
+          pick={pick}
+          club={club}
+          scales={scales}
+          myMemberId={myMemberId}
+          meetingId={meeting.id}
+          dropProps={dropProps}
+          onChange={onChange}
+        />
       ))}
       {groupEpisodesBySeries(meeting.episodes).map((group) => (
         <Fragment key={group.series?.id ?? group.picks[0].episode.id}>
           {group.series && (
-            <TableRow>
+            <TableRow {...dropProps}>
               <TableCell colSpan={columnCount} sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
                 {resolveTitle(group.series, club)}
               </TableCell>
             </TableRow>
           )}
           {group.picks.map((pick) => (
-            <EpisodeRow key={pick.episode.id} pick={pick} club={club} scales={scales} myMemberId={myMemberId} onChange={onChange} />
+            <EpisodeRow
+              key={pick.episode.id}
+              pick={pick}
+              club={club}
+              scales={scales}
+              myMemberId={myMemberId}
+              meetingId={meeting.id}
+              dropProps={dropProps}
+              onChange={onChange}
+            />
           ))}
         </Fragment>
       ))}
@@ -199,12 +275,16 @@ function MovieRow({
   club,
   scales,
   myMemberId,
+  meetingId,
+  dropProps,
   onChange,
 }: {
   pick: MeetingMoviePick
   club: ClubOutletContext['club']
   scales: RatingScale[]
   myMemberId: string | null
+  meetingId: string
+  dropProps: PickDropProps
   onChange: () => void
 }) {
   const { movie } = pick
@@ -220,8 +300,14 @@ function MovieRow({
     }
   }
 
+  const handleDragStart = (event: DragEvent) => {
+    const payload: PickDragPayload = { kind: 'movie', id: movie.id, fromMeetingId: meetingId }
+    event.dataTransfer.setData(PICK_DRAG_TYPE, JSON.stringify(payload))
+    event.dataTransfer.effectAllowed = 'move'
+  }
+
   return (
-    <TableRow>
+    <TableRow draggable onDragStart={handleDragStart} {...dropProps} sx={{ cursor: 'grab' }}>
       <TableCell>
         <MemberBadge member={club.members.find((m) => m.memberId === movie.chosenById)} />
       </TableCell>
@@ -280,12 +366,16 @@ function EpisodeRow({
   club,
   scales,
   myMemberId,
+  meetingId,
+  dropProps,
   onChange,
 }: {
   pick: MeetingEpisodePick
   club: ClubOutletContext['club']
   scales: RatingScale[]
   myMemberId: string | null
+  meetingId: string
+  dropProps: PickDropProps
   onChange: () => void
 }) {
   const { episode, series } = pick
@@ -301,11 +391,17 @@ function EpisodeRow({
     }
   }
 
+  const handleDragStart = (event: DragEvent) => {
+    const payload: PickDragPayload = { kind: 'episode', id: episode.id, fromMeetingId: meetingId }
+    event.dataTransfer.setData(PICK_DRAG_TYPE, JSON.stringify(payload))
+    event.dataTransfer.effectAllowed = 'move'
+  }
+
   const rating = series ? ratingLabel(series) : null
   const displayYear = episode.airDate ? episode.airDate.slice(0, 4) : (series?.year ?? null)
 
   return (
-    <TableRow>
+    <TableRow draggable onDragStart={handleDragStart} {...dropProps} sx={{ cursor: 'grab' }}>
       <TableCell>
         {series ? <MemberBadge member={club.members.find((m) => m.memberId === series.chosenById)} /> : '—'}
       </TableCell>

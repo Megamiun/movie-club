@@ -140,6 +140,23 @@ class MovieService(
         return movieRepository.updateWatchLink(movieId, watchLink)
     }
 
+    /** Repoints the same pick row at a different meeting -- unlike delete-then-re-add, this keeps the pick's id,
+     * reviews, custom title, and watch link intact (the same primitive [MeetingService.mergeMeetings] uses for
+     * every movie at once). Both meetings must belong to the same club, and the movie can't already be picked
+     * there (same duplicate rule as adding it fresh). */
+    fun moveToMeeting(movieId: Uuid, actingMemberId: Uuid, newMeetingId: Uuid): MovieRow {
+        val movie = requireMovieAccess(movieId, actingMemberId)
+        val newMeeting = requireMeetingAccess(newMeetingId, actingMemberId)
+        val oldMeeting = meetingRepository.findById(movie.meetingId) ?: throw NotFoundException("Meeting not found")
+
+        if (oldMeeting.clubId != newMeeting.clubId)
+            throw BadRequestException("Meetings must belong to the same club")
+        if (movieRepository.findByMeetingAndImdbId(newMeetingId, movie.imdbId) != null)
+            throw BadRequestException("This movie has already been added to this meeting")
+
+        return movieRepository.updateMeeting(movieId, newMeetingId)
+    }
+
     fun deleteMovie(movieId: Uuid, actingMemberId: Uuid) {
         requireMovieAccess(movieId, actingMemberId)
         movieRepository.delete(movieId)

@@ -51,7 +51,8 @@
 - [x] Add Move to Watchlist button in meeting
 - [x] Add move to meeting button in Watchlist
   - Scoped to movies only (not series) -- my own reasonable-default decision, not explicitly requested. `MovieSection`'s movie accordion gained a bookmark icon that adds the movie to the acting member's watchlist then deletes the meeting pick; each movie watchlist entry gained a meeting picker + move icon (owner-only) that does the reverse. No new backend endpoint -- both directions just compose the existing add/remove calls, delete-after-successful-add so a rejected add (e.g. "already in this meeting") doesn't lose the watchlist entry
-- [ ] Allow taking movies/episodes from one meeting to another via drag and drop
+- [x] Allow taking movies/episodes from one meeting to another via drag and drop
+  - Native HTML5 drag-and-drop (not `@dnd-kit`, which doesn't play well with `<table>`/`<tr>` layout) -- drag a movie/episode row, drop it anywhere within a different meeting's block. New `POST /movies/{movieId}/move` + `MovieService.moveToMeeting` repoints the existing pick row (keeps reviews/custom title/watch link) rather than delete-and-re-add; episodes reuse the existing assign/unassign endpoints since the join row has no fields to preserve. Both directions reject moving between different clubs' meetings or onto a meeting that already has that movie/episode
 - [x] Give each member a color inside the club(editable)
 - [x] Use this color and initials in the first column of the meetings table
   - `color` on `club_members` (V20 migration, backfilled for existing members by rotation order), auto-assigned from an 8-color palette when a member joins. Editable by the member themselves or any club admin (color swatch in the club Overview page's Members table). Meetings table's chosen-by column now shows a `MemberBadge` (colored initials avatar) instead of the plain name
