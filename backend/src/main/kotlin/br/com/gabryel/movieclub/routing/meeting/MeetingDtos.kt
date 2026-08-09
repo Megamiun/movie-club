@@ -24,11 +24,27 @@ internal data class MeetingResponse(
 )
 
 @Serializable
+internal data class MeetingMoviePickResponse(
+    val movie: MovieResponse,
+    val myQualityOptionId: String?,
+    val mySentimentOptionId: String?,
+    val myComment: String?,
+)
+
+@Serializable
+internal data class MeetingEpisodePickResponse(
+    val episode: EpisodeResponse,
+    val myQualityOptionId: String?,
+    val mySentimentOptionId: String?,
+    val myComment: String?,
+)
+
+@Serializable
 internal data class MeetingWithPicksResponse(
     val id: String,
     val clubId: String,
     val date: String,
     val assignedMemberId: String?,
-    val movies: List<MovieResponse>,
-    val episodes: List<EpisodeResponse>,
+    val movies: List<MeetingMoviePickResponse>,
+    val episodes: List<MeetingEpisodePickResponse>,
 )

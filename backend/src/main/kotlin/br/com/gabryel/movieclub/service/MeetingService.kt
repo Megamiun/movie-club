@@ -3,14 +3,22 @@ package br.com.gabryel.movieclub.service
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
+import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
+import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ConflictException
 import br.com.gabryel.movieclub.exception.NotFoundException
 import kotlinx.datetime.LocalDate
 import kotlin.uuid.Uuid
+
+/** Pairs a pick with the *acting* member's own review of it (if any) -- the meetings list shows and edits only the
+ * viewer's own rating, not everyone's, so there's no reason to fetch every member's review here. */
+data class MeetingMoviePick(val movie: MovieRow, val myReview: MovieReviewRow?)
+
+data class MeetingEpisodePick(val episode: EpisodeRow, val myReview: EpisodeReviewRow?)
 
 /** [listMeetings]/[getMeeting] compose the bare [MeetingRow] with its picks so the meetings list can show what was
  * watched without a separate round trip per meeting -- the other mutation endpoints (postpone/swap/merge/delete)
@@ -20,8 +28,8 @@ data class MeetingWithPicks(
     val clubId: Uuid,
     val date: LocalDate,
     val assignedMemberId: Uuid? = null,
-    val movies: List<MovieRow>,
-    val episodes: List<EpisodeRow>,
+    val movies: List<MeetingMoviePick>,
+    val episodes: List<MeetingEpisodePick>,
 )
 
 class MeetingService(
@@ -40,11 +48,11 @@ class MeetingService(
 
     fun listMeetings(clubId: Uuid, actingMemberId: Uuid): List<MeetingWithPicks> {
         clubService.requireMembership(clubId, actingMemberId)
-        return meetingRepository.listByClub(clubId).map { it.withPicks() }
+        return meetingRepository.listByClub(clubId).map { it.withPicks(actingMemberId) }
     }
 
     fun getMeeting(meetingId: Uuid, actingMemberId: Uuid): MeetingWithPicks =
-        requireMeetingAccess(meetingId, actingMemberId).withPicks()
+        requireMeetingAccess(meetingId, actingMemberId).withPicks(actingMemberId)
 
     fun postponeMeeting(meetingId: Uuid, actingMemberId: Uuid, newDate: LocalDate): MeetingRow {
         val meeting = requireMeetingAccess(meetingId, actingMemberId)
@@ -94,12 +102,16 @@ class MeetingService(
         return meeting
     }
 
-    private fun MeetingRow.withPicks() = MeetingWithPicks(
+    private fun MeetingRow.withPicks(actingMemberId: Uuid) = MeetingWithPicks(
         id = id,
         clubId = clubId,
         date = date,
         assignedMemberId = assignedMemberId,
-        movies = movieRepository.listByMeeting(id),
-        episodes = episodeRepository.listByMeeting(id),
+        movies = movieRepository.listByMeeting(id).map {
+            MeetingMoviePick(it, movieRepository.findReview(it.id, actingMemberId))
+        },
+        episodes = episodeRepository.listByMeeting(id).map {
+            MeetingEpisodePick(it, episodeRepository.findReview(it.id, actingMemberId))
+        },
     )
 }

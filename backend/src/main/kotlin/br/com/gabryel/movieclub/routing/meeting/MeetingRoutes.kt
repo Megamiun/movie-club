@@ -6,6 +6,8 @@ import br.com.gabryel.movieclub.routing.movie.toResponse
 import br.com.gabryel.movieclub.routing.series.toResponse
 import br.com.gabryel.movieclub.routing.toUuidOrBadRequest
 import br.com.gabryel.movieclub.routing.uuidPathParam
+import br.com.gabryel.movieclub.service.MeetingEpisodePick
+import br.com.gabryel.movieclub.service.MeetingMoviePick
 import br.com.gabryel.movieclub.service.MeetingService
 import br.com.gabryel.movieclub.service.MeetingWithPicks
 import io.ktor.http.HttpStatusCode.Companion.Created
@@ -92,4 +94,18 @@ private fun MeetingWithPicks.toResponse() = MeetingWithPicksResponse(
     assignedMemberId = assignedMemberId?.toString(),
     movies = movies.map { it.toResponse() },
     episodes = episodes.map { it.toResponse() },
+)
+
+private fun MeetingMoviePick.toResponse() = MeetingMoviePickResponse(
+    movie = movie.toResponse(),
+    myQualityOptionId = myReview?.qualityOptionId?.toString(),
+    mySentimentOptionId = myReview?.sentimentOptionId?.toString(),
+    myComment = myReview?.comment,
+)
+
+private fun MeetingEpisodePick.toResponse() = MeetingEpisodePickResponse(
+    episode = episode.toResponse(),
+    myQualityOptionId = myReview?.qualityOptionId?.toString(),
+    mySentimentOptionId = myReview?.sentimentOptionId?.toString(),
+    myComment = myReview?.comment,
 )

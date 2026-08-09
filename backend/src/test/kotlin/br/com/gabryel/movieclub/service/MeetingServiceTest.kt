@@ -9,6 +9,7 @@ import br.com.gabryel.movieclub.db.repositories.MovieRepository
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
+import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ConflictException
@@ -71,19 +72,22 @@ class MeetingServiceTest {
     }
 
     @Test
-    fun `getMeeting composes the meeting with its movies and episodes`() {
+    fun `getMeeting composes the meeting with its movies, episodes, and the acting member's own reviews`() {
         val meetingRow = meeting()
         val movieRow = movie(meetingId = meetingRow.id)
         val episodeRow = EpisodeRow(id = Uuid.random(), seasonId = Uuid.random(), number = 1, title = "Pilot")
+        val movieReview = MovieReviewRow(movieRow.id, memberId, comment = "great")
         every { meetingRepository.findById(meetingRow.id) } returns meetingRow
         every { clubService.requireMembership(clubId, memberId) } returns membership()
         every { movieRepository.listByMeeting(meetingRow.id) } returns listOf(movieRow)
         every { episodeRepository.listByMeeting(meetingRow.id) } returns listOf(episodeRow)
+        every { movieRepository.findReview(movieRow.id, memberId) } returns movieReview
+        every { episodeRepository.findReview(episodeRow.id, memberId) } returns null
 
         val result = meetingService.getMeeting(meetingRow.id, memberId)
 
-        assertEquals(listOf(movieRow), result.movies)
-        assertEquals(listOf(episodeRow), result.episodes)
+        assertEquals(listOf(MeetingMoviePick(movieRow, movieReview)), result.movies)
+        assertEquals(listOf(MeetingEpisodePick(episodeRow, null)), result.episodes)
     }
 
     @Test
@@ -96,10 +100,11 @@ class MeetingServiceTest {
         every { movieRepository.listByMeeting(meetingA.id) } returns listOf(movieA)
         every { movieRepository.listByMeeting(meetingB.id) } returns emptyList()
         every { episodeRepository.listByMeeting(any()) } returns emptyList()
+        every { movieRepository.findReview(movieA.id, memberId) } returns null
 
         val result = meetingService.listMeetings(clubId, memberId)
 
-        assertEquals(listOf(movieA), result.first { it.id == meetingA.id }.movies)
+        assertEquals(listOf(MeetingMoviePick(movieA, null)), result.first { it.id == meetingA.id }.movies)
         assertEquals(emptyList(), result.first { it.id == meetingB.id }.movies)
     }
 

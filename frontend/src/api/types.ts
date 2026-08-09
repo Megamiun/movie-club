@@ -73,9 +73,23 @@ export interface Meeting {
   assignedMemberId: string | null
 }
 
+export interface MeetingMoviePick {
+  movie: Movie
+  myQualityOptionId: string | null
+  mySentimentOptionId: string | null
+  myComment: string | null
+}
+
+export interface MeetingEpisodePick {
+  episode: Episode
+  myQualityOptionId: string | null
+  mySentimentOptionId: string | null
+  myComment: string | null
+}
+
 export interface MeetingWithPicks extends Meeting {
-  movies: Movie[]
-  episodes: Episode[]
+  movies: MeetingMoviePick[]
+  episodes: MeetingEpisodePick[]
 }
 
 export interface Translation {
