@@ -15,4 +15,8 @@ object MeetingMovies : UuidTable("meeting_movies") {
     val displayTitlePreference = enumerationByName<DisplayTitlePreference>("display_title_preference", 16)
     val watchLink = varchar("watch_link", 2048).nullable()
     val createdAt = timestamp("created_at")
+
+    init {
+        uniqueIndex(meetingId, movieId)
+    }
 }

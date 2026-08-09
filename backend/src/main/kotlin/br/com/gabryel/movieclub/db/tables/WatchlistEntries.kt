@@ -10,4 +10,8 @@ object WatchlistEntries : UuidTable("watchlist_entries") {
     val notes = text("notes").nullable()
     val position = integer("position")
     val createdAt = timestamp("created_at")
+
+    init {
+        uniqueIndex(clubId, memberId, mediaItemId)
+    }
 }

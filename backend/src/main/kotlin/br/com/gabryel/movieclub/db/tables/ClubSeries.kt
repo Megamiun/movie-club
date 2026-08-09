@@ -14,4 +14,8 @@ object ClubSeries : UuidTable("club_series") {
     val customTitle = varchar("custom_title", 512).nullable()
     val displayTitlePreference = enumerationByName<DisplayTitlePreference>("display_title_preference", 16)
     val createdAt = timestamp("created_at")
+
+    init {
+        uniqueIndex(clubId, seriesId)
+    }
 }

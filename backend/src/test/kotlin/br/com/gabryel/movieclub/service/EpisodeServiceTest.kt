@@ -13,6 +13,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeasonRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
+import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
@@ -112,11 +113,26 @@ class EpisodeServiceTest {
         every { episodeRepository.findById(episodeId) } returns expected
         every { meetingRepository.findById(meetingId) } returns MeetingRow(meetingId, clubId, LocalDate(2026, 1, 5))
         every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { episodeRepository.listByMeeting(meetingId) } returns emptyList()
         every { episodeRepository.assignToMeeting(episodeId, meetingId) } just Runs
 
         assertEquals(expected, episodeService.assignToMeeting(episodeId, memberId, meetingId))
 
         verify { episodeRepository.assignToMeeting(episodeId, meetingId) }
+    }
+
+    @Test
+    fun `assignToMeeting throws BadRequestException when the episode is already in this meeting`() {
+        val episodeId = Uuid.random()
+        val meetingId = Uuid.random()
+        val expected = episode(episodeId)
+        every { episodeRepository.findById(episodeId) } returns expected
+        every { meetingRepository.findById(meetingId) } returns MeetingRow(meetingId, clubId, LocalDate(2026, 1, 5))
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { episodeRepository.listByMeeting(meetingId) } returns listOf(expected)
+
+        assertFailsWith<BadRequestException> { episodeService.assignToMeeting(episodeId, memberId, meetingId) }
+        verify(exactly = 0) { episodeRepository.assignToMeeting(any(), any()) }
     }
 
     @Test

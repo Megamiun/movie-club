@@ -59,6 +59,10 @@ class EpisodeService(
     fun assignToMeeting(episodeId: Uuid, actingMemberId: Uuid, meetingId: Uuid): EpisodeRow {
         episodeRepository.findById(episodeId) ?: throw NotFoundException("Episode not found")
         clubService.requireMembership(requireMeeting(meetingId).clubId, actingMemberId)
+
+        if (episodeRepository.listByMeeting(meetingId).any { it.id == episodeId })
+            throw BadRequestException("This episode has already been added to this meeting")
+
         episodeRepository.assignToMeeting(episodeId, meetingId)
         return episodeRepository.findById(episodeId)!!
     }
