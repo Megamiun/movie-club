@@ -3,12 +3,11 @@ import { useState } from 'react'
 import type { RatingScale } from '../api/types'
 
 /**
- * Quality and sentiment each get their own small square (not merged into one dot, and not full labeled chips) --
- * a middle ground that stays compact and constant-width (no variable-length label text) while still giving each
- * rating its own visible square, as opposed to a single split-color circle. The squares carry no text; the full
- * labels + member name surface on hover via [Tooltip]. A border in the member's own club color (see [memberColor])
- * around the pair identifies whose column this is at a glance, without needing a header row. Clicking (when
- * [editable]) still opens the same quality/sentiment [Select] popover as before.
+ * Quality and sentiment fill the entire box -- a solid color each if only one is set, or (if both are) a gradient
+ * that blends between the two only across the middle 40%-60% band, staying solid on either side. A thin border in
+ * the member's own club color (see [memberColor]) identifies whose box this is at a glance, without needing a
+ * header row. The box carries no text; the full labels + member name surface on hover via [Tooltip]. Clicking
+ * (when [editable]) still opens the same quality/sentiment [Select] popover as before.
  */
 export function InlineRatingEditor({
   scales,
@@ -35,6 +34,11 @@ export function InlineRatingEditor({
 
   if (!editable && !qualityOption && !sentimentOption) return null
 
+  const fill =
+    qualityOption && sentimentOption
+      ? `linear-gradient(90deg, ${qualityOption.color} 0%, ${qualityOption.color} 40%, ${sentimentOption.color} 60%, ${sentimentOption.color} 100%)`
+      : (qualityOption?.color ?? sentimentOption?.color)
+
   const tooltip = `${memberName}: ${qualityOption?.label ?? 'no quality rating'} / ${sentimentOption?.label ?? 'no sentiment rating'}`
 
   return (
@@ -43,18 +47,18 @@ export function InlineRatingEditor({
         <Box
           onClick={editable ? (e) => setAnchorEl(e.currentTarget) : undefined}
           sx={{
-            display: 'flex',
-            gap: 0.5,
-            p: 0.5,
-            borderRadius: 1,
+            width: 34,
+            height: 18,
+            borderRadius: 0.5,
             flexShrink: 0,
             cursor: editable ? 'pointer' : 'default',
-            border: memberColor ? `2px solid ${memberColor}` : '1px solid transparent',
+            background: fill ?? 'transparent',
+            border: fill ? 'none' : '1.5px dashed',
+            borderColor: fill ? undefined : (memberColor ?? 'divider'),
+            outline: fill && memberColor ? `1px solid ${memberColor}` : 'none',
+            outlineOffset: '1px',
           }}
-        >
-          <RatingSquare color={qualityOption?.color} placeholderColor={memberColor} />
-          <RatingSquare color={sentimentOption?.color} placeholderColor={memberColor} />
-        </Box>
+        />
       </Tooltip>
       {editable && (
         <Popover
@@ -106,21 +110,5 @@ export function InlineRatingEditor({
         </Popover>
       )}
     </>
-  )
-}
-
-function RatingSquare({ color, placeholderColor }: { color?: string; placeholderColor?: string | null }) {
-  return (
-    <Box
-      sx={{
-        width: 18,
-        height: 18,
-        borderRadius: 0.5,
-        flexShrink: 0,
-        bgcolor: color ?? 'transparent',
-        border: color ? 'none' : '1.5px dashed',
-        borderColor: color ? undefined : (placeholderColor ?? 'divider'),
-      }}
-    />
   )
 }
