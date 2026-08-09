@@ -304,6 +304,13 @@ enforces those automatically. This section is for conventions ktlint can't check
   the Meetings page heading. A rating that hasn't been given renders as nothing at all (fully transparent, no text) —
   never the other rating filling the whole box, and never a placeholder — so fill only ever represents a rating that
   was actually given; the blend band itself is only ever drawn when both quality and sentiment are set
+- Saving a rating in the Meetings table, and the table more generally, doesn't reload-and-flash the whole page.
+  `useAsync` exposes a `silentReload` alongside `reload` — same refetch, but never sets `loading`, so the
+  `AsyncState` wrapper never unmounts the table for it (no spinner, no lost scroll position, no closed popovers).
+  `MeetingsPage` uses it both as the `onChange` passed down into every pick row (so any mutation — a rating save,
+  a delete, a drag-and-drop move — patches state in place) and on a 5-second `setInterval`, so other members'
+  concurrent changes show up without a manual refresh. A failed background poll is silently dropped rather than
+  surfaced, since whatever's already on screen is still valid
 
 ## Schedule Model
 

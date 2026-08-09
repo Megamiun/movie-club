@@ -116,7 +116,10 @@
   - [ ] Should also have a no fill option, where no text is shown
   - [ ] Always use dashed border for the ratings, even if the user has not added his rating.
 - [ ] Make both a light and dark theme available
-- [ ] Don't refresh the whole page when rating changes
+- [x] Don't refresh the whole page when rating changes
+  - `useAsync` gained a `silentReload` (refetches without ever setting `loading`, so `AsyncState` never swaps the
+    table for a spinner). Meetings table uses it for every pick mutation plus a 5s background poll, so concurrent
+    changes from other members show up without a manual refresh or any visible disruption
 - [ ] For all colors selections, only allow pastel colors for now
   - [ ] Use this in the UI for the bg and text color should be the stronger version of the color
 - [ ] Focus in the next meeting when opening the current year

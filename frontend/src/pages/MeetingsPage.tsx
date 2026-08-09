@@ -23,7 +23,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import { Fragment, useState, type DragEvent, type FormEvent } from 'react'
+import { Fragment, useEffect, useState, type DragEvent, type FormEvent } from 'react'
 import { Link as RouterLink, useOutletContext } from 'react-router-dom'
 import { clubsApi } from '../api/clubs'
 import { episodesApi } from '../api/series'
@@ -68,12 +68,17 @@ interface PickDropProps {
 export function MeetingsPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { member } = useAuth()
-  const { data: meetings, loading, error, reload } = useAsync(() => meetingsApi.list(club.id), [club.id])
+  const { data: meetings, loading, error, reload, silentReload } = useAsync(() => meetingsApi.list(club.id), [club.id])
   const { data: scales } = useAsync(() => clubsApi.getRatingScales(club.id), [club.id])
   const [date, setDate] = useState('')
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [selectedYear, setSelectedYear] = useState<string | null>(null)
+
+  useEffect(() => {
+    const interval = setInterval(silentReload, 5000)
+    return () => clearInterval(interval)
+  }, [silentReload])
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault()
@@ -134,7 +139,7 @@ export function MeetingsPage() {
                       myMemberId={member?.id ?? null}
                       columnCount={columnCount}
                       seasonNumbers={seasonNumbers}
-                      onChange={reload}
+                      onChange={silentReload}
                     />
                   ))}
                 </TableBody>
