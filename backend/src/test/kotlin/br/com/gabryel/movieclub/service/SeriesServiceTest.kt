@@ -8,6 +8,7 @@ import br.com.gabryel.movieclub.db.MediaItemType.SERIES
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
+import br.com.gabryel.movieclub.db.repositories.PersonRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
@@ -47,6 +48,7 @@ class SeriesServiceTest {
     private val seasonRepository = mockk<SeasonRepository>()
     private val episodeRepository = mockk<EpisodeRepository>()
     private val mediaItemRepository = mockk<MediaItemRepository>()
+    private val personRepository = mockk<PersonRepository>()
     private val seriesService = SeriesService(
         seriesRepository,
         clubService,
@@ -55,6 +57,7 @@ class SeriesServiceTest {
         omdbClient,
         seasonRepository,
         episodeRepository,
+        personRepository,
     )
 
     private val clubId = Uuid.random()
@@ -102,7 +105,7 @@ class SeriesServiceTest {
                             it.year == 2008 &&
                             it.genre == emptyList<String>() &&
                             it.originCountry == emptyList<String>() &&
-                            it.creator == null
+                            it.creatorPersonId == null
                     },
                     mediaItemId = any(),
                 )

@@ -159,7 +159,6 @@ data class TmdbMovieDetails(
         originalLanguage = originalLanguage,
         translations = translations?.toTranslations().orEmpty(),
         year = year,
-        director = director,
         runtimeMinutes = runtime,
         genre = genres.map { it.name },
         originCountry = originCountry,
@@ -171,6 +170,7 @@ data class TmdbMovieDetails(
 @Serializable
 data class TmdbCreator(
     val name: String,
+    val id: Int? = null,
 )
 
 @Serializable
@@ -196,6 +196,7 @@ data class TmdbTvDetails(
 ) {
     val year: Int? get() = firstAirDate?.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull()
     val creator: String? get() = createdBy.firstOrNull()?.name
+    val creatorTmdbId: Int? get() = createdBy.firstOrNull()?.id
 
     fun toMetadata(tmdbId: Int, fetchedAt: Instant = Clock.System.now()) = TmdbSeriesMetadata(
         tmdbId = tmdbId.toString(),
@@ -203,7 +204,6 @@ data class TmdbTvDetails(
         originalLanguage = originalLanguage,
         translations = translations?.toTranslations().orEmpty(),
         year = year,
-        creator = creator,
         genre = genres.map { it.name },
         originCountry = originCountry,
         productionCountries = productionCountries.map { it.name },
@@ -236,7 +236,6 @@ data class TmdbEpisodeDetails(
         airDate = airDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
         overview = overview,
         runtimeMinutes = runtime,
-        director = director,
         imdbId = imdbId,
         metadataFetchedAt = fetchedAt,
     )

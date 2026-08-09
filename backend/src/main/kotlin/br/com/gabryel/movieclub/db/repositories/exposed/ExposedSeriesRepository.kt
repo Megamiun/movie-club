@@ -9,11 +9,13 @@ import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
 import br.com.gabryel.movieclub.db.tables.ClubMembers
 import br.com.gabryel.movieclub.db.tables.ClubSeries
 import br.com.gabryel.movieclub.db.tables.MemberSeriesReviews
+import br.com.gabryel.movieclub.db.tables.People
 import br.com.gabryel.movieclub.db.tables.Series
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.innerJoin
+import org.jetbrains.exposed.v1.core.leftJoin
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -171,7 +173,7 @@ class ExposedSeriesRepository : SeriesRepository {
         }[Series.id].value
     }
 
-    private fun joined() = ClubSeries innerJoin Series
+    private fun joined() = ClubSeries.innerJoin(Series).leftJoin(People)
 
     private fun toRow(row: ResultRow) = SeriesRow(
         id = row[ClubSeries.id].value,
@@ -191,7 +193,7 @@ class ExposedSeriesRepository : SeriesRepository {
         originCountry = row[Series.originCountry],
         productionCountries = row[Series.productionCountries],
         imdbRating = row[Series.imdbRating],
-        creator = row[Series.creator],
+        creator = row.getOrNull(People.name),
         posterS3Key = row[Series.posterS3Key],
         status = row[Series.status],
         metadataFetchedAt = row[Series.metadataFetchedAt],
@@ -220,7 +222,7 @@ private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbSeriesMetadata, med
     this[Series.originCountry] = metadata.originCountry
     this[Series.productionCountries] = metadata.productionCountries
     this[Series.imdbRating] = metadata.imdbRating
-    this[Series.creator] = metadata.creator
+    this[Series.creatorPersonId] = metadata.creatorPersonId
     this[Series.status] = metadata.status
     this[Series.metadataFetchedAt] = metadata.metadataFetchedAt
     this[Series.mediaItemId] = mediaItemId

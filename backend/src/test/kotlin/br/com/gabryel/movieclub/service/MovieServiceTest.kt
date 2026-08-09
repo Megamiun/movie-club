@@ -9,11 +9,13 @@ import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
+import br.com.gabryel.movieclub.db.repositories.PersonRepository
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
+import br.com.gabryel.movieclub.db.repositories.dto.PersonRow
 import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
@@ -43,8 +45,16 @@ class MovieServiceTest {
     private val tmdbClient = mockk<TmdbClient>()
     private val omdbClient = mockk<OmdbClient>()
     private val mediaItemRepository = mockk<MediaItemRepository>()
-    private val movieService =
-        MovieService(movieRepository, meetingRepository, clubService, mediaItemRepository, tmdbClient, omdbClient)
+    private val personRepository = mockk<PersonRepository>()
+    private val movieService = MovieService(
+        movieRepository,
+        meetingRepository,
+        clubService,
+        mediaItemRepository,
+        tmdbClient,
+        omdbClient,
+        personRepository,
+    )
 
     private val clubId = Uuid.random()
     private val memberId = Uuid.random()
@@ -100,7 +110,7 @@ class MovieServiceTest {
                         it.originalTitle == "Contratiempo" &&
                         it.translations == emptyList<Translation>() &&
                         it.year == 2017 &&
-                        it.director == null &&
+                        it.directorPersonId == null &&
                         it.runtimeMinutes == 107 &&
                         it.genre == emptyList<String>() &&
                         it.originCountry == emptyList<String>()
@@ -154,7 +164,7 @@ class MovieServiceTest {
     }
 
     @Test
-    fun `addMovie resolves the director's IMDB id via a TMDB person lookup`() = runBlocking {
+    fun `addMovie resolves the director's IMDB id via a TMDB person lookup and finds-or-creates their Person row`() = runBlocking {
         every { meetingRepository.findById(meetingId) } returns meeting()
         every { clubService.requireMembership(clubId, memberId) } returns membership()
         coEvery { tmdbClient.findByImdbId("tt4857264") } returns TmdbMovieSummary(id = 411088)
@@ -165,6 +175,10 @@ class MovieServiceTest {
             credits = TmdbCredits(crew = listOf(TmdbCrewMember("Oriol Paulo", "Director", id = 1181819))),
         )
         coEvery { tmdbClient.getPersonExternalIds(1181819) } returns TmdbExternalIds(imdbId = "nm1181819")
+        val directorId = Uuid.random()
+        every {
+            personRepository.findOrCreate("Oriol Paulo", "1181819", "nm1181819")
+        } returns PersonRow(directorId, "Oriol Paulo", "nm1181819", "1181819")
 
         val created = movie()
         every {
@@ -172,7 +186,7 @@ class MovieServiceTest {
                 meetingId = meetingId,
                 chosenById = memberId,
                 imdbId = "tt4857264",
-                metadata = match { it.directorImdbId == "nm1181819" },
+                metadata = match { it.directorPersonId == directorId },
                 mediaItemId = any(),
             )
         } returns created
@@ -181,7 +195,7 @@ class MovieServiceTest {
     }
 
     @Test
-    fun `addMovie tolerates a failed director lookup instead of blocking the add`() = runBlocking {
+    fun `addMovie tolerates a failed director IMDB lookup, still resolving the Person row by TMDB id alone`() = runBlocking {
         every { meetingRepository.findById(meetingId) } returns meeting()
         every { clubService.requireMembership(clubId, memberId) } returns membership()
         coEvery { tmdbClient.findByImdbId("tt4857264") } returns TmdbMovieSummary(id = 411088)
@@ -192,6 +206,10 @@ class MovieServiceTest {
             credits = TmdbCredits(crew = listOf(TmdbCrewMember("Oriol Paulo", "Director", id = 1181819))),
         )
         coEvery { tmdbClient.getPersonExternalIds(1181819) } throws RuntimeException("TMDB is down")
+        val directorId = Uuid.random()
+        every {
+            personRepository.findOrCreate("Oriol Paulo", "1181819", null)
+        } returns PersonRow(directorId, "Oriol Paulo", null, "1181819")
 
         val created = movie()
         every {
@@ -199,7 +217,7 @@ class MovieServiceTest {
                 meetingId = meetingId,
                 chosenById = memberId,
                 imdbId = "tt4857264",
-                metadata = match { it.directorImdbId == null },
+                metadata = match { it.directorPersonId == directorId },
                 mediaItemId = any(),
             )
         } returns created

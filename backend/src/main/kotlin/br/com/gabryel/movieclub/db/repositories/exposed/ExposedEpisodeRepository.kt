@@ -10,6 +10,7 @@ import br.com.gabryel.movieclub.db.tables.Episodes
 import br.com.gabryel.movieclub.db.tables.MeetingEpisodes
 import br.com.gabryel.movieclub.db.tables.Meetings
 import br.com.gabryel.movieclub.db.tables.MemberEpisodeReviews
+import br.com.gabryel.movieclub.db.tables.People
 import br.com.gabryel.movieclub.db.tables.Seasons
 import br.com.gabryel.movieclub.db.tables.Series
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -17,6 +18,7 @@ import org.jetbrains.exposed.v1.core.SortOrder.ASC
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.innerJoin
+import org.jetbrains.exposed.v1.core.leftJoin
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.core.or
@@ -31,7 +33,7 @@ import kotlin.uuid.Uuid
 
 class ExposedEpisodeRepository : EpisodeRepository {
     override fun create(seasonId: Uuid, number: Int, title: String?): EpisodeRow = transaction {
-        val existing = Episodes
+        val existing = joined()
             .selectAll()
             .where { (Episodes.seasonId eq seasonId) and (Episodes.number eq number) }
             .map(::toRow)
@@ -47,7 +49,7 @@ class ExposedEpisodeRepository : EpisodeRepository {
     }
 
     override fun findById(id: Uuid): EpisodeRow? = transaction {
-        Episodes
+        joined()
             .selectAll()
             .where { Episodes.id eq id }
             .map(::toRow)
@@ -55,7 +57,7 @@ class ExposedEpisodeRepository : EpisodeRepository {
     }
 
     override fun listBySeason(seasonId: Uuid): List<EpisodeRow> = transaction {
-        Episodes
+        joined()
             .selectAll()
             .where { Episodes.seasonId eq seasonId }
             .orderBy(Episodes.number to ASC)
@@ -64,8 +66,12 @@ class ExposedEpisodeRepository : EpisodeRepository {
 
     override fun listByMeeting(meetingId: Uuid): List<EpisodeRow> = transaction {
         (MeetingEpisodes innerJoin Episodes)
+            .leftJoin(Seasons)
+            .leftJoin(People)
             .selectAll()
             .where { MeetingEpisodes.meetingId eq meetingId }
+            .orderBy(Episodes.number)
+            .orderBy(Seasons.number)
             .map(::toRow)
     }
 
@@ -74,6 +80,7 @@ class ExposedEpisodeRepository : EpisodeRepository {
         (ClubSeries innerJoin Series)
             .innerJoin(Seasons, { Series.id }, { Seasons.seriesId })
             .innerJoin(Episodes, { Seasons.id }, { Episodes.seasonId })
+            .leftJoin(People)
             .selectAll()
             .where {
                 (ClubSeries.clubId eq clubId) and (
@@ -103,7 +110,7 @@ class ExposedEpisodeRepository : EpisodeRepository {
             .map { it[MeetingEpisodes.episodeId].value }
             .toSet()
 
-        (Seasons innerJoin Episodes)
+        (Seasons innerJoin Episodes).leftJoin(People)
             .selectAll()
             .where { Seasons.seriesId eq globalSeriesId }
             .orderBy(Seasons.number to ASC, Episodes.number to ASC)
@@ -204,6 +211,8 @@ class ExposedEpisodeRepository : EpisodeRepository {
         }
     }
 
+    private fun joined() = Episodes.leftJoin(People)
+
     private fun toRow(row: ResultRow) = EpisodeRow(
         id = row[Episodes.id].value,
         seasonId = row[Episodes.seasonId].value,
@@ -212,8 +221,8 @@ class ExposedEpisodeRepository : EpisodeRepository {
         airDate = row[Episodes.airDate],
         overview = row[Episodes.overview],
         runtimeMinutes = row[Episodes.runtimeMinutes],
-        director = row[Episodes.director],
-        directorImdbId = row[Episodes.directorImdbId],
+        director = row.getOrNull(People.name),
+        directorImdbId = row.getOrNull(People.imdbId),
         imdbId = row[Episodes.imdbId],
         imdbRating = row[Episodes.imdbRating],
         metadataFetchedAt = row[Episodes.metadataFetchedAt],
@@ -232,8 +241,7 @@ private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbEpisodeMetadata) {
     this[Episodes.airDate] = metadata.airDate
     this[Episodes.overview] = metadata.overview
     this[Episodes.runtimeMinutes] = metadata.runtimeMinutes
-    this[Episodes.director] = metadata.director
-    this[Episodes.directorImdbId] = metadata.directorImdbId
+    this[Episodes.directorPersonId] = metadata.directorPersonId
     this[Episodes.imdbId] = metadata.imdbId
     this[Episodes.imdbRating] = metadata.imdbRating
     this[Episodes.metadataFetchedAt] = metadata.metadataFetchedAt

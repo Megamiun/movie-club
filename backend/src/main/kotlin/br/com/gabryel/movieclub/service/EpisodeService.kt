@@ -4,6 +4,7 @@ import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
+import br.com.gabryel.movieclub.db.repositories.PersonRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
@@ -30,6 +31,7 @@ class EpisodeService(
     private val tmdbClient: TmdbClient,
     private val omdbClient: OmdbClient,
     private val watchlistRepository: WatchlistRepository,
+    private val personRepository: PersonRepository,
 ) {
     /** Unlike [br.com.gabryel.movieclub.service.MovieService.addMovie]/`SeriesService.addSeries`, TMDB enrichment
      * here is always best-effort: an episode has no id of its own to look up by, only the parent series' `tmdbId`
@@ -59,12 +61,18 @@ class EpisodeService(
             ?: throw BadRequestException("Series has not been matched to TMDB yet")
 
         val details = tmdbClient.getEpisodeDetails(tmdbId, season.number, episode.number)
-        val directorImdbId = details.directorTmdbId?.let {
-            runCatching { tmdbClient.getPersonExternalIds(it).imdbId }.getOrNull()
-        }
+        val directorPersonId = resolveDirectorPersonId(details.director, details.directorTmdbId)
         val imdbRating = details.imdbId?.let { omdbClient.getImdbRating(it) }
-        val metadata = details.toMetadata().copy(directorImdbId = directorImdbId, imdbRating = imdbRating)
+        val metadata = details.toMetadata().copy(directorPersonId = directorPersonId, imdbRating = imdbRating)
         return episodeRepository.updateTmdbMetadata(episodeId, metadata)
+    }
+
+    /** Same best-effort IMDB-id-via-TMDB-person-lookup pattern as
+     * [br.com.gabryel.movieclub.service.MovieService.resolveDirectorPersonId]. */
+    private suspend fun resolveDirectorPersonId(directorName: String?, directorTmdbId: Int?): Uuid? {
+        if (directorName == null) return null
+        val directorImdbId = directorTmdbId?.let { runCatching { tmdbClient.getPersonExternalIds(it).imdbId }.getOrNull() }
+        return personRepository.findOrCreate(directorName, directorTmdbId?.toString(), directorImdbId).id
     }
 
     fun assignToMeeting(episodeId: Uuid, actingMemberId: Uuid, meetingId: Uuid): EpisodeRow {

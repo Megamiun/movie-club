@@ -9,6 +9,7 @@ import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
+import br.com.gabryel.movieclub.db.repositories.PersonRepository
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
@@ -31,6 +32,7 @@ class MovieService(
     private val mediaItemRepository: MediaItemRepository,
     private val tmdbClient: TmdbClient,
     private val omdbClient: OmdbClient,
+    private val personRepository: PersonRepository,
 ) {
     suspend fun searchMovies(query: String): List<TmdbMovieSearchItem> {
         if (query.isBlank()) return emptyList()
@@ -71,8 +73,8 @@ class MovieService(
             throw BadRequestException("This movie has already been added to this meeting")
 
         val imdbRating = omdbClient.getImdbRating(imdbId)
-        val directorImdbId = resolveDirectorImdbId(details.directorTmdbId)
-        val metadata = details.toMetadata(tmdbId).copy(imdbRating = imdbRating, directorImdbId = directorImdbId)
+        val directorPersonId = resolveDirectorPersonId(details.director, details.directorTmdbId)
+        val metadata = details.toMetadata(tmdbId).copy(imdbRating = imdbRating, directorPersonId = directorPersonId)
         val mediaItem = linkMediaItem(details, tmdbId, imdbId, metadata, imdbRating)
         return movieRepository.create(meetingId, actingMemberId, imdbId, metadata, mediaItem, watchLink)
     }
@@ -84,17 +86,22 @@ class MovieService(
 
         val details = tmdbClient.getMovieDetails(summary.id)
         val imdbRating = omdbClient.getImdbRating(movie.imdbId)
-        val directorImdbId = resolveDirectorImdbId(details.directorTmdbId)
-        val metadata = details.toMetadata(summary.id).copy(imdbRating = imdbRating, directorImdbId = directorImdbId)
+        val directorPersonId = resolveDirectorPersonId(details.director, details.directorTmdbId)
+        val metadata = details.toMetadata(summary.id).copy(imdbRating = imdbRating, directorPersonId = directorPersonId)
         val mediaItem = linkMediaItem(details, summary.id, movie.imdbId, metadata, imdbRating)
 
         return movieRepository.updateTmdbMetadata(movieId, metadata, mediaItem)
     }
 
-    /** Best-effort, like [OmdbClient.getImdbRating] -- a person lookup failing (rate limit, no linked IMDB page,
-     * etc.) should never block adding/refreshing the movie itself. */
-    private suspend fun resolveDirectorImdbId(directorTmdbId: Int?): String? =
-        directorTmdbId?.let { runCatching { tmdbClient.getPersonExternalIds(it).imdbId }.getOrNull() }
+    /** Resolves (find-or-creating) the [br.com.gabryel.movieclub.db.repositories.dto.PersonRow] for the credited
+     * director, keyed primarily on [directorTmdbId] (always known from `credits`) since the IMDB id lookup below
+     * is itself best-effort -- like [OmdbClient.getImdbRating], a person lookup failing (rate limit, no linked
+     * IMDB page, etc.) should never block adding/refreshing the movie itself. */
+    private suspend fun resolveDirectorPersonId(directorName: String?, directorTmdbId: Int?): Uuid? {
+        if (directorName == null) return null
+        val directorImdbId = directorTmdbId?.let { runCatching { tmdbClient.getPersonExternalIds(it).imdbId }.getOrNull() }
+        return personRepository.findOrCreate(directorName, directorTmdbId?.toString(), directorImdbId).id
+    }
 
     private fun linkMediaItem(
         details: TmdbMovieDetails,

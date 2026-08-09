@@ -8,6 +8,7 @@ import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
+import br.com.gabryel.movieclub.db.repositories.PersonRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
@@ -32,6 +33,7 @@ class SeriesService(
     private val omdbClient: OmdbClient,
     private val seasonRepository: SeasonRepository,
     private val episodeRepository: EpisodeRepository,
+    private val personRepository: PersonRepository,
 ) {
     suspend fun searchSeries(query: String): List<TmdbTvSearchItem> {
         if (query.isBlank()) return emptyList()
@@ -66,7 +68,7 @@ class SeriesService(
             throw BadRequestException("This series has already been added to this club")
 
         val imdbRating = omdbClient.getImdbRating(imdbId)
-        val metadata = details.toMetadata(tmdbId).copy(imdbRating = imdbRating)
+        val metadata = details.toMetadata(tmdbId).copy(imdbRating = imdbRating, creatorPersonId = resolveCreatorPersonId(details))
         val mediaItem = linkMediaItem(details, tmdbId, imdbId, metadata, imdbRating)
         val series = seriesRepository.create(clubId, actingMemberId, imdbId, metadata, mediaItem)
         runCatching { importSeasonsAndEpisodes(series.id, actingMemberId) }
@@ -80,10 +82,20 @@ class SeriesService(
 
         val details = tmdbClient.getTvDetails(summary.id)
         val imdbRating = omdbClient.getImdbRating(series.imdbId)
-        val metadata = details.toMetadata(summary.id).copy(imdbRating = imdbRating)
+        val metadata = details.toMetadata(summary.id).copy(imdbRating = imdbRating, creatorPersonId = resolveCreatorPersonId(details))
         val mediaItem = linkMediaItem(details, summary.id, series.imdbId, metadata, imdbRating)
 
         return seriesRepository.updateTmdbMetadata(seriesId, metadata, mediaItem)
+    }
+
+    /** Unlike [MovieService.resolveDirectorPersonId]/[EpisodeService.resolveDirectorPersonId], no IMDB id lookup
+     * here -- nothing yet reads a creator's IMDB id, so the extra best-effort [TmdbClient.getPersonExternalIds]
+     * round trip isn't worth making on every refresh. Deduping on the TMDB person id alone (see
+     * [TmdbTvDetails.creatorTmdbId]) still avoids a duplicate [br.com.gabryel.movieclub.db.repositories.dto.PersonRow]
+     * per refresh; a later pass can add the IMDB lookup the same way director resolution already does. */
+    private fun resolveCreatorPersonId(details: TmdbTvDetails): Uuid? {
+        val creatorName = details.creator ?: return null
+        return personRepository.findOrCreate(creatorName, details.creatorTmdbId?.toString()).id
     }
 
     private fun linkMediaItem(
@@ -123,7 +135,10 @@ class SeriesService(
                     .find { it.number == episodeEntry.episodeNumber }
                 if (existingEpisode == null) {
                     val inserted = episodeRepository.create(season.id, episodeEntry.episodeNumber, episodeEntry.name)
-                    episodeRepository.updateTmdbMetadata(inserted.id, episodeEntry.toMetadata())
+                    val directorPersonId = episodeEntry.director?.let {
+                        personRepository.findOrCreate(it, episodeEntry.directorTmdbId?.toString()).id
+                    }
+                    episodeRepository.updateTmdbMetadata(inserted.id, episodeEntry.toMetadata().copy(directorPersonId = directorPersonId))
                     created++
                 }
             }

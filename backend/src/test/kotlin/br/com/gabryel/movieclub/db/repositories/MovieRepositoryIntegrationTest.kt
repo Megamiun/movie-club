@@ -117,7 +117,6 @@ class MovieRepositoryIntegrationTest {
         originalTitle = originalTitle,
         translations = emptyList(),
         year = 2014,
-        director = "Chad Stahelski",
         runtimeMinutes = 101,
         genre = listOf("Action"),
         originCountry = listOf("US"),

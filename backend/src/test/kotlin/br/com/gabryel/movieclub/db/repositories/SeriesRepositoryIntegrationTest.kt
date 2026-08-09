@@ -134,7 +134,6 @@ class SeriesRepositoryIntegrationTest {
         genre = listOf("Drama", "Crime"),
         originCountry = listOf("US"),
         productionCountries = listOf("United States of America"),
-        creator = "Vince Gilligan",
     )
 
     private fun newMember() = IntegrationFixtures.insertMember().also { memberIds.add(it) }

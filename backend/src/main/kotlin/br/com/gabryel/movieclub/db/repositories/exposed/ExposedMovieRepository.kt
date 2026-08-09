@@ -9,10 +9,12 @@ import br.com.gabryel.movieclub.db.repositories.dto.TmdbMovieMetadata
 import br.com.gabryel.movieclub.db.tables.MeetingMovies
 import br.com.gabryel.movieclub.db.tables.MemberMovieReviews
 import br.com.gabryel.movieclub.db.tables.Movies
+import br.com.gabryel.movieclub.db.tables.People
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.innerJoin
+import org.jetbrains.exposed.v1.core.leftJoin
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -192,7 +194,7 @@ class ExposedMovieRepository : MovieRepository {
         }[Movies.id].value
     }
 
-    private fun joined() = MeetingMovies innerJoin Movies
+    private fun joined() = MeetingMovies.innerJoin(Movies).leftJoin(People)
 
     private fun toRow(row: ResultRow) = MovieRow(
         id = row[MeetingMovies.id].value,
@@ -207,8 +209,8 @@ class ExposedMovieRepository : MovieRepository {
         displayTitlePreference = row[MeetingMovies.displayTitlePreference],
         displayLanguageCode = row[MeetingMovies.displayLanguageCode],
         year = row[Movies.year],
-        director = row[Movies.director],
-        directorImdbId = row[Movies.directorImdbId],
+        director = row.getOrNull(People.name),
+        directorImdbId = row.getOrNull(People.imdbId),
         runtimeMinutes = row[Movies.runtimeMinutes],
         genre = row[Movies.genre],
         originCountry = row[Movies.originCountry],
@@ -238,8 +240,7 @@ private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbMovieMetadata, medi
     this[Movies.originalLanguage] = metadata.originalLanguage
     this[Movies.translations] = metadata.translations
     this[Movies.year] = metadata.year
-    this[Movies.director] = metadata.director
-    this[Movies.directorImdbId] = metadata.directorImdbId
+    this[Movies.directorPersonId] = metadata.directorPersonId
     this[Movies.runtimeMinutes] = metadata.runtimeMinutes
     this[Movies.genre] = metadata.genre
     this[Movies.originCountry] = metadata.originCountry

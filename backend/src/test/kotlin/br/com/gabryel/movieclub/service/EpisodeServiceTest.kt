@@ -4,6 +4,7 @@ import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
+import br.com.gabryel.movieclub.db.repositories.PersonRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
@@ -11,6 +12,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
+import br.com.gabryel.movieclub.db.repositories.dto.PersonRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeasonRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.db.repositories.dto.Translation
@@ -47,6 +49,7 @@ class EpisodeServiceTest {
     private val tmdbClient = mockk<TmdbClient>()
     private val omdbClient = mockk<OmdbClient>()
     private val watchlistRepository = mockk<WatchlistRepository>()
+    private val personRepository = mockk<PersonRepository>()
     private val episodeService = EpisodeService(
         episodeRepository,
         seasonRepository,
@@ -56,6 +59,7 @@ class EpisodeServiceTest {
         tmdbClient,
         omdbClient,
         watchlistRepository,
+        personRepository,
     )
 
     private val clubId = Uuid.random()
@@ -179,7 +183,7 @@ class EpisodeServiceTest {
     }
 
     @Test
-    fun `refreshMetadata resolves the director's IMDB id via a TMDB person lookup`() = runBlocking {
+    fun `refreshMetadata resolves the director's IMDB id via a TMDB person lookup and finds-or-creates their Person row`() = runBlocking {
         val episodeId = Uuid.random()
         every { episodeRepository.findById(episodeId) } returns episode(episodeId)
         every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
@@ -190,17 +194,21 @@ class EpisodeServiceTest {
             crew = listOf(TmdbCrewMember("Vince Gilligan", "Director", id = 66633)),
         )
         coEvery { tmdbClient.getPersonExternalIds(66633) } returns TmdbExternalIds(imdbId = "nm0316704")
+        val directorId = Uuid.random()
+        every {
+            personRepository.findOrCreate("Vince Gilligan", "66633", "nm0316704")
+        } returns PersonRow(directorId, "Vince Gilligan", "nm0316704", "66633")
 
         val updated = episode(episodeId)
         every {
-            episodeRepository.updateTmdbMetadata(episodeId, match { it.directorImdbId == "nm0316704" })
+            episodeRepository.updateTmdbMetadata(episodeId, match { it.directorPersonId == directorId })
         } returns updated
 
         assertEquals(updated, episodeService.refreshMetadata(episodeId, memberId))
     }
 
     @Test
-    fun `refreshMetadata tolerates a failed director lookup instead of throwing`() = runBlocking {
+    fun `refreshMetadata tolerates a failed director IMDB lookup, still resolving the Person row by TMDB id alone`() = runBlocking {
         val episodeId = Uuid.random()
         every { episodeRepository.findById(episodeId) } returns episode(episodeId)
         every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
@@ -211,10 +219,14 @@ class EpisodeServiceTest {
             crew = listOf(TmdbCrewMember("Vince Gilligan", "Director", id = 66633)),
         )
         coEvery { tmdbClient.getPersonExternalIds(66633) } throws RuntimeException("TMDB is down")
+        val directorId = Uuid.random()
+        every {
+            personRepository.findOrCreate("Vince Gilligan", "66633", null)
+        } returns PersonRow(directorId, "Vince Gilligan", null, "66633")
 
         val updated = episode(episodeId)
         every {
-            episodeRepository.updateTmdbMetadata(episodeId, match { it.directorImdbId == null })
+            episodeRepository.updateTmdbMetadata(episodeId, match { it.directorPersonId == directorId })
         } returns updated
 
         assertEquals(updated, episodeService.refreshMetadata(episodeId, memberId))

@@ -58,7 +58,7 @@ data class TmdbSeriesMetadata(
     val originCountry: List<String>? = null,
     val productionCountries: List<String>? = null,
     val imdbRating: BigDecimal? = null,
-    val creator: String? = null,
+    val creatorPersonId: Uuid? = null,
     val status: String? = null,
     val metadataFetchedAt: Instant? = null,
 )

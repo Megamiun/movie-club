@@ -18,7 +18,7 @@ class TmdbClientTest {
     }
 
     @Test
-    fun `TmdbMovieDetails toMetadata pulls director from credits and year from release_date`() {
+    fun `TmdbMovieDetails toMetadata pulls year from release_date -- director comes from the details getter directly`() {
         val details = TmdbMovieDetails(
             originalTitle = "John Wick",
             title = "John Wick",
@@ -44,7 +44,7 @@ class TmdbClientTest {
         assertEquals("John Wick", metadata.originalTitle)
         assertEquals("en", metadata.originalLanguage)
         assertEquals(2014, metadata.year)
-        assertEquals("Chad Stahelski", metadata.director)
+        assertEquals("Chad Stahelski", details.director)
         assertEquals(101, metadata.runtimeMinutes)
         assertEquals(listOf("Action", "Thriller"), metadata.genre)
         assertEquals(listOf("US"), metadata.originCountry)
@@ -74,13 +74,13 @@ class TmdbClientTest {
 
         val metadata = details.toMetadata(tmdbId = 1)
 
-        assertNull(metadata.director)
+        assertNull(details.director)
         assertNull(metadata.year)
         assertEquals(emptyList(), metadata.translations)
     }
 
     @Test
-    fun `TmdbTvDetails toMetadata pulls creator from created_by and year from first_air_date`() {
+    fun `TmdbTvDetails toMetadata pulls year from first_air_date -- creator comes from the details getter directly`() {
         val details = TmdbTvDetails(
             originalName = "Breaking Bad",
             name = "Breaking Bad",
@@ -103,7 +103,7 @@ class TmdbClientTest {
         assertEquals("Breaking Bad", metadata.originalTitle)
         assertEquals("en", metadata.originalLanguage)
         assertEquals(2008, metadata.year)
-        assertEquals("Vince Gilligan", metadata.creator)
+        assertEquals("Vince Gilligan", details.creator)
         assertEquals(listOf("Drama"), metadata.genre)
         assertEquals(listOf("United States of America"), metadata.productionCountries)
         assertEquals(
@@ -113,7 +113,7 @@ class TmdbClientTest {
     }
 
     @Test
-    fun `TmdbEpisodeDetails toMetadata parses air_date, pulls director from crew, and imdbId from external_ids`() {
+    fun `TmdbEpisodeDetails toMetadata parses air_date and imdbId from external_ids -- director comes from the crew getter directly`() {
         val details = TmdbEpisodeDetails(
             name = "Pilot",
             episodeNumber = 1,
@@ -129,7 +129,7 @@ class TmdbClientTest {
         assertEquals(LocalDate(2008, 1, 20), metadata.airDate)
         assertEquals("A chemistry teacher...", metadata.overview)
         assertEquals(59, metadata.runtimeMinutes)
-        assertEquals("Vince Gilligan", metadata.director)
+        assertEquals("Vince Gilligan", details.director)
         assertEquals("tt0959621", metadata.imdbId)
     }
 

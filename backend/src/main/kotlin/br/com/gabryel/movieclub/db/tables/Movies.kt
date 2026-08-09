@@ -16,8 +16,7 @@ object Movies : UuidTable("movies") {
     val translations = jsonb<List<Translation>>("translations", Json.Default)
 
     val year = integer("year").nullable()
-    val director = varchar("director", 512).nullable()
-    val directorImdbId = varchar("director_imdb_id", 16).nullable()
+    val directorPersonId = reference("director_person_id", People).nullable()
     val runtimeMinutes = integer("runtime_minutes").nullable()
     val genre = array("genre", VarCharColumnType(255)).nullable()
     val originCountry = array("origin_country", VarCharColumnType(255)).nullable()
