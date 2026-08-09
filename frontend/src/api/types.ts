@@ -73,6 +73,11 @@ export interface Meeting {
   assignedMemberId: string | null
 }
 
+export interface MeetingWithPicks extends Meeting {
+  movies: Movie[]
+  episodes: Episode[]
+}
+
 export interface Translation {
   languageCode: string
   countryCode: string

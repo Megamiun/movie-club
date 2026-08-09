@@ -3,9 +3,11 @@ package br.com.gabryel.movieclub.service
 import br.com.gabryel.movieclub.db.ClubRole
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
+import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
+import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.exception.BadRequestException
@@ -25,8 +27,9 @@ import kotlin.uuid.Uuid
 class MeetingServiceTest {
     private val meetingRepository = mockk<MeetingRepository>()
     private val movieRepository = mockk<MovieRepository>()
+    private val episodeRepository = mockk<EpisodeRepository>()
     private val clubService = mockk<ClubService>()
-    private val meetingService = MeetingService(meetingRepository, movieRepository, clubService)
+    private val meetingService = MeetingService(meetingRepository, movieRepository, episodeRepository, clubService)
 
     private val clubId = Uuid.random()
     private val memberId = Uuid.random()
@@ -65,6 +68,39 @@ class MeetingServiceTest {
         every { meetingRepository.findById(meetingId) } returns null
 
         assertFailsWith<NotFoundException> { meetingService.getMeeting(meetingId, memberId) }
+    }
+
+    @Test
+    fun `getMeeting composes the meeting with its movies and episodes`() {
+        val meetingRow = meeting()
+        val movieRow = movie(meetingId = meetingRow.id)
+        val episodeRow = EpisodeRow(id = Uuid.random(), seasonId = Uuid.random(), number = 1, title = "Pilot")
+        every { meetingRepository.findById(meetingRow.id) } returns meetingRow
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { movieRepository.listByMeeting(meetingRow.id) } returns listOf(movieRow)
+        every { episodeRepository.listByMeeting(meetingRow.id) } returns listOf(episodeRow)
+
+        val result = meetingService.getMeeting(meetingRow.id, memberId)
+
+        assertEquals(listOf(movieRow), result.movies)
+        assertEquals(listOf(episodeRow), result.episodes)
+    }
+
+    @Test
+    fun `listMeetings composes every meeting with its own movies and episodes`() {
+        val meetingA = meeting()
+        val meetingB = meeting()
+        val movieA = movie(meetingId = meetingA.id)
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { meetingRepository.listByClub(clubId) } returns listOf(meetingA, meetingB)
+        every { movieRepository.listByMeeting(meetingA.id) } returns listOf(movieA)
+        every { movieRepository.listByMeeting(meetingB.id) } returns emptyList()
+        every { episodeRepository.listByMeeting(any()) } returns emptyList()
+
+        val result = meetingService.listMeetings(clubId, memberId)
+
+        assertEquals(listOf(movieA), result.first { it.id == meetingA.id }.movies)
+        assertEquals(emptyList(), result.first { it.id == meetingB.id }.movies)
     }
 
     @Test

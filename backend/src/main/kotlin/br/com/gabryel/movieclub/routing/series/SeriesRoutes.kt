@@ -223,7 +223,7 @@ private fun EpisodeSearchRow.toResponse() = EpisodeSearchResultResponse(
 
 private fun SeasonRow.toResponse() = SeasonResponse(id.toString(), seriesId.toString(), number, title)
 
-private fun EpisodeRow.toResponse() = EpisodeResponse(
+internal fun EpisodeRow.toResponse() = EpisodeResponse(
     id = id.toString(),
     seasonId = seasonId.toString(),
     number = number,

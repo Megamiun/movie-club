@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   List,
   ListItemButton,
   ListItemText,
@@ -14,11 +15,13 @@ import { useState, type FormEvent } from 'react'
 import { Link as RouterLink, useOutletContext } from 'react-router-dom'
 import { meetingsApi } from '../api/meetings'
 import { ApiError } from '../api/client'
+import type { MeetingWithPicks } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { MemberAutocomplete } from '../components/MemberAutocomplete'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { memberName } from '../utils/members'
+import { resolveTitle } from '../utils/title'
 
 export function MeetingsPage() {
   const { club } = useOutletContext<ClubOutletContext>()
@@ -52,16 +55,7 @@ export function MeetingsPage() {
         <List>
           {sorted.length === 0 && <Typography color="text.secondary">No meetings yet.</Typography>}
           {sorted.map((meeting) => (
-            <ListItemButton key={meeting.id} component={RouterLink} to={`/meetings/${meeting.id}`} divider>
-              <ListItemText
-                primary={meeting.date}
-                secondary={
-                  meeting.assignedMemberId
-                    ? `Assigned: ${memberName(club.members, meeting.assignedMemberId)}`
-                    : 'Shared / merged'
-                }
-              />
-            </ListItemButton>
+            <MeetingRow key={meeting.id} meeting={meeting} club={club} />
           ))}
         </List>
       </AsyncState>
@@ -97,5 +91,40 @@ export function MeetingsPage() {
         </Stack>
       </Box>
     </Box>
+  )
+}
+
+function MeetingRow({ meeting, club }: { meeting: MeetingWithPicks; club: ClubOutletContext['club'] }) {
+  const picks = [
+    ...meeting.movies.map((movie) => `${resolveTitle(movie, club)}${movie.year ? ` (${movie.year})` : ''}`),
+    ...meeting.episodes.map((episode) => `Ep. ${episode.number}${episode.title ? ` — ${episode.title}` : ''}`),
+  ]
+
+  return (
+    <ListItemButton component={RouterLink} to={`/meetings/${meeting.id}`} divider>
+      <ListItemText
+        primary={meeting.date}
+        secondary={
+          <>
+            {meeting.assignedMemberId
+              ? `Assigned: ${memberName(club.members, meeting.assignedMemberId)}`
+              : 'Shared / merged'}
+            {picks.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" component="span">
+                {' '}
+                &middot; Nothing picked yet
+              </Typography>
+            ) : (
+              <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: 'wrap' }}>
+                {picks.map((pick, index) => (
+                  <Chip key={index} size="small" label={pick} variant="outlined" />
+                ))}
+              </Stack>
+            )}
+          </>
+        }
+        slotProps={{ secondary: { component: 'div' } }}
+      />
+    </ListItemButton>
   )
 }

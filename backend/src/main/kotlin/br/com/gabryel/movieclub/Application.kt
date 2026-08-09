@@ -58,7 +58,7 @@ fun Application.module() {
     val mediaItemRepository = ExposedMediaItemRepository()
     val tmdbClient = TmdbClient(config.propertyOrNull("tmdb.accessToken")?.getString().orEmpty())
     val omdbClient = OmdbClient(config.propertyOrNull("omdb.apiKey")?.getString().orEmpty())
-    val meetingService = MeetingService(meetingRepository, movieRepository, clubService)
+    val meetingService = MeetingService(meetingRepository, movieRepository, episodeRepository, clubService)
     val movieService = MovieService(movieRepository, meetingRepository, clubService, mediaItemRepository, tmdbClient, omdbClient)
     val seriesService = SeriesService(
         seriesRepository,

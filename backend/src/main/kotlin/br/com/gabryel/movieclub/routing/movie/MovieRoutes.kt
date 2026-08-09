@@ -98,7 +98,7 @@ fun Route.movieRoutes(movieService: MovieService) {
     }
 }
 
-private fun MovieRow.toResponse() = MovieResponse(
+internal fun MovieRow.toResponse() = MovieResponse(
     id = id.toString(),
     meetingId = meetingId.toString(),
     chosenById = chosenById.toString(),

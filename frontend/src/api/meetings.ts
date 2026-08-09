@@ -1,13 +1,13 @@
 import { api } from './client'
-import type { Meeting } from './types'
+import type { Meeting, MeetingWithPicks } from './types'
 
 export const meetingsApi = {
-  list: (clubId: string) => api.get<Meeting[]>(`/clubs/${clubId}/meetings`),
+  list: (clubId: string) => api.get<MeetingWithPicks[]>(`/clubs/${clubId}/meetings`),
 
   create: (clubId: string, date: string, assignedMemberId?: string) =>
     api.post<Meeting>(`/clubs/${clubId}/meetings`, { date, assignedMemberId }),
 
-  get: (meetingId: string) => api.get<Meeting>(`/meetings/${meetingId}`),
+  get: (meetingId: string) => api.get<MeetingWithPicks>(`/meetings/${meetingId}`),
 
   postpone: (meetingId: string, date: string) => api.patch<Meeting>(`/meetings/${meetingId}`, { date }),
 

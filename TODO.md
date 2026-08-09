@@ -24,6 +24,7 @@
   - Entries reference a `MediaItem` directly (poster, title, year, IMDB/TMDB rating); adding is search-only (no freeform manual entry), since a MediaItem only ever exists from a successful TMDB lookup
 - [x] Meetings pane should show film data similar to the CSV file (director, runtime, genre, etc.)
   - Movie pick metadata line now also shows Country (was already showing director/runtime/genre); Episode gained a Director/Runtime line and a TMDB rating chip (had neither before)
+  - The Meetings *list* tab itself was showing nothing about picks at all (just date + assigned member) -- `GET /clubs/{clubId}/meetings` and `GET /meetings/{id}` now return each meeting composed with its `movies`/`episodes` (`MeetingService.getMeeting`/`listMeetings` return a new `MeetingWithPicks`, reusing the existing `MovieRow.toResponse()`/`EpisodeRow.toResponse()` mappers instead of duplicating them), so the list shows each meeting's picked titles (or "Nothing picked yet") without opening every meeting individually
 - [x] Everywhere a movie/series title is shown, add a clickable IMDB icon linking to its IMDB page
   - New shared `ImdbLink` component (also used to de-duplicate Watchlist's inline version); added to meeting movie picks, series list, and series detail. Episodes don't have their own `imdb_id` yet (see MediaItem's deferred-Episode note), so skipped there — same scoping as everywhere else in the codebase
 - [x] Add a TMDB attribution notice ("This product uses the TMDB API but is not endorsed or certified by TMDB")
