@@ -277,8 +277,9 @@ enforces those automatically. This section is for conventions ktlint can't check
 - The rotation order is a simple ordered member list on Club, used only at generation time — not enforced at runtime
 - No separate Turn/Slot entity; Meeting is the primary scheduling unit
 - The Meetings page groups meetings into year tabs (client-side, derived from each `Meeting.date` — no `year` field
-  or endpoint of its own), matching how the schedule itself is generated a year at a time. Defaults to the current
-  calendar year, or the most recent year with any meetings if the current year has none yet
+  or endpoint of its own), matching how the schedule itself is generated a year at a time. Sorted newest-first
+  (leftmost tab = latest year). Defaults to the current calendar year, or the most recent year with any meetings if
+  the current year has none yet
 
 ### Key scenarios
 

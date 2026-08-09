@@ -83,9 +83,9 @@ export function MeetingsPage() {
   const sorted = [...(meetings ?? [])].sort((a, b) => a.date.localeCompare(b.date))
   const columnCount = 8 + club.members.length
 
-  const years = [...new Set(sorted.map((meeting) => meeting.date.slice(0, 4)))].sort()
+  const years = [...new Set(sorted.map((meeting) => meeting.date.slice(0, 4)))].sort((a, b) => b.localeCompare(a))
   const currentYear = String(new Date().getFullYear())
-  const defaultYear = years.includes(currentYear) ? currentYear : (years.at(-1) ?? currentYear)
+  const defaultYear = years.includes(currentYear) ? currentYear : (years.at(0) ?? currentYear)
   const effectiveYear = selectedYear && years.includes(selectedYear) ? selectedYear : defaultYear
   const meetingsForYear = sorted.filter((meeting) => meeting.date.slice(0, 4) === effectiveYear)
 
@@ -342,6 +342,22 @@ function MovieRow({
           </Typography>
         )}
       </TableCell>
+      {club.members.map((clubMember) => {
+        const review = pick.reviews.find((r) => r.memberId === clubMember.memberId)
+        return (
+          <TableCell key={clubMember.memberId}>
+            <InlineRatingEditor
+              scales={scales}
+              memberName={clubMember.name}
+              memberColor={clubMember.color}
+              qualityOptionId={review?.qualityOptionId ?? null}
+              sentimentOptionId={review?.sentimentOptionId ?? null}
+              editable={clubMember.memberId === myMemberId}
+              onSave={handleSaveRating}
+            />
+          </TableCell>
+        )
+      })}
       <TableCell>{movie.year ?? '—'}</TableCell>
       <TableCell>
         {movie.director ? (
@@ -364,22 +380,6 @@ function MovieRow({
         <CountryFlags codes={movie.originCountry} />
       </TableCell>
       <TableCell>{ratingLabel(movie) ?? '—'}</TableCell>
-      {club.members.map((clubMember) => {
-        const review = pick.reviews.find((r) => r.memberId === clubMember.memberId)
-        return (
-          <TableCell key={clubMember.memberId}>
-            <InlineRatingEditor
-              scales={scales}
-              memberName={clubMember.name}
-              memberColor={clubMember.color}
-              qualityOptionId={review?.qualityOptionId ?? null}
-              sentimentOptionId={review?.sentimentOptionId ?? null}
-              editable={clubMember.memberId === myMemberId}
-              onSave={handleSaveRating}
-            />
-          </TableCell>
-        )
-      })}
     </TableRow>
   )
 }
@@ -446,6 +446,22 @@ function EpisodeRow({
           </Typography>
         )}
       </TableCell>
+      {club.members.map((clubMember) => {
+        const review = pick.reviews.find((r) => r.memberId === clubMember.memberId)
+        return (
+          <TableCell key={clubMember.memberId}>
+            <InlineRatingEditor
+              scales={scales}
+              memberName={clubMember.name}
+              memberColor={clubMember.color}
+              qualityOptionId={review?.qualityOptionId ?? null}
+              sentimentOptionId={review?.sentimentOptionId ?? null}
+              editable={clubMember.memberId === myMemberId}
+              onSave={handleSaveRating}
+            />
+          </TableCell>
+        )
+      })}
       <TableCell>
         {episode.airDate ? (
           <Tooltip title={episode.airDate}>
@@ -472,22 +488,6 @@ function EpisodeRow({
         <CountryFlags codes={series?.originCountry} />
       </TableCell>
       <TableCell>{rating ?? '—'}</TableCell>
-      {club.members.map((clubMember) => {
-        const review = pick.reviews.find((r) => r.memberId === clubMember.memberId)
-        return (
-          <TableCell key={clubMember.memberId}>
-            <InlineRatingEditor
-              scales={scales}
-              memberName={clubMember.name}
-              memberColor={clubMember.color}
-              qualityOptionId={review?.qualityOptionId ?? null}
-              sentimentOptionId={review?.sentimentOptionId ?? null}
-              editable={clubMember.memberId === myMemberId}
-              onSave={handleSaveRating}
-            />
-          </TableCell>
-        )
-      })}
     </TableRow>
   )
 }
