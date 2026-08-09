@@ -72,7 +72,10 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Default sentiment scale: Adorei, Gostei!, Ambivalente, Indiferente, Desgostei, Detestei
 - Has `preferred_languages` (ordered ISO 639-1 codes, ranked) and `ignored_languages` (unordered) — used to resolve a
   display title for any Movie/Series pick that's left at the default `ORIGINAL` preference (see Movie below); both
-  default to empty, admin-only to edit (`PATCH /clubs/{clubId}/language-preferences`)
+  default to empty, admin-only to edit (`PATCH /clubs/{clubId}/language-preferences`). `LanguagePreferencesSection`
+  sends this PATCH immediately after every add/remove/reorder (no batching "Save" button) — same immediate-call,
+  revert-local-state-on-error pattern already used by the member-color editor, applied here via a shared `persist`
+  helper since one PATCH always carries both lists together
 
 ### Member
 
@@ -316,7 +319,9 @@ enforces those automatically. This section is for conventions ktlint can't check
 
 - Schedule is pre-generated for a full year at a time (done at year-end for the coming year)
 - Each Meeting has an optional `assigned_member` derived from the round-robin rotation
-- The rotation order is a simple ordered member list on Club, used only at generation time — not enforced at runtime
+- The rotation order is a simple ordered member list on Club, used only at generation time — not enforced at runtime.
+  `RotationSection` (`ClubOverviewPage`) sends `PUT /clubs/{clubId}/rotation` immediately after each reorder (no
+  batching "Save" button), reverting the local order on a failed save — same pattern as the member-color editor
 - No separate Turn/Slot entity; Meeting is the primary scheduling unit
 - The Meetings page groups meetings into year tabs (client-side, derived from each `Meeting.date` — no `year` field
   or endpoint of its own), matching how the schedule itself is generated a year at a time. Sorted newest-first

@@ -53,8 +53,12 @@
 - [x] Allow Club to have a list of ignored languages
 - [x] Instead of keeping alternative titles, use translations field, which calls translations API
   - `Movie`/`Series` now store `translations` (TMDB's per-language `/translations` endpoint, via `append_to_response`) instead of `alternative_titles` (per-country); also added `originalLanguage`
-- [ ] Languages updates should be sent to the BE as soon as changed in the FE
-- [ ] Rotation order should be sent to the BE as soon as changed in the FE
+- [x] Languages updates should be sent to the BE as soon as changed in the FE
+  - Removed the batched "Save language preferences" button; every add/remove/reorder now calls
+    `updateLanguagePreferences` immediately, reverting local state on a failed save
+- [x] Rotation order should be sent to the BE as soon as changed in the FE
+  - Removed the batched "Save order" button; every reorder now calls `updateRotation` immediately, reverting local
+    state on a failed save
 - [x] Allow Clubs to default to:
   - [x] first available preferred language, or original if unavailable
   - [x] use original title, unless in ignored languages

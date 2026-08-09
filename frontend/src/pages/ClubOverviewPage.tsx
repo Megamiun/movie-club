@@ -231,28 +231,24 @@ function RotationSection({ club }: { club: ClubDetail }) {
   const memberIds = club.members.map((m) => m.memberId).sort().join(',')
   const [order, setOrder] = useState(() => [...club.members].sort((a, b) => a.rotationOrder - b.rotationOrder).map((m) => m.memberId))
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     setOrder([...club.members].sort((a, b) => a.rotationOrder - b.rotationOrder).map((m) => m.memberId))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberIds])
 
-  const move = (index: number, direction: -1 | 1) => {
-    const next = [...order]
+  const move = async (index: number, direction: -1 | 1) => {
     const target = index + direction
-    if (target < 0 || target >= next.length) return
+    if (target < 0 || target >= order.length) return
+    const previous = order
+    const next = [...order]
     ;[next[index], next[target]] = [next[target], next[index]]
     setOrder(next)
-    setSaved(false)
-  }
-
-  const save = async () => {
     setError(null)
     try {
-      await clubsApi.updateRotation(club.id, order)
-      setSaved(true)
+      await clubsApi.updateRotation(club.id, next)
     } catch (err) {
+      setOrder(previous)
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
   }
@@ -265,11 +261,6 @@ function RotationSection({ club }: { club: ClubDetail }) {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
-        </Alert>
-      )}
-      {saved && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaved(false)}>
-          Rotation order saved.
         </Alert>
       )}
       <Paper sx={{ p: 2 }}>
@@ -287,9 +278,6 @@ function RotationSection({ club }: { club: ClubDetail }) {
             </Stack>
           ))}
         </Stack>
-        <Button variant="outlined" sx={{ mt: 2 }} onClick={save} disabled={order.length === 0}>
-          Save order
-        </Button>
       </Paper>
     </Box>
   )
@@ -416,7 +404,6 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
   const [newPreferred, setNewPreferred] = useState('')
   const [newIgnored, setNewIgnored] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     setPreferred(club.preferredLanguages)
@@ -424,51 +411,57 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [langKey])
 
+  const persist = async (nextPreferred: string[], nextIgnored: string[]) => {
+    const previousPreferred = preferred
+    const previousIgnored = ignored
+    setPreferred(nextPreferred)
+    setIgnored(nextIgnored)
+    setError(null)
+    try {
+      await clubsApi.updateLanguagePreferences(club.id, nextPreferred, nextIgnored)
+    } catch (err) {
+      setPreferred(previousPreferred)
+      setIgnored(previousIgnored)
+      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
   const movePreferred = (index: number, direction: -1 | 1) => {
     const target = index + direction
     if (target < 0 || target >= preferred.length) return
     const next = [...preferred]
     ;[next[index], next[target]] = [next[target], next[index]]
-    setPreferred(next)
-    setSaved(false)
+    persist(next, ignored)
   }
 
   const addPreferred = (event: FormEvent) => {
     event.preventDefault()
     const code = newPreferred.trim().toLowerCase()
     if (!code || preferred.includes(code)) return
-    setPreferred([...preferred, code])
     setNewPreferred('')
-    setSaved(false)
+    persist([...preferred, code], ignored)
   }
 
   const removePreferred = (code: string) => {
-    setPreferred(preferred.filter((c) => c !== code))
-    setSaved(false)
+    persist(
+      preferred.filter((c) => c !== code),
+      ignored,
+    )
   }
 
   const addIgnored = (event: FormEvent) => {
     event.preventDefault()
     const code = newIgnored.trim().toLowerCase()
     if (!code || ignored.includes(code)) return
-    setIgnored([...ignored, code])
     setNewIgnored('')
-    setSaved(false)
+    persist(preferred, [...ignored, code])
   }
 
   const removeIgnored = (code: string) => {
-    setIgnored(ignored.filter((c) => c !== code))
-    setSaved(false)
-  }
-
-  const save = async () => {
-    setError(null)
-    try {
-      await clubsApi.updateLanguagePreferences(club.id, preferred, ignored)
-      setSaved(true)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong')
-    }
+    persist(
+      preferred,
+      ignored.filter((c) => c !== code),
+    )
   }
 
   return (
@@ -483,11 +476,6 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
-        </Alert>
-      )}
-      {saved && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaved(false)}>
-          Language preferences saved.
         </Alert>
       )}
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
@@ -560,9 +548,6 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
           </Box>
         </Paper>
       </Stack>
-      <Button variant="contained" sx={{ mt: 2 }} onClick={save}>
-        Save language preferences
-      </Button>
     </Box>
   )
 }
