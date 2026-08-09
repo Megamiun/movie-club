@@ -24,6 +24,7 @@ import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
 import { RatingForm } from '../components/RatingForm'
 import { useAsync } from '../hooks/useAsync'
+import { digitsOf } from '../hooks/useSeasonNumbers'
 import { episodeCode } from '../utils/episode'
 import { resolveTitle } from '../utils/title'
 
@@ -35,10 +36,8 @@ export function SeasonDetailPage() {
   const { data: episodes, loading, error, reload } = useAsync(() => seasonsApi.listEpisodes(seasonId!), [seasonId])
   const { data: siblingSeasons } = useAsync(() => seasonsApi.listSiblings(seasonId!), [seasonId])
   const season = siblingSeasons?.find((s) => s.id === seasonId)
-  const seasonDigits = siblingSeasons?.length
-    ? Math.max(...siblingSeasons.map((s) => s.number), 1).toString().length
-    : undefined
-  const episodeDigits = episodes?.length ? Math.max(...episodes.map((e) => e.number), 1).toString().length : undefined
+  const seasonDigits = siblingSeasons?.length ? digitsOf(Math.max(...siblingSeasons.map((s) => s.number))) : undefined
+  const episodeDigits = episodes?.length ? digitsOf(Math.max(...episodes.map((e) => e.number))) : undefined
   const { data: series } = useAsync(() => (seriesId ? seriesApi.get(seriesId) : Promise.resolve(null)), [seriesId])
   const { data: club } = useAsync(() => (series ? clubsApi.get(series.clubId) : Promise.resolve(null)), [
     series?.clubId,

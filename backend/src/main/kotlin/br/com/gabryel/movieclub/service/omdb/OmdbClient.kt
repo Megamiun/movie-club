@@ -22,7 +22,9 @@ private const val BASE_URL = "https://www.omdbapi.com/"
 /** Best-effort lookup of IMDB's own rating by imdb id -- OMDb is the only free source for that number, since TMDB's
  * API only ever exposes its own `vote_average`. No-ops (returns null) when [apiKey] is blank rather than throwing,
  * since -- unlike TMDB -- OMDb access always requires a registered key, and a missing one shouldn't block every
- * movie/series add or refresh. */
+ * movie/series add or refresh. A network failure, timeout, or non-2xx OMDb response is caught here too, for the
+ * same reason -- callers never wrap this call themselves (see Movie/Series/Watchlist/EpisodeService), so the
+ * "never blocks" guarantee has to live in the client itself rather than being every caller's responsibility. */
 class OmdbClient(private val apiKey: String) {
     private val http = HttpClient(CIO) {
         install(ContentNegotiation) {
@@ -33,11 +35,12 @@ class OmdbClient(private val apiKey: String) {
     suspend fun getImdbRating(imdbId: String): BigDecimal? {
         if (apiKey.isBlank()) return null
 
-        val response = http.get(BASE_URL) {
-            parameter("i", imdbId)
-            parameter("apikey", apiKey)
-        }.body<OmdbResponse>()
-
-        return response.imdbRating?.toBigDecimalOrNull()
+        return runCatching {
+            val response = http.get(BASE_URL) {
+                parameter("i", imdbId)
+                parameter("apikey", apiKey)
+            }.body<OmdbResponse>()
+            response.imdbRating?.toBigDecimalOrNull()
+        }.getOrNull()
     }
 }

@@ -213,7 +213,7 @@ class ClubService(
         if (orderedOptionIds.toSet() != currentIds || orderedOptionIds.size != currentIds.size)
             throw BadRequestException("Order must include every option exactly once")
 
-        orderedOptionIds.forEachIndexed { index, optionId -> ratingScaleRepository.updateOptionPosition(optionId, index) }
+        assignContiguousPositions(orderedOptionIds)
     }
 
     fun createRatingOption(clubId: Uuid, actingMemberId: Uuid, scaleId: Uuid, label: String, color: String): RatingOptionRow {
@@ -250,11 +250,15 @@ class ClubService(
         // Every other consumer of `position` (rank display, createOption's next-position calculation) assumes
         // it's contiguous 0..N-1 -- deleting one option leaves a gap that must be closed immediately, not left for
         // the next reorder to happen to fix.
-        ratingScaleRepository.findOptions(option.scaleId)
-            .sortedBy { it.position }
-            .forEachIndexed { index, remaining ->
-                if (remaining.position != index) ratingScaleRepository.updateOptionPosition(remaining.id, index)
-            }
+        val remainingIds = ratingScaleRepository.findOptions(option.scaleId).sortedBy { it.position }.map { it.id }
+        assignContiguousPositions(remainingIds)
+    }
+
+    /** Shared by [updateRatingOptionOrder] (caller-supplied order) and [deleteRatingOption]'s post-delete
+     * reindex (current DB order, survivors only) -- both are "these ids, in this order, become positions
+     * 0..N-1" the same way, just sourced differently. */
+    private fun assignContiguousPositions(orderedOptionIds: List<Uuid>) {
+        orderedOptionIds.forEachIndexed { index, optionId -> ratingScaleRepository.updateOptionPosition(optionId, index) }
     }
 
     private fun requireClubOption(clubId: Uuid, optionId: Uuid): RatingOptionRow {

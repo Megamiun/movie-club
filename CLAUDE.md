@@ -127,7 +127,10 @@ enforces those automatically. This section is for conventions ktlint can't check
   besides display (i.e. Watchlist) actually needs to reference an Episode across types
 - WatchlistEntry references a MediaItem directly instead of duplicating title/year/rating itself (see below)
 - IMDB's own rating is fetched separately from OMDb (`OmdbClient`, `OMDB_API_KEY`) since TMDB's API never exposes it
-  (only its own `vote_average`) — optional, silently no-ops when the key is unset, never blocks an add/refresh.
+  (only its own `vote_average`) — optional, silently no-ops when the key is unset, never blocks an add/refresh. The
+  "never blocks" guarantee lives inside `OmdbClient.getImdbRating` itself (a `runCatching` around the request,
+  returning `null` on any failure) rather than in each caller — none of Movie/Series/Watchlist/EpisodeService wrap
+  the call themselves, so the client has to be the one place this is actually enforced.
   IMDB rating is the *only* rating source anywhere in the app — TMDB's `vote_average`/`tmdb_rating` was fully
   removed (schema, backend, UI) rather than kept as a fallback, so the UI never needs to label a rating's source
   (no "IMDB"/"TMDB" prefix, just the bare number, e.g. `8.7`) since there's only ever one possible source. A row
@@ -302,10 +305,12 @@ enforces those automatically. This section is for conventions ktlint can't check
   `SeasonRepository`/`EpisodeRepository` before deleting the option row itself — repositories still don't depend on
   each other, so this cross-entity composition lives in the service, same as `SeriesService`'s own multi-repository
   work) — the last remaining option in a scale can't be deleted, since there'd be nothing to reassign to. After
-  deleting, the survivors' `position` values are immediately renumbered to stay contiguous `0..N-1` — every other
-  consumer of `position` (rank display in `InlineRatingEditor`'s `rankOf`, `createRatingOption`'s
-  next-position-is-`size` calculation) assumes no gaps, so this can't be deferred to "whenever the next reorder
-  happens to fix it"
+  deleting, the survivors' `position` values are immediately renumbered to stay contiguous `0..N-1` via a shared
+  private `assignContiguousPositions` helper (also used by `updateRatingOptionOrder`, which does the same
+  "these ids, in this order, become positions `0..N-1`" assignment from a caller-supplied order instead of the
+  current DB order) — every other consumer of `position` (rank display in `InlineRatingEditor`'s `rankOf`,
+  `createRatingOption`'s next-position-is-`size` calculation) assumes no gaps, so this can't be deferred to
+  "whenever the next reorder happens to fix it"
 - Every place a user picks a color by hand (a rating option's color, a new option's initial color, a member's own
   color) uses a shared `PastelColorPicker` (`frontend/src/components/PastelColorPicker.tsx`) instead of a native
   `<input type="color">` — a hue-only slider at a fixed pastel saturation/lightness (`frontend/src/utils/
@@ -357,7 +362,12 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Each Meeting has an optional `assigned_member` derived from the round-robin rotation
 - The rotation order is a simple ordered member list on Club, used only at generation time — not enforced at runtime.
   `RotationSection` (`ClubOverviewPage`) sends `PUT /clubs/{clubId}/rotation` immediately after each reorder (no
-  batching "Save" button), reverting the local order on a failed save — same pattern as the member-color editor
+  batching "Save" button), reverting the local order on a failed save — same pattern as the member-color editor.
+  Both this and `LanguagePreferencesSection`'s equivalent immediate-save (see Club above) read/write their local
+  state through React's functional `setState` updater form rather than a closed-over variable — two rapid actions
+  (e.g. clicking "move up" twice, or removing two chips) can both fire from the same render before React
+  re-renders in between, and a plain closure read in that window would have the second action compute from the
+  same stale array the first one saw, silently dropping whichever save resolves last
 - No separate Turn/Slot entity; Meeting is the primary scheduling unit
 - The Meetings page groups meetings into year tabs (client-side, derived from each `Meeting.date` — no `year` field
   or endpoint of its own), matching how the schedule itself is generated a year at a time. Sorted newest-first

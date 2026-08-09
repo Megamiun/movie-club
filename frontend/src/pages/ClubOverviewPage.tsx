@@ -143,6 +143,7 @@ function MembersSection({
                     member={m}
                     editable={isAdmin || m.memberId === me?.id}
                     onChange={refreshColor}
+                    onError={setError}
                   />
                 </TableCell>
                 <TableCell>{m.name}</TableCell>
@@ -204,11 +205,13 @@ function MemberColorEditor({
   member,
   editable,
   onChange,
+  onError,
 }: {
   clubId: string
   member: ClubMember
   editable: boolean
   onChange: () => void
+  onError: (message: string) => void
 }) {
   const [color, setColor] = useState(member.color ?? '#9E9E9E')
 
@@ -217,8 +220,9 @@ function MemberColorEditor({
     try {
       await clubsApi.updateColor(clubId, member.memberId, value)
       onChange()
-    } catch {
+    } catch (err) {
       setColor(member.color ?? '#9E9E9E')
+      onError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
   }
 
@@ -240,12 +244,24 @@ function RotationSection({ club }: { club: ClubDetail }) {
   }, [memberIds])
 
   const move = async (index: number, direction: -1 | 1) => {
-    const target = index + direction
-    if (target < 0 || target >= order.length) return
-    const previous = order
-    const next = [...order]
-    ;[next[index], next[target]] = [next[target], next[index]]
-    setOrder(next)
+    // Reads/writes `order` through the functional updater form rather than the closed-over `order` variable --
+    // two rapid clicks (e.g. up-up) can both fire from the same render before React re-renders in between, and a
+    // plain `[...order]` read in that window would have both computations start from the same stale array,
+    // silently dropping whichever move's setOrder call resolves first.
+    let previous: string[] = []
+    let next: string[] = []
+    setOrder((current) => {
+      previous = current
+      const target = index + direction
+      if (target < 0 || target >= current.length) {
+        next = current
+        return current
+      }
+      next = [...current]
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
+    if (next === previous) return
     setError(null)
     try {
       await clubsApi.updateRotation(club.id, next)
@@ -407,11 +423,26 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [langKey])
 
-  const persist = async (nextPreferred: string[], nextIgnored: string[]) => {
-    const previousPreferred = preferred
-    const previousIgnored = ignored
-    setPreferred(nextPreferred)
-    setIgnored(nextIgnored)
+  // Both lists are updated through the functional setState form rather than the closed-over `preferred`/`ignored`
+  // variables -- two rapid actions (e.g. removing two chips back to back) can both fire from the same render
+  // before React re-renders in between, and a plain array read in that window would have both computations start
+  // from the same stale list, silently dropping whichever action's setState call resolves first. Identity
+  // (`(c) => c`) is passed for whichever list a given call site doesn't touch.
+  const persist = async (updatePreferred: (current: string[]) => string[], updateIgnored: (current: string[]) => string[]) => {
+    let previousPreferred: string[] = []
+    let nextPreferred: string[] = []
+    let previousIgnored: string[] = []
+    let nextIgnored: string[] = []
+    setPreferred((current) => {
+      previousPreferred = current
+      nextPreferred = updatePreferred(current)
+      return nextPreferred
+    })
+    setIgnored((current) => {
+      previousIgnored = current
+      nextIgnored = updateIgnored(current)
+      return nextIgnored
+    })
     setError(null)
     try {
       await clubsApi.updateLanguagePreferences(club.id, nextPreferred, nextIgnored)
@@ -423,11 +454,13 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
   }
 
   const movePreferred = (index: number, direction: -1 | 1) => {
-    const target = index + direction
-    if (target < 0 || target >= preferred.length) return
-    const next = [...preferred]
-    ;[next[index], next[target]] = [next[target], next[index]]
-    persist(next, ignored)
+    persist((current) => {
+      const target = index + direction
+      if (target < 0 || target >= current.length) return current
+      const next = [...current]
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    }, (current) => current)
   }
 
   const addPreferred = (event: FormEvent) => {
@@ -435,14 +468,11 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
     const code = newPreferred.trim().toLowerCase()
     if (!code || preferred.includes(code)) return
     setNewPreferred('')
-    persist([...preferred, code], ignored)
+    persist((current) => (current.includes(code) ? current : [...current, code]), (current) => current)
   }
 
   const removePreferred = (code: string) => {
-    persist(
-      preferred.filter((c) => c !== code),
-      ignored,
-    )
+    persist((current) => current.filter((c) => c !== code), (current) => current)
   }
 
   const addIgnored = (event: FormEvent) => {
@@ -450,14 +480,11 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
     const code = newIgnored.trim().toLowerCase()
     if (!code || ignored.includes(code)) return
     setNewIgnored('')
-    persist(preferred, [...ignored, code])
+    persist((current) => current, (current) => (current.includes(code) ? current : [...current, code]))
   }
 
   const removeIgnored = (code: string) => {
-    persist(
-      preferred,
-      ignored.filter((c) => c !== code),
-    )
+    persist((current) => current, (current) => current.filter((c) => c !== code))
   }
 
   return (

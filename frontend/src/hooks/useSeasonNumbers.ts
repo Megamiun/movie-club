@@ -10,7 +10,10 @@ export interface SeasonCodeInfo {
   episodeDigits: number
 }
 
-const digitsOf = (max: number) => Math.max(max, 1).toString().length
+/** Digit width needed to display up to [max] without truncation (e.g. `digitsOf(130)` is 3, for zero-padding a
+ * code like "E007"..."E130" to a consistent width) -- shared by `SeasonDetailPage`, which already has its episode
+ * list in-page and derives this directly rather than going through this hook. */
+export const digitsOf = (max: number) => Math.max(max, 1).toString().length
 
 /** Resolves everything an "S#E#" code needs for a set of episodes that may span several seasons/series (e.g. a
  * meeting's episode picks) -- `Episode` itself only carries `seasonId`, not the season's own `number` or either
