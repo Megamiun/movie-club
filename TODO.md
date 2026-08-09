@@ -117,8 +117,11 @@
     above: a half with no rating now shows nothing at all (fully transparent, no text) rather than a dashed placeholder
     or gray track, so the box's fill only ever represents a rating that was actually given. Same design mocked up
     interactively in the artifact used to explore this feature, kept in sync with the shipped settings
-  - [ ] Should also have a no fill option, where no text is shown
-  - [ ] Always use dashed border for the ratings, even if the user has not added his rating.
+  - [x] Should also have a no fill option, where no text is shown
+    - Third `fillWith` option ("No text") -- color fill/gradient unchanged, only the rank/label text is suppressed
+  - [x] Always use dashed border for the ratings, even if the user has not added his rating.
+    - Outline switched from solid to dashed, and the early-return that hid the whole box (including the outline)
+      for a fully unrated, non-editable cell was removed -- the box, and its outline, now always render
 - [ ] Make both a light and dark theme available
 - [x] Don't refresh the whole page when rating changes
   - `useAsync` gained a `silentReload` (refetches without ever setting `loading`, so `AsyncState` never swaps the

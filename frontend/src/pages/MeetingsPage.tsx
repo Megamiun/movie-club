@@ -226,6 +226,7 @@ function RatingDisplaySettingsButton() {
             >
               <ToggleButton value="number">Number</ToggleButton>
               <ToggleButton value="description">Description</ToggleButton>
+              <ToggleButton value="none">No text</ToggleButton>
             </ToggleButtonGroup>
           </Box>
         </Stack>

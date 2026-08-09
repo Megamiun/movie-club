@@ -6,12 +6,13 @@ import { contrastTextColor } from '../utils/color'
 
 /**
  * Quality and sentiment each get their own half of the box, filled with that rating's own color and (per the
- * user's rating-display settings, see [useRatingDisplay]) either its numeric rank or its written label -- never
- * both a fixed size AND full text, the two settings trade off compactness for legibility explicitly. When both
+ * user's rating-display settings, see [useRatingDisplay]) its numeric rank, its written label, or no text at all --
+ * the fill color/gradient is the same regardless, only the label is affected by that third option. When both
  * halves are set, `gradientPercent` controls how much of the middle blends between the two colors (0 = hard
- * edge, colors touch directly). A half with no rating shows nothing at all (no color, no placeholder) -- the
- * fill only ever represents a rating that was actually given. A thin outline in the member's own club color
- * identifies whose box this is at a glance, without needing a header row. Clicking (when [editable]) opens the
+ * edge, colors touch directly). A half with no rating shows nothing at all (no color, no placeholder text) -- the
+ * fill only ever represents a rating that was actually given. A thin dashed outline in the member's own club color
+ * identifies whose box this is at a glance, without needing a header row -- always shown, even when nothing's been
+ * rated yet, so there's a visible target to click even for a fully empty cell. Clicking (when [editable]) opens the
  * same quality/sentiment [Select] popover as before.
  */
 export function InlineRatingEditor({
@@ -38,8 +39,6 @@ export function InlineRatingEditor({
   const qualityOption = quality?.options.find((o) => o.id === qualityOptionId)
   const sentimentOption = sentiment?.options.find((o) => o.id === sentimentOptionId)
 
-  if (!editable && !qualityOption && !sentimentOption) return null
-
   const bothSet = Boolean(qualityOption && sentimentOption)
   const band = bothSet ? gradientPercent : 0
   const half = (100 - band) / 2
@@ -48,7 +47,7 @@ export function InlineRatingEditor({
   const rankOf = (option: RatingOption, scale: RatingScale) => scale.options.length - option.position
 
   const contentFor = (option: RatingOption | undefined, scale: RatingScale | undefined) => {
-    if (!option || !scale) return ''
+    if (!option || !scale || fillWith === 'none') return ''
     return fillWith === 'number' ? String(rankOf(option, scale)) : option.label
   }
 
@@ -67,7 +66,7 @@ export function InlineRatingEditor({
             overflow: 'hidden',
             flexShrink: 0,
             cursor: editable ? 'pointer' : 'default',
-            outline: memberColor ? `1px solid ${memberColor}` : 'none',
+            outline: memberColor ? `1px dashed ${memberColor}` : 'none',
             outlineOffset: '1px',
           }}
         >
