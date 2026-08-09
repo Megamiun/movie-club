@@ -248,6 +248,7 @@ internal fun EpisodeRow.toResponse() = EpisodeResponse(
     director = director,
     directorImdbId = directorImdbId,
     imdbId = imdbId,
+    imdbRating = imdbRating?.toPlainString(),
 )
 
 private fun SeriesReviewRow.toResponse() = SeriesReviewResponse(

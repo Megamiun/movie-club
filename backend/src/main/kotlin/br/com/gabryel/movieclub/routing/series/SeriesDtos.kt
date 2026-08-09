@@ -95,6 +95,7 @@ internal data class EpisodeResponse(
     val director: String?,
     val directorImdbId: String?,
     val imdbId: String?,
+    val imdbRating: String?,
 )
 
 @Serializable

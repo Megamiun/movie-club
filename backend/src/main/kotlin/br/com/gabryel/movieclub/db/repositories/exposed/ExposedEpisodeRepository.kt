@@ -215,6 +215,7 @@ class ExposedEpisodeRepository : EpisodeRepository {
         director = row[Episodes.director],
         directorImdbId = row[Episodes.directorImdbId],
         imdbId = row[Episodes.imdbId],
+        imdbRating = row[Episodes.imdbRating],
         metadataFetchedAt = row[Episodes.metadataFetchedAt],
     )
 
@@ -234,5 +235,6 @@ private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbEpisodeMetadata) {
     this[Episodes.director] = metadata.director
     this[Episodes.directorImdbId] = metadata.directorImdbId
     this[Episodes.imdbId] = metadata.imdbId
+    this[Episodes.imdbRating] = metadata.imdbRating
     this[Episodes.metadataFetchedAt] = metadata.metadataFetchedAt
 }

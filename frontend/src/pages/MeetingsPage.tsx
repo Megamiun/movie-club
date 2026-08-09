@@ -490,7 +490,7 @@ function EpisodeRow({
     event.dataTransfer.effectAllowed = 'move'
   }
 
-  const rating = series ? ratingLabel(series) : null
+  const rating = ratingLabel(episode) ?? (series ? ratingLabel(series) : null)
   const displayYear = episode.airDate ? episode.airDate.slice(0, 4) : (series?.year ?? null)
 
   return (

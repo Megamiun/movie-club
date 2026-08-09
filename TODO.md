@@ -117,7 +117,10 @@
 - [ ] For all colors selections, only allow pastel colors for now
   - [ ] Use this in the UI for the bg and text color should be the stronger version of the color
 - [ ] Focus in the next meeting when opening the current year
-- [ ] IMDB rating should be episode rating, not series rating
+- [x] IMDB rating should be episode rating, not series rating
+  - `episodes.imdb_rating`, fetched from OMDb via the episode's own `imdb_id` the moment `refreshMetadata` resolves
+    it (same best-effort pattern as Movie/Series). Meetings table prefers the episode's own rating, falling back to
+    the parent series' rating only when the episode hasn't been refreshed yet
 - [x] If imported series not found on IMDB AND TMDB, do not add them
   - Already enforced on both add paths: `SeriesService.addSeries` throws if TMDB has no match for the given IMDB
     id, and `createFromTmdb` (used by both `addSeries` and `addSeriesByTmdbId`) throws if the matched TMDB show has

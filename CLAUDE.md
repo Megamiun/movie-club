@@ -217,9 +217,12 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Episode cached TMDB metadata: `air_date`, `overview`, `runtime`, director, `director_imdb_id` (same best-effort
   TMDB-person-id → IMDB-id resolution as Movie, see above), `imdb_id` (the episode's own, from TMDB's per-episode
   `external_ids` — requested via `append_to_response` on the same call as the rest of an episode's metadata, unlike
-  `director_imdb_id` which needs its own separate `/person/{id}/external_ids` round trip), `metadata_fetched_at` —
-  no rating of its own (Episode never had an OMDb-fetched IMDB rating; the meetings table falls back to the parent
-  series' rating instead) and no title split (the CSV/user-entered `title` is the only one) and no
+  `director_imdb_id` which needs its own separate `/person/{id}/external_ids` round trip), `metadata_fetched_at`, and
+  now also its own `imdb_rating` — fetched from OMDb (see MediaItem above) using the episode's own `imdb_id` the
+  moment `refreshMetadata` resolves it, same best-effort/never-blocks pattern as Movie/Series. Null until a refresh
+  has run (same as `imdb_id` itself); the meetings table prefers the episode's own rating and falls back to the
+  parent series' rating only when the episode doesn't have one yet. No title split (the CSV/user-entered `title` is
+  the only one) and no
   genre/country/creator (those live at the series level). `imdb_id` is null until something actually calls
   `EpisodeService.refreshMetadata` on that episode — the bulk `/tv/{id}/season/{n}` catalog import
   (`SeriesService.importSeasonsAndEpisodes`) doesn't include per-episode external ids, so a freshly-imported

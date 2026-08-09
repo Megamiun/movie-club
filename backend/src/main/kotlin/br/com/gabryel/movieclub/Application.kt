@@ -86,6 +86,7 @@ fun Application.module() {
         meetingRepository,
         clubService,
         tmdbClient,
+        omdbClient,
     )
     val watchlistRepository = ExposedWatchlistRepository()
     val watchlistService = WatchlistService(watchlistRepository, clubService, mediaItemRepository, tmdbClient, omdbClient)

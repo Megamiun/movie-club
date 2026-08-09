@@ -14,6 +14,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
+import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import kotlin.uuid.Uuid
 
@@ -24,6 +25,7 @@ class EpisodeService(
     private val meetingRepository: MeetingRepository,
     private val clubService: ClubService,
     private val tmdbClient: TmdbClient,
+    private val omdbClient: OmdbClient,
 ) {
     /** Unlike [br.com.gabryel.movieclub.service.MovieService.addMovie]/`SeriesService.addSeries`, TMDB enrichment
      * here is always best-effort: an episode has no id of its own to look up by, only the parent series' `tmdbId`
@@ -56,7 +58,9 @@ class EpisodeService(
         val directorImdbId = details.directorTmdbId?.let {
             runCatching { tmdbClient.getPersonExternalIds(it).imdbId }.getOrNull()
         }
-        return episodeRepository.updateTmdbMetadata(episodeId, details.toMetadata().copy(directorImdbId = directorImdbId))
+        val imdbRating = details.imdbId?.let { omdbClient.getImdbRating(it) }
+        val metadata = details.toMetadata().copy(directorImdbId = directorImdbId, imdbRating = imdbRating)
+        return episodeRepository.updateTmdbMetadata(episodeId, metadata)
     }
 
     fun assignToMeeting(episodeId: Uuid, actingMemberId: Uuid, meetingId: Uuid): EpisodeRow {

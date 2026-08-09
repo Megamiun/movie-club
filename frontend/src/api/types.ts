@@ -190,6 +190,7 @@ export interface Episode {
   director: string | null
   directorImdbId: string | null
   imdbId: string | null
+  imdbRating: string | null
 }
 
 export interface SeriesReview {

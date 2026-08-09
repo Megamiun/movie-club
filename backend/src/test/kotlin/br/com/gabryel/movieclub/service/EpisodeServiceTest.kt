@@ -16,18 +16,21 @@ import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
+import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbCrewMember
 import br.com.gabryel.movieclub.service.tmdb.TmdbEpisodeDetails
 import br.com.gabryel.movieclub.service.tmdb.TmdbExternalIds
 import io.mockk.Runs
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
+import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -41,6 +44,7 @@ class EpisodeServiceTest {
     private val meetingRepository = mockk<MeetingRepository>()
     private val clubService = mockk<ClubService>()
     private val tmdbClient = mockk<TmdbClient>()
+    private val omdbClient = mockk<OmdbClient>()
     private val episodeService = EpisodeService(
         episodeRepository,
         seasonRepository,
@@ -48,6 +52,7 @@ class EpisodeServiceTest {
         meetingRepository,
         clubService,
         tmdbClient,
+        omdbClient,
     )
 
     private val clubId = Uuid.random()
@@ -55,6 +60,10 @@ class EpisodeServiceTest {
     private val seriesId = Uuid.random()
     private val globalSeriesId = Uuid.random()
     private val seasonId = Uuid.random()
+
+    init {
+        coEvery { omdbClient.getImdbRating(any()) } returns null
+    }
 
     @Test
     fun `addEpisode throws NotFoundException when season is missing`(): Unit =
@@ -206,6 +215,41 @@ class EpisodeServiceTest {
         } returns updated
 
         assertEquals(updated, episodeService.refreshMetadata(episodeId, memberId))
+    }
+
+    @Test
+    fun `refreshMetadata fetches the episode's own IMDB rating via OMDb once TMDB resolves its imdb_id`() = runBlocking {
+        val episodeId = Uuid.random()
+        every { episodeRepository.findById(episodeId) } returns episode(episodeId)
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        coEvery { tmdbClient.getEpisodeDetails(1396, 1, 1) } returns TmdbEpisodeDetails(
+            name = "Pilot",
+            episodeNumber = 1,
+            externalIds = TmdbExternalIds(imdbId = "tt0959621"),
+        )
+        coEvery { omdbClient.getImdbRating("tt0959621") } returns BigDecimal("8.2")
+
+        val updated = episode(episodeId)
+        every {
+            episodeRepository.updateTmdbMetadata(episodeId, match { it.imdbRating == BigDecimal("8.2") })
+        } returns updated
+
+        assertEquals(updated, episodeService.refreshMetadata(episodeId, memberId))
+    }
+
+    @Test
+    fun `refreshMetadata never calls OMDb when TMDB has no imdb_id for the episode yet`() = runBlocking {
+        val episodeId = Uuid.random()
+        every { episodeRepository.findById(episodeId) } returns episode(episodeId)
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        coEvery { tmdbClient.getEpisodeDetails(1396, 1, 1) } returns TmdbEpisodeDetails(name = "Pilot", episodeNumber = 1)
+        every { episodeRepository.updateTmdbMetadata(episodeId, any()) } returns episode(episodeId)
+
+        episodeService.refreshMetadata(episodeId, memberId)
+
+        coVerify(exactly = 0) { omdbClient.getImdbRating(any()) }
     }
 
     @Test
