@@ -55,8 +55,9 @@
   - `color` on `club_members` (V20 migration, backfilled for existing members by rotation order), auto-assigned from an 8-color palette when a member joins. Editable by the member themselves or any club admin (color swatch in the club Overview page's Members table). Meetings table's chosen-by column now shows a `MemberBadge` (colored initials avatar) instead of the plain name
 - [x] Use flag instead of country name(Show name over hover)
   - Meetings list only (that's where country was shown). Emoji flag derived from `originCountry` ISO codes (regional-indicator-symbol trick, `frontend/src/utils/country.ts`) instead of the `productionCountries` name list; each flag has a `Tooltip` with the full name via `Intl.DisplayNames`
-- [ ] Totally delete TMDB rating field, only show IMDB
-  - [ ] No need to show IMDB in table
+- [x] Totally delete TMDB rating field, only show IMDB
+  - [x] No need to show IMDB in table
+  - Removed `tmdb_rating` from the DB schema (`movies`/`series`/`episodes`/`media_items`, V21 migration), backend DTOs/services/API responses, and the frontend everywhere (Meetings table, movie/series detail pages, watchlist). Also dropped the now-fully-unused `TmdbClient.toRatingScale()`/`vote_average` plumbing that only ever fed it. Since IMDB is now the sole rating source, `ratingLabel` just returns the bare number with no "IMDB"/"TMDB" prefix. Episode never had its own OMDb-fetched IMDB rating (only TMDB's, now gone) — meetings table episode rows fall back to the parent series' rating instead, same as before
 - [ ] Make sure series/seasons/episodes are always linked to imdb items
 - [ ] Put ratings just after name of the series, use smaller font, make their size constant
 - [ ] Extra points: Try to join together both ratings in a single item, with a gradient from one color to the other

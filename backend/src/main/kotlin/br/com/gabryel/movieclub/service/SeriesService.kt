@@ -99,7 +99,6 @@ class SeriesService(
         tmdbId = tmdbId.toString(),
         year = details.year,
         posterUrl = details.posterPath?.toTmdbPosterUrl(),
-        tmdbRating = metadata.tmdbRating,
         imdbRating = imdbRating,
     ).id
 

@@ -15,7 +15,6 @@ object MediaItems : UuidTable("media_items") {
     val title = varchar("title", 512)
     val year = integer("year").nullable()
     val posterUrl = varchar("poster_url", 1024).nullable()
-    val tmdbRating = decimal("tmdb_rating", precision = 4, scale = 1).nullable()
     val imdbRating = decimal("imdb_rating", precision = 4, scale = 1).nullable()
     val createdAt = timestamp("created_at")
 }

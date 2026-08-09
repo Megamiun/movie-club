@@ -28,7 +28,6 @@ data class MovieRow(
     val genre: List<String>? = null,
     val originCountry: List<String>? = null,
     val productionCountries: List<String>? = null,
-    val tmdbRating: BigDecimal? = null,
     val imdbRating: BigDecimal? = null,
     val posterS3Key: String? = null,
     val watchLink: String? = null,
@@ -63,7 +62,6 @@ data class TmdbMovieMetadata(
     val genre: List<String>? = null,
     val originCountry: List<String>? = null,
     val productionCountries: List<String>? = null,
-    val tmdbRating: BigDecimal? = null,
     val imdbRating: BigDecimal? = null,
     val metadataFetchedAt: Instant? = null,
 )

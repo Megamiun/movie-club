@@ -61,7 +61,7 @@ class WatchlistServiceTest {
             )
             val item = mediaItem()
             every {
-                mediaItemRepository.findOrCreate(MOVIE, "tt1160419", "Dune", "438631", null, null, null, null)
+                mediaItemRepository.findOrCreate(MOVIE, "tt1160419", "Dune", "438631", null, null, null)
             } returns item
 
             val expected = entry(mediaItemId = item.id)
@@ -81,7 +81,7 @@ class WatchlistServiceTest {
             )
             val item = mediaItem()
             every {
-                mediaItemRepository.findOrCreate(MOVIE, "tt1160419", "Dune", "438631", null, null, null, null)
+                mediaItemRepository.findOrCreate(MOVIE, "tt1160419", "Dune", "438631", null, null, null)
             } returns item
             every { watchlistRepository.findByClubMemberAndMediaItem(clubId, memberId, item.id) } returns entry(mediaItemId = item.id)
 

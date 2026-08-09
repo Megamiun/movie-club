@@ -52,7 +52,7 @@ class MovieServiceTest {
 
     init {
         every {
-            mediaItemRepository.findOrCreate(any(), any(), any(), any(), any(), any(), any(), any())
+            mediaItemRepository.findOrCreate(any(), any(), any(), any(), any(), any(), any())
         } returns mediaItem()
         every { movieRepository.findByMeetingAndImdbId(any(), any()) } returns null
         coEvery { omdbClient.getImdbRating(any()) } returns null
@@ -103,8 +103,7 @@ class MovieServiceTest {
                         it.director == null &&
                         it.runtimeMinutes == 107 &&
                         it.genre == emptyList<String>() &&
-                        it.originCountry == emptyList<String>() &&
-                        it.tmdbRating == null
+                        it.originCountry == emptyList<String>()
                 },
                 mediaItemId = any(),
             )

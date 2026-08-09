@@ -15,7 +15,6 @@ data class MediaItemRow(
     val title: String,
     val year: Int? = null,
     val posterUrl: String? = null,
-    val tmdbRating: BigDecimal? = null,
     val imdbRating: BigDecimal? = null,
     val createdAt: Instant,
 )

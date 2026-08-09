@@ -17,7 +17,6 @@ object Episodes : UuidTable("episodes") {
     val runtimeMinutes = integer("runtime_minutes").nullable()
     val director = varchar("director", 512).nullable()
     val directorImdbId = varchar("director_imdb_id", 16).nullable()
-    val tmdbRating = decimal("tmdb_rating", precision = 4, scale = 1).nullable()
     val metadataFetchedAt = timestamp("metadata_fetched_at").nullable()
 
     init {

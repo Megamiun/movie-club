@@ -98,7 +98,6 @@ class ExposedWatchlistRepository : WatchlistRepository {
         imdbId = row[MediaItems.imdbId],
         year = row[MediaItems.year],
         posterUrl = row[MediaItems.posterUrl],
-        tmdbRating = row[MediaItems.tmdbRating],
         imdbRating = row[MediaItems.imdbRating],
         notes = row[WatchlistEntries.notes],
         position = row[WatchlistEntries.position],

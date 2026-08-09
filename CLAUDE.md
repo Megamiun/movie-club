@@ -97,7 +97,7 @@ enforces those automatically. This section is for conventions ktlint can't check
 
 - Universal handle for anything sourced from TMDB — `type` (MOVIE|SERIES|EPISODE; EPISODE is reserved but not
   populated yet, see below), deduplicated by `imdb_id`, plus `tmdb_id`, `title`, `year`, `poster_url` (an external
-  TMDB CDN URL string, unrelated to Movie/Series' own long-unused `poster_s3_key`), TMDB rating, and IMDB rating
+  TMDB CDN URL string, unrelated to Movie/Series' own long-unused `poster_s3_key`), and IMDB rating
 - Created *only* by a successful TMDB lookup (search result, or an IMDB id/URL resolved through TMDB) — never from
   freeform/manually-typed input. This is a deliberate policy, not just today's implementation default: nothing
   should ever reference a MediaItem that TMDB couldn't derive
@@ -111,8 +111,10 @@ enforces those automatically. This section is for conventions ktlint can't check
 - WatchlistEntry references a MediaItem directly instead of duplicating title/year/rating itself (see below)
 - IMDB's own rating is fetched separately from OMDb (`OmdbClient`, `OMDB_API_KEY`) since TMDB's API never exposes it
   (only its own `vote_average`) — optional, silently no-ops when the key is unset, never blocks an add/refresh.
-  Wherever a rating is displayed, the UI prefers IMDB's over TMDB's, falling back cleanly for rows fetched before
-  OMDb was wired in
+  IMDB rating is the *only* rating source anywhere in the app — TMDB's `vote_average`/`tmdb_rating` was fully
+  removed (schema, backend, UI) rather than kept as a fallback, so the UI never needs to label a rating's source
+  (no "IMDB"/"TMDB" prefix, just the bare number, e.g. `8.7`) since there's only ever one possible source. A row
+  added before OMDb was wired in, or where OMDb had no match, simply shows no rating
 
 ### Movie
 
@@ -131,8 +133,8 @@ enforces those automatically. This section is for conventions ktlint can't check
   see `TmdbTranslations.toTranslations`. Replaces the old per-country `alternative_titles`, which was keyed the wrong
   way for language-based resolution and is gone entirely, not kept alongside), year, director, runtime, genre,
   `origin_country`, `production_countries` (a second, distinct country list — TMDB's full production-country objects,
-  not just origin codes), TMDB rating, IMDB rating (via OMDb, see MediaItem above), poster (stored in S3),
-  `metadata_fetched_at`. Also `director_imdb_id` — resolved from the credited director's TMDB *person* id (`credits`
+  not just origin codes), IMDB rating (via OMDb, see MediaItem above — TMDB's own `vote_average`/`tmdb_rating` was
+  removed entirely, see MediaItem above), poster (stored in S3), `metadata_fetched_at`. Also `director_imdb_id` — resolved from the credited director's TMDB *person* id (`credits`
   crew entry, job `"Director"`) via a second best-effort `/person/{id}/external_ids` call
   (`TmdbClient.getPersonExternalIds`); like the OMDb rating lookup, a failure here (rate limit, no linked IMDB page)
   never blocks adding/refreshing the movie itself, it just leaves `director_imdb_id` null. Used to link the
@@ -173,7 +175,7 @@ enforces those automatically. This section is for conventions ktlint can't check
   rating. This is the opposite of Movie's per-pick reviews, deliberately: Movie supports rewatch-and-re-review,
   Series/Season/Episode assume a linear, watched-once progression
 - Series cached TMDB metadata: `original_title`, `original_language`, `translations`, year, genre, `origin_country`,
-  `production_countries`, TMDB rating, IMDB rating (via OMDb, see MediaItem above), creator, poster,
+  `production_countries`, IMDB rating (via OMDb, see MediaItem above), creator, poster,
   `metadata_fetched_at` — no director/runtime (those are per-episode, not per-series). Same `translations`/
   `display_title_preference`/`display_language_code`/client-side resolution as Movie (see above) — `ClubSeries` has
   its own `display_language_code` column, separate from `MeetingMovies`'
@@ -182,8 +184,10 @@ enforces those automatically. This section is for conventions ktlint can't check
   empty until someone visits `SeasonDetailPage` and adds them one at a time. CSV import already did this explicitly
   (see Existing Data below) — this extends the same behavior to the manual-add path
 - Episode cached TMDB metadata: `air_date`, `overview`, `runtime`, director, `director_imdb_id` (same best-effort
-  TMDB-person-id → IMDB-id resolution as Movie, see above), TMDB rating, `metadata_fetched_at` — no title split (the
-  CSV/user-entered `title` is the only one) and no genre/country/creator (those live at the series level)
+  TMDB-person-id → IMDB-id resolution as Movie, see above), `metadata_fetched_at` — no rating of its own (Episode
+  never had an OMDb-fetched IMDB rating; the meetings table falls back to the parent series' rating instead) and
+  no title split (the CSV/user-entered `title` is the only one) and no genre/country/creator (those live at the
+  series level)
 - Episode TMDB lookup is always best-effort: fetched automatically when the parent series has a `tmdb_id`, silently
   skipped otherwise, never blocking episode creation (unlike Movie/Series, an episode has no id of its own to look up
   by)

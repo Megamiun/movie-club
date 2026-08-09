@@ -30,7 +30,6 @@ internal data class WatchlistEntryResponse(
     val imdbId: String,
     val year: Int?,
     val posterUrl: String?,
-    val tmdbRating: String?,
     val imdbRating: String?,
     val notes: String?,
     val position: Int,

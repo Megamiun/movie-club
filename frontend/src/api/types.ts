@@ -118,7 +118,6 @@ export interface Movie {
   genre: string[] | null
   originCountry: string[] | null
   productionCountries: string[] | null
-  tmdbRating: string | null
   imdbRating: string | null
   posterS3Key: string | null
   watchLink: string | null
@@ -148,7 +147,6 @@ export interface Series {
   genre: string[] | null
   originCountry: string[] | null
   productionCountries: string[] | null
-  tmdbRating: string | null
   imdbRating: string | null
   creator: string | null
   posterS3Key: string | null
@@ -171,7 +169,6 @@ export interface Episode {
   runtimeMinutes: number | null
   director: string | null
   directorImdbId: string | null
-  tmdbRating: string | null
 }
 
 export interface SeriesReview {
@@ -208,7 +205,6 @@ export interface WatchlistEntry {
   imdbId: string
   year: number | null
   posterUrl: string | null
-  tmdbRating: string | null
   imdbRating: string | null
   notes: string | null
   position: number

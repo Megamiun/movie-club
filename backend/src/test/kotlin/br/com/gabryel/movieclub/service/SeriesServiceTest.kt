@@ -63,7 +63,7 @@ class SeriesServiceTest {
     init {
         coEvery { omdbClient.getImdbRating(any()) } returns null
         every {
-            mediaItemRepository.findOrCreate(any(), any(), any(), any(), any(), any(), any(), any())
+            mediaItemRepository.findOrCreate(any(), any(), any(), any(), any(), any(), any())
         } returns mediaItem()
         every { seriesRepository.findByClubAndImdbId(any(), any()) } returns null
     }
@@ -102,7 +102,6 @@ class SeriesServiceTest {
                             it.year == 2008 &&
                             it.genre == emptyList<String>() &&
                             it.originCountry == emptyList<String>() &&
-                            it.tmdbRating == null &&
                             it.creator == null
                     },
                     mediaItemId = any(),

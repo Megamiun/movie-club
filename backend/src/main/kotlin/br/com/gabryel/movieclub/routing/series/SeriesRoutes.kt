@@ -196,7 +196,6 @@ internal fun SeriesRow.toResponse() = SeriesResponse(
     genre = genre,
     originCountry = originCountry,
     productionCountries = productionCountries,
-    tmdbRating = tmdbRating?.toPlainString(),
     imdbRating = imdbRating?.toPlainString(),
     creator = creator,
     posterS3Key = posterS3Key,
@@ -233,7 +232,6 @@ internal fun EpisodeRow.toResponse() = EpisodeResponse(
     runtimeMinutes = runtimeMinutes,
     director = director,
     directorImdbId = directorImdbId,
-    tmdbRating = tmdbRating?.toPlainString(),
 )
 
 private fun SeriesReviewRow.toResponse() = SeriesReviewResponse(

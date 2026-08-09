@@ -126,7 +126,6 @@ function EpisodeItem({
             {episode.title ? ` — ${episode.title}` : ''}
           </Typography>
           {episode.airDate && <Chip size="small" label={episode.airDate} />}
-          {episode.tmdbRating && <Chip size="small" label={`TMDB ${episode.tmdbRating}`} />}
         </Stack>
       </AccordionSummary>
       <AccordionDetails>

@@ -1,7 +1,6 @@
 package br.com.gabryel.movieclub.db.repositories.dto
 
 import kotlinx.datetime.LocalDate
-import java.math.BigDecimal
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
@@ -17,7 +16,6 @@ data class EpisodeRow(
     val runtimeMinutes: Int? = null,
     val director: String? = null,
     val directorImdbId: String? = null,
-    val tmdbRating: BigDecimal? = null,
     val metadataFetchedAt: Instant? = null,
 )
 
@@ -47,6 +45,5 @@ data class TmdbEpisodeMetadata(
     val runtimeMinutes: Int? = null,
     val director: String? = null,
     val directorImdbId: String? = null,
-    val tmdbRating: BigDecimal? = null,
     val metadataFetchedAt: Instant? = null,
 )

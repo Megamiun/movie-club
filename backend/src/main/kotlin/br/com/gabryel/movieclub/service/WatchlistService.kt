@@ -13,7 +13,6 @@ import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
 import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
-import br.com.gabryel.movieclub.service.tmdb.toRatingScale
 import br.com.gabryel.movieclub.service.tmdb.toTmdbPosterUrl
 import kotlin.uuid.Uuid
 
@@ -84,7 +83,6 @@ class WatchlistService(
             tmdbId = tmdbId.toString(),
             year = details.year,
             posterUrl = details.posterPath?.toTmdbPosterUrl(),
-            tmdbRating = details.voteAverage?.toRatingScale(),
             imdbRating = omdbClient.getImdbRating(imdbId),
         )
     }
@@ -101,7 +99,6 @@ class WatchlistService(
             tmdbId = tmdbId.toString(),
             year = details.year,
             posterUrl = details.posterPath?.toTmdbPosterUrl(),
-            tmdbRating = details.voteAverage?.toRatingScale(),
             imdbRating = omdbClient.getImdbRating(imdbId),
         )
     }

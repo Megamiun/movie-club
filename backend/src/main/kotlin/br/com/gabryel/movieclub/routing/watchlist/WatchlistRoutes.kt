@@ -69,7 +69,6 @@ private fun WatchlistEntryRow.toResponse() = WatchlistEntryResponse(
     imdbId = imdbId,
     year = year,
     posterUrl = posterUrl,
-    tmdbRating = tmdbRating?.toPlainString(),
     imdbRating = imdbRating?.toPlainString(),
     notes = notes,
     position = position,

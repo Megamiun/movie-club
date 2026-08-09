@@ -204,7 +204,6 @@ class ExposedMovieRepository : MovieRepository {
         genre = row[Movies.genre],
         originCountry = row[Movies.originCountry],
         productionCountries = row[Movies.productionCountries],
-        tmdbRating = row[Movies.tmdbRating],
         imdbRating = row[Movies.imdbRating],
         posterS3Key = row[Movies.posterS3Key],
         watchLink = row[MeetingMovies.watchLink],
@@ -236,7 +235,6 @@ private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbMovieMetadata, medi
     this[Movies.genre] = metadata.genre
     this[Movies.originCountry] = metadata.originCountry
     this[Movies.productionCountries] = metadata.productionCountries
-    this[Movies.tmdbRating] = metadata.tmdbRating
     this[Movies.imdbRating] = metadata.imdbRating
     this[Movies.metadataFetchedAt] = metadata.metadataFetchedAt
     this[Movies.mediaItemId] = mediaItemId

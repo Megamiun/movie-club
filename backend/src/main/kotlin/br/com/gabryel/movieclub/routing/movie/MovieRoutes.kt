@@ -117,7 +117,6 @@ internal fun MovieRow.toResponse() = MovieResponse(
     genre = genre,
     originCountry = originCountry,
     productionCountries = productionCountries,
-    tmdbRating = tmdbRating?.toPlainString(),
     imdbRating = imdbRating?.toPlainString(),
     posterS3Key = posterS3Key,
     watchLink = watchLink,

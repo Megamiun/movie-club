@@ -301,7 +301,7 @@ function EpisodeRow({
     }
   }
 
-  const rating = episode.tmdbRating ? `TMDB ${episode.tmdbRating}` : series ? ratingLabel(series) : null
+  const rating = series ? ratingLabel(series) : null
   const displayYear = episode.airDate ? episode.airDate.slice(0, 4) : (series?.year ?? null)
 
   return (

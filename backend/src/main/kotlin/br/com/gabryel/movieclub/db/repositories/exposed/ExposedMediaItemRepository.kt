@@ -23,7 +23,6 @@ class ExposedMediaItemRepository : MediaItemRepository {
         tmdbId: String?,
         year: Int?,
         posterUrl: String?,
-        tmdbRating: BigDecimal?,
         imdbRating: BigDecimal?,
     ): MediaItemRow = transaction {
         val existing = MediaItems
@@ -34,14 +33,14 @@ class ExposedMediaItemRepository : MediaItemRepository {
 
         val id = if (existing != null) {
             MediaItems.update({ MediaItems.id eq existing }) {
-                it.apply(type, title, tmdbId, year, posterUrl, tmdbRating, imdbRating)
+                it.apply(type, title, tmdbId, year, posterUrl, imdbRating)
             }
             existing
         } else {
             MediaItems.insert {
                 it[MediaItems.imdbId] = imdbId
                 it[MediaItems.createdAt] = Clock.System.now()
-                it.apply(type, title, tmdbId, year, posterUrl, tmdbRating, imdbRating)
+                it.apply(type, title, tmdbId, year, posterUrl, imdbRating)
             }[MediaItems.id].value
         }
 
@@ -62,7 +61,6 @@ class ExposedMediaItemRepository : MediaItemRepository {
         tmdbId: String?,
         year: Int?,
         posterUrl: String?,
-        tmdbRating: BigDecimal?,
         imdbRating: BigDecimal?,
     ) {
         this[MediaItems.type] = type
@@ -70,7 +68,6 @@ class ExposedMediaItemRepository : MediaItemRepository {
         this[MediaItems.tmdbId] = tmdbId
         this[MediaItems.year] = year
         this[MediaItems.posterUrl] = posterUrl
-        this[MediaItems.tmdbRating] = tmdbRating
         this[MediaItems.imdbRating] = imdbRating
     }
 
@@ -82,7 +79,6 @@ class ExposedMediaItemRepository : MediaItemRepository {
         title = row[MediaItems.title],
         year = row[MediaItems.year],
         posterUrl = row[MediaItems.posterUrl],
-        tmdbRating = row[MediaItems.tmdbRating],
         imdbRating = row[MediaItems.imdbRating],
         createdAt = row[MediaItems.createdAt],
     )

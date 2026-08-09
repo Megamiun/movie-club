@@ -18,8 +18,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.math.BigDecimal
-import java.math.RoundingMode
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -28,9 +26,6 @@ private val IMDB_ID_REGEX = Regex("tt\\d{7,9}")
 /** Tolerant of a bare `tt1234567` id or a full IMDB URL; used by every service that adds a movie/series by id. */
 fun parseImdbId(input: String): String =
     IMDB_ID_REGEX.find(input)?.value ?: throw BadRequestException("Invalid IMDB id or URL: $input")
-
-/** Maps a TMDB `vote_average` (0-10, arbitrary precision) onto our `tmdb_rating DECIMAL(4,1)` column. */
-fun Double.toRatingScale(): BigDecimal = BigDecimal.valueOf(this).setScale(1, RoundingMode.HALF_UP)
 
 /** Expands a TMDB `poster_path` (e.g. `/abc123.jpg`) into a full, directly-loadable image URL at a size suited to
  * list/thumbnail display -- not the full-size original, which is unnecessarily large for that use. */
@@ -149,7 +144,6 @@ data class TmdbMovieDetails(
     val genres: List<TmdbGenre> = emptyList(),
     @SerialName("origin_country") val originCountry: List<String> = emptyList(),
     @SerialName("production_countries") val productionCountries: List<TmdbProductionCountry> = emptyList(),
-    @SerialName("vote_average") val voteAverage: Double? = null,
     @SerialName("poster_path") val posterPath: String? = null,
     val credits: TmdbCredits? = null,
     val translations: TmdbTranslations? = null,
@@ -170,7 +164,6 @@ data class TmdbMovieDetails(
         genre = genres.map { it.name },
         originCountry = originCountry,
         productionCountries = productionCountries.map { it.name },
-        tmdbRating = voteAverage?.toRatingScale(),
         metadataFetchedAt = fetchedAt,
     )
 }
@@ -194,7 +187,6 @@ data class TmdbTvDetails(
     val genres: List<TmdbGenre> = emptyList(),
     @SerialName("origin_country") val originCountry: List<String> = emptyList(),
     @SerialName("production_countries") val productionCountries: List<TmdbProductionCountry> = emptyList(),
-    @SerialName("vote_average") val voteAverage: Double? = null,
     @SerialName("poster_path") val posterPath: String? = null,
     @SerialName("created_by") val createdBy: List<TmdbCreator> = emptyList(),
     val translations: TmdbTranslations? = null,
@@ -214,7 +206,6 @@ data class TmdbTvDetails(
         genre = genres.map { it.name },
         originCountry = originCountry,
         productionCountries = productionCountries.map { it.name },
-        tmdbRating = voteAverage?.toRatingScale(),
         metadataFetchedAt = fetchedAt,
     )
 }
@@ -226,7 +217,6 @@ data class TmdbEpisodeDetails(
     @SerialName("air_date") val airDate: String? = null,
     val overview: String? = null,
     val runtime: Int? = null,
-    @SerialName("vote_average") val voteAverage: Double? = null,
     val crew: List<TmdbCrewMember> = emptyList(),
 ) {
     val director: String? get() = crew.firstOrNull { it.job == "Director" }?.name
@@ -237,7 +227,6 @@ data class TmdbEpisodeDetails(
         overview = overview,
         runtimeMinutes = runtime,
         director = director,
-        tmdbRating = voteAverage?.toRatingScale(),
         metadataFetchedAt = fetchedAt,
     )
 }

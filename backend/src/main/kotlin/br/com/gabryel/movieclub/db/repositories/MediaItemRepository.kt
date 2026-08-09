@@ -17,7 +17,6 @@ interface MediaItemRepository {
         tmdbId: String? = null,
         year: Int? = null,
         posterUrl: String? = null,
-        tmdbRating: BigDecimal? = null,
         imdbRating: BigDecimal? = null,
     ): MediaItemRow
 

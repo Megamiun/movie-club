@@ -52,7 +52,6 @@ internal data class SeriesResponse(
     val genre: List<String>?,
     val originCountry: List<String>?,
     val productionCountries: List<String>?,
-    val tmdbRating: String?,
     val imdbRating: String?,
     val creator: String?,
     val posterS3Key: String?,
@@ -90,7 +89,6 @@ internal data class EpisodeResponse(
     val runtimeMinutes: Int?,
     val director: String?,
     val directorImdbId: String?,
-    val tmdbRating: String?,
 )
 
 @Serializable

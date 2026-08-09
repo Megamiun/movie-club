@@ -4,7 +4,6 @@ import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.BadRequestException
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.Json
-import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -19,13 +18,6 @@ class TmdbClientTest {
     }
 
     @Test
-    fun `toRatingScale rounds a TMDB vote_average to one decimal place`() {
-        assertEquals(BigDecimal("7.5"), 7.5.toRatingScale())
-        assertEquals(BigDecimal("8.0"), 8.04.toRatingScale())
-        assertEquals(BigDecimal("8.1"), 8.05.toRatingScale())
-    }
-
-    @Test
     fun `TmdbMovieDetails toMetadata pulls director from credits and year from release_date`() {
         val details = TmdbMovieDetails(
             originalTitle = "John Wick",
@@ -36,7 +28,6 @@ class TmdbClientTest {
             genres = listOf(TmdbGenre("Action"), TmdbGenre("Thriller")),
             originCountry = listOf("US"),
             productionCountries = listOf(TmdbProductionCountry("US", "United States of America")),
-            voteAverage = 7.45,
             credits = TmdbCredits(
                 crew = listOf(TmdbCrewMember("Chad Stahelski", "Director"), TmdbCrewMember("Someone Else", "Writer")),
             ),
@@ -58,7 +49,6 @@ class TmdbClientTest {
         assertEquals(listOf("Action", "Thriller"), metadata.genre)
         assertEquals(listOf("US"), metadata.originCountry)
         assertEquals(listOf("United States of America"), metadata.productionCountries)
-        assertEquals(BigDecimal("7.5"), metadata.tmdbRating)
         assertEquals(listOf(Translation("pt", "BR", "Portuguese", "De Volta ao Jogo")), metadata.translations)
     }
 
@@ -99,7 +89,6 @@ class TmdbClientTest {
             genres = listOf(TmdbGenre("Drama")),
             originCountry = listOf("US"),
             productionCountries = listOf(TmdbProductionCountry("US", "United States of America")),
-            voteAverage = 8.9,
             createdBy = listOf(TmdbCreator("Vince Gilligan")),
             translations = TmdbTranslations(
                 translations = listOf(
@@ -131,7 +120,6 @@ class TmdbClientTest {
             airDate = "2008-01-20",
             overview = "A chemistry teacher...",
             runtime = 59,
-            voteAverage = 8.5,
             crew = listOf(TmdbCrewMember("Vince Gilligan", "Director")),
         )
 
@@ -141,7 +129,6 @@ class TmdbClientTest {
         assertEquals("A chemistry teacher...", metadata.overview)
         assertEquals(59, metadata.runtimeMinutes)
         assertEquals("Vince Gilligan", metadata.director)
-        assertEquals(BigDecimal("8.5"), metadata.tmdbRating)
     }
 
     @Test

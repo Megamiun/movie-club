@@ -19,7 +19,6 @@ data class WatchlistEntryRow(
     val imdbId: String,
     val year: Int? = null,
     val posterUrl: String? = null,
-    val tmdbRating: BigDecimal? = null,
     val imdbRating: BigDecimal? = null,
     val notes: String? = null,
     val position: Int,
