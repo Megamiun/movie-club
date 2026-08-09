@@ -47,8 +47,9 @@
 - [x] Allow Clubs to change the exhibition language for a certain media
   - [x] do that by clicking an language icon in the details page, where you will open a dialog, where you may select any translation
   - `DisplayTitlePreference` is now `ORIGINAL | CUSTOM | LANGUAGE` (dropped `ENGLISH`, which was never actually resolved anywhere — `LANGUAGE` + a per-pick `displayLanguageCode` is a strict superset); `LanguagePickerDialog` component reused by both `MovieSection` and `SeriesDetailPage`
-- [ ] Add Move to Watchlist button in meeting
-- [ ] Add move to meeting button in Watchlist
+- [x] Add Move to Watchlist button in meeting
+- [x] Add move to meeting button in Watchlist
+  - Scoped to movies only (not series) -- my own reasonable-default decision, not explicitly requested. `MovieSection`'s movie accordion gained a bookmark icon that adds the movie to the acting member's watchlist then deletes the meeting pick; each movie watchlist entry gained a meeting picker + move icon (owner-only) that does the reverse. No new backend endpoint -- both directions just compose the existing add/remove calls, delete-after-successful-add so a rejected add (e.g. "already in this meeting") doesn't lose the watchlist entry
 - [ ] Allow taking movies/episodes from one meeting to another via drag and drop
 - [x] Give each member a color inside the club(editable)
 - [x] Use this color and initials in the first column of the meetings table

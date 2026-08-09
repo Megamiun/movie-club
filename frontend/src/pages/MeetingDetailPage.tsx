@@ -126,6 +126,7 @@ export function MeetingDetailPage() {
             <Divider sx={{ my: 3 }} />
             <MovieSection
               meetingId={meeting.id}
+              clubId={meeting.clubId}
               scales={scales ?? []}
               members={club?.members ?? []}
               languagePrefs={{

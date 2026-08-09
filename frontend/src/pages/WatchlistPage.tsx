@@ -2,17 +2,20 @@ import AddIcon from '@mui/icons-material/Add'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { Alert, Box, Button, Chip, IconButton, Paper, Stack, TextField, Typography } from '@mui/material'
+import EventIcon from '@mui/icons-material/Event'
+import { Alert, Box, Button, Chip, IconButton, MenuItem, Paper, Select, Stack, TextField, Typography } from '@mui/material'
 import { useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { meetingsApi } from '../api/meetings'
 import { moviesApi } from '../api/movies'
 import { seriesApi } from '../api/series'
 import { watchlistApi } from '../api/watchlist'
 import { ApiError } from '../api/client'
-import type { ClubMember, TmdbSearchResult, WatchlistEntry } from '../api/types'
+import type { ClubMember, Meeting, TmdbSearchResult, WatchlistEntry } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
 import { TmdbSearchAutocomplete } from '../components/TmdbSearchAutocomplete'
+import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { memberName } from '../utils/members'
@@ -20,7 +23,10 @@ import { ratingLabel } from '../utils/rating'
 
 export function WatchlistPage() {
   const { club } = useOutletContext<ClubOutletContext>()
+  const { member } = useAuth()
   const { data: entries, loading, error, reload } = useAsync(() => watchlistApi.list(club.id), [club.id])
+  const { data: meetings } = useAsync(() => meetingsApi.list(club.id), [club.id])
+  const sortedMeetings = [...(meetings ?? [])].sort((a, b) => a.date.localeCompare(b.date))
 
   return (
     <Box>
@@ -37,6 +43,8 @@ export function WatchlistPage() {
             entries={entries?.filter((entry) => entry.type === 'MOVIE') ?? []}
             members={club.members}
             clubId={club.id}
+            meetings={sortedMeetings}
+            myMemberId={member?.id ?? null}
             onChange={reload}
           />
           <WatchlistSection
@@ -46,6 +54,8 @@ export function WatchlistPage() {
             entries={entries?.filter((entry) => entry.type === 'SERIES') ?? []}
             members={club.members}
             clubId={club.id}
+            meetings={[]}
+            myMemberId={member?.id ?? null}
             onChange={reload}
           />
         </Stack>
@@ -61,6 +71,8 @@ function WatchlistSection({
   entries,
   members,
   clubId,
+  meetings,
+  myMemberId,
   onChange,
 }: {
   type: 'MOVIE' | 'SERIES'
@@ -69,6 +81,8 @@ function WatchlistSection({
   entries: WatchlistEntry[]
   members: ClubMember[]
   clubId: string
+  meetings: Meeting[]
+  myMemberId: string | null
   onChange: () => void
 }) {
   const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
@@ -110,6 +124,8 @@ function WatchlistSection({
             members={members}
             canMoveUp={index > 0}
             canMoveDown={index < sorted.length - 1}
+            meetings={meetings}
+            isOwner={entry.memberId === myMemberId}
             onChange={onChange}
           />
         ))}
@@ -143,15 +159,20 @@ function WatchlistEntryCard({
   members,
   canMoveUp,
   canMoveDown,
+  meetings,
+  isOwner,
   onChange,
 }: {
   entry: WatchlistEntry
   members: ClubMember[]
   canMoveUp: boolean
   canMoveDown: boolean
+  meetings: Meeting[]
+  isOwner: boolean
   onChange: () => void
 }) {
   const [notes, setNotes] = useState(entry.notes ?? '')
+  const [targetMeetingId, setTargetMeetingId] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const handleBlurSave = async () => {
@@ -185,7 +206,20 @@ function WatchlistEntryCard({
     }
   }
 
+  const handleMoveToMeeting = async () => {
+    if (!targetMeetingId) return
+    setError(null)
+    try {
+      await moviesApi.add(targetMeetingId, entry.imdbId)
+      await watchlistApi.remove(entry.id)
+      onChange()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
   const rating = ratingLabel(entry)
+  const canMoveToMeeting = isOwner && entry.type === 'MOVIE' && meetings.length > 0
 
   return (
     <Paper variant="outlined" sx={{ p: 1.5, display: 'flex', gap: 1.5, alignItems: 'center' }}>
@@ -217,6 +251,29 @@ function WatchlistEntryCard({
           </Alert>
         )}
       </Box>
+      {canMoveToMeeting && (
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
+          <Select
+            size="small"
+            displayEmpty
+            value={targetMeetingId}
+            onChange={(e) => setTargetMeetingId(e.target.value)}
+            sx={{ minWidth: 120 }}
+          >
+            <MenuItem value="">
+              <em>Move to meeting…</em>
+            </MenuItem>
+            {meetings.map((meeting) => (
+              <MenuItem key={meeting.id} value={meeting.id}>
+                {meeting.date}
+              </MenuItem>
+            ))}
+          </Select>
+          <IconButton size="small" onClick={handleMoveToMeeting} disabled={!targetMeetingId} title="Move to meeting">
+            <EventIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+      )}
       <Stack sx={{ flexShrink: 0 }}>
         <IconButton size="small" onClick={() => handleMove('UP')} disabled={!canMoveUp} title="Move up">
           <ArrowUpwardIcon fontSize="small" />

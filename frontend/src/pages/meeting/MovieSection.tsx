@@ -1,3 +1,4 @@
+import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import {
@@ -20,6 +21,7 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useState, type FormEvent } from 'react'
 import { moviesApi } from '../../api/movies'
+import { watchlistApi } from '../../api/watchlist'
 import { ApiError } from '../../api/client'
 import type { ClubMember, Movie, RatingScale, TmdbSearchResult } from '../../api/types'
 import { AsyncState } from '../../components/AsyncState'
@@ -35,11 +37,13 @@ import { resolveTitle, type LanguagePreferences } from '../../utils/title'
 
 export function MovieSection({
   meetingId,
+  clubId,
   scales,
   members,
   languagePrefs,
 }: {
   meetingId: string
+  clubId: string
   scales: RatingScale[]
   members: ClubMember[]
   languagePrefs: LanguagePreferences
@@ -83,6 +87,7 @@ export function MovieSection({
             <MovieItem
               key={movie.id}
               movie={movie}
+              clubId={clubId}
               scales={scales}
               members={members}
               languagePrefs={languagePrefs}
@@ -144,12 +149,14 @@ export function MovieSection({
 
 function MovieItem({
   movie,
+  clubId,
   scales,
   members,
   languagePrefs,
   onChange,
 }: {
   movie: Movie
+  clubId: string
   scales: RatingScale[]
   members: ClubMember[]
   languagePrefs: LanguagePreferences
@@ -198,6 +205,18 @@ function MovieItem({
   const handleDelete = async () => {
     setError(null)
     try {
+      await moviesApi.remove(movie.id)
+      onChange()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  const handleMoveToWatchlist = async () => {
+    if (!movie.tmdbId) return
+    setError(null)
+    try {
+      await watchlistApi.add(clubId, 'MOVIE', movie.tmdbId)
       await moviesApi.remove(movie.id)
       onChange()
     } catch (err) {
@@ -266,6 +285,14 @@ function MovieItem({
             </Button>
             <IconButton size="small" onClick={handleRefresh} title="Refresh metadata">
               <RefreshIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={handleMoveToWatchlist}
+              disabled={!movie.tmdbId}
+              title="Move to watchlist"
+            >
+              <BookmarkAddIcon fontSize="small" />
             </IconButton>
             <IconButton size="small" onClick={handleDelete} title="Delete pick">
               <DeleteIcon fontSize="small" />

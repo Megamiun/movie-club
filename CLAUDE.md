@@ -209,6 +209,11 @@ enforces those automatically. This section is for conventions ktlint can't check
   collaboratively prioritized list); editing an entry's `notes` or deleting it stays owner-only
   (`WatchlistService.requireOwnedEntry`)
 - `notes` is the only freeform field left on an entry — personal commentary, not media data
+- Movies only (not Series) can be moved between a meeting pick and the watchlist, in either direction — there's no
+  dedicated backend "move" endpoint; the frontend just composes the existing add + delete calls (e.g. add the movie
+  to the meeting via its `imdb_id`, then delete the watchlist entry only once that succeeds, so a rejected add
+  — e.g. "already added to this meeting" — leaves the watchlist entry untouched instead of losing it). Owner-only
+  in the watchlist-to-meeting direction, same as editing/deleting an entry
 
 ### RatingScale
 
