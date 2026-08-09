@@ -53,7 +53,10 @@ class EpisodeService(
             ?: throw BadRequestException("Series has not been matched to TMDB yet")
 
         val details = tmdbClient.getEpisodeDetails(tmdbId, season.number, episode.number)
-        return episodeRepository.updateTmdbMetadata(episodeId, details.toMetadata())
+        val directorImdbId = details.directorTmdbId?.let {
+            runCatching { tmdbClient.getPersonExternalIds(it).imdbId }.getOrNull()
+        }
+        return episodeRepository.updateTmdbMetadata(episodeId, details.toMetadata().copy(directorImdbId = directorImdbId))
     }
 
     fun assignToMeeting(episodeId: Uuid, actingMemberId: Uuid, meetingId: Uuid): EpisodeRow {

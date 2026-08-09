@@ -112,6 +112,7 @@ export interface Movie {
   displayLanguageCode: string | null
   year: number | null
   director: string | null
+  directorImdbId: string | null
   runtimeMinutes: number | null
   genre: string[] | null
   originCountry: string[] | null
@@ -168,6 +169,7 @@ export interface Episode {
   overview: string | null
   runtimeMinutes: number | null
   director: string | null
+  directorImdbId: string | null
   tmdbRating: string | null
 }
 

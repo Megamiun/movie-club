@@ -19,6 +19,8 @@ import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
+import br.com.gabryel.movieclub.service.tmdb.TmdbCredits
+import br.com.gabryel.movieclub.service.tmdb.TmdbCrewMember
 import br.com.gabryel.movieclub.service.tmdb.TmdbExternalIds
 import br.com.gabryel.movieclub.service.tmdb.TmdbMovieDetails
 import br.com.gabryel.movieclub.service.tmdb.TmdbMovieSummary
@@ -145,6 +147,60 @@ class MovieServiceTest {
                 chosenById = memberId,
                 imdbId = "tt4857264",
                 metadata = match { it.imdbRating == BigDecimal("8.2") },
+                mediaItemId = any(),
+            )
+        } returns created
+
+        assertEquals(created, movieService.addMovie(meetingId, memberId, "tt4857264"))
+    }
+
+    @Test
+    fun `addMovie resolves the director's IMDB id via a TMDB person lookup`() = runBlocking {
+        every { meetingRepository.findById(meetingId) } returns meeting()
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        coEvery { tmdbClient.findByImdbId("tt4857264") } returns TmdbMovieSummary(id = 411088)
+        coEvery { tmdbClient.getMovieDetails(411088) } returns TmdbMovieDetails(
+            originalTitle = "Contratiempo",
+            title = "The Invisible Guest",
+            externalIds = TmdbExternalIds(imdbId = "tt4857264"),
+            credits = TmdbCredits(crew = listOf(TmdbCrewMember("Oriol Paulo", "Director", id = 1181819))),
+        )
+        coEvery { tmdbClient.getPersonExternalIds(1181819) } returns TmdbExternalIds(imdbId = "nm1181819")
+
+        val created = movie()
+        every {
+            movieRepository.create(
+                meetingId = meetingId,
+                chosenById = memberId,
+                imdbId = "tt4857264",
+                metadata = match { it.directorImdbId == "nm1181819" },
+                mediaItemId = any(),
+            )
+        } returns created
+
+        assertEquals(created, movieService.addMovie(meetingId, memberId, "tt4857264"))
+    }
+
+    @Test
+    fun `addMovie tolerates a failed director lookup instead of blocking the add`() = runBlocking {
+        every { meetingRepository.findById(meetingId) } returns meeting()
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        coEvery { tmdbClient.findByImdbId("tt4857264") } returns TmdbMovieSummary(id = 411088)
+        coEvery { tmdbClient.getMovieDetails(411088) } returns TmdbMovieDetails(
+            originalTitle = "Contratiempo",
+            title = "The Invisible Guest",
+            externalIds = TmdbExternalIds(imdbId = "tt4857264"),
+            credits = TmdbCredits(crew = listOf(TmdbCrewMember("Oriol Paulo", "Director", id = 1181819))),
+        )
+        coEvery { tmdbClient.getPersonExternalIds(1181819) } throws RuntimeException("TMDB is down")
+
+        val created = movie()
+        every {
+            movieRepository.create(
+                meetingId = meetingId,
+                chosenById = memberId,
+                imdbId = "tt4857264",
+                metadata = match { it.directorImdbId == null },
                 mediaItemId = any(),
             )
         } returns created

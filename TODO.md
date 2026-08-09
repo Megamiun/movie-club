@@ -62,11 +62,13 @@
   - If too hard of bad for reading, do an ellipse with the one half each color.
 - [x] Change from link icon to underlined in meetings list
   - `ImdbLink` gained a `variant: 'icon' | 'text'` prop; meetings list uses `'text'`, everywhere else keeps the icon
+  - Follow-up: the movie/episode title itself is now the underlined link (was a plain title + separate "IMDB" text before)
 - [x] Limit genres to 2, followed by a "+ x", all are shown if hovered
   - New `TruncatedList` component (`frontend/src/components/TruncatedList.tsx`), meetings list only for now
 - [x] Convert duration to format like '1h25m' or '45m'
   - `frontend/src/utils/duration.ts`, meetings list only for now
 - [x] Only show year on meetings page, but allow to hover to see whole date
   - Clarified: this was about episode air dates, not the meeting's own date. Episode rows show just the year (from `air_date` or the series' `year` as fallback), with the full `air_date` as a hover tooltip when known
-- [ ] Director should also link to imdb director page
-  - [ ] Also save them to DB, get from tmdb, save imdb id
+- [x] Director should also link to imdb director page
+  - [x] Also save them to DB, get from tmdb, save imdb id
+  - `director_imdb_id` column on `movies`/`episodes` (V19 migration), resolved best-effort from the credited director's TMDB person id via `/person/{id}/external_ids` (never blocks add/refresh on failure, same as the OMDb rating lookup). `ImdbLink` gained a `kind: 'title' | 'name'` prop for linking to a person's IMDB page instead of a title's. Meetings list only for now, existing picks need a metadata refresh to backfill (best-effort field, not retroactively populated)

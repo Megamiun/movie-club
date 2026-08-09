@@ -71,7 +71,8 @@ class MovieService(
             throw BadRequestException("This movie has already been added to this meeting")
 
         val imdbRating = omdbClient.getImdbRating(imdbId)
-        val metadata = details.toMetadata(tmdbId).copy(imdbRating = imdbRating)
+        val directorImdbId = resolveDirectorImdbId(details.directorTmdbId)
+        val metadata = details.toMetadata(tmdbId).copy(imdbRating = imdbRating, directorImdbId = directorImdbId)
         val mediaItem = linkMediaItem(details, tmdbId, imdbId, metadata, imdbRating)
         return movieRepository.create(meetingId, actingMemberId, imdbId, metadata, mediaItem, watchLink)
     }
@@ -83,11 +84,17 @@ class MovieService(
 
         val details = tmdbClient.getMovieDetails(summary.id)
         val imdbRating = omdbClient.getImdbRating(movie.imdbId)
-        val metadata = details.toMetadata(summary.id).copy(imdbRating = imdbRating)
+        val directorImdbId = resolveDirectorImdbId(details.directorTmdbId)
+        val metadata = details.toMetadata(summary.id).copy(imdbRating = imdbRating, directorImdbId = directorImdbId)
         val mediaItem = linkMediaItem(details, summary.id, movie.imdbId, metadata, imdbRating)
 
         return movieRepository.updateTmdbMetadata(movieId, metadata, mediaItem)
     }
+
+    /** Best-effort, like [OmdbClient.getImdbRating] -- a person lookup failing (rate limit, no linked IMDB page,
+     * etc.) should never block adding/refreshing the movie itself. */
+    private suspend fun resolveDirectorImdbId(directorTmdbId: Int?): String? =
+        directorTmdbId?.let { runCatching { tmdbClient.getPersonExternalIds(it).imdbId }.getOrNull() }
 
     private fun linkMediaItem(
         details: TmdbMovieDetails,

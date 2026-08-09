@@ -17,7 +17,11 @@ import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
+import br.com.gabryel.movieclub.service.tmdb.TmdbCrewMember
+import br.com.gabryel.movieclub.service.tmdb.TmdbEpisodeDetails
+import br.com.gabryel.movieclub.service.tmdb.TmdbExternalIds
 import io.mockk.Runs
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -160,6 +164,48 @@ class EpisodeServiceTest {
         assertEquals(expected, episodeService.unassignFromMeeting(episodeId, memberId, meetingId))
 
         verify { episodeRepository.unassignFromMeeting(episodeId, meetingId) }
+    }
+
+    @Test
+    fun `refreshMetadata resolves the director's IMDB id via a TMDB person lookup`() = runBlocking {
+        val episodeId = Uuid.random()
+        every { episodeRepository.findById(episodeId) } returns episode(episodeId)
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        coEvery { tmdbClient.getEpisodeDetails(1396, 1, 1) } returns TmdbEpisodeDetails(
+            name = "Pilot",
+            episodeNumber = 1,
+            crew = listOf(TmdbCrewMember("Vince Gilligan", "Director", id = 66633)),
+        )
+        coEvery { tmdbClient.getPersonExternalIds(66633) } returns TmdbExternalIds(imdbId = "nm0316704")
+
+        val updated = episode(episodeId)
+        every {
+            episodeRepository.updateTmdbMetadata(episodeId, match { it.directorImdbId == "nm0316704" })
+        } returns updated
+
+        assertEquals(updated, episodeService.refreshMetadata(episodeId, memberId))
+    }
+
+    @Test
+    fun `refreshMetadata tolerates a failed director lookup instead of throwing`() = runBlocking {
+        val episodeId = Uuid.random()
+        every { episodeRepository.findById(episodeId) } returns episode(episodeId)
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        coEvery { tmdbClient.getEpisodeDetails(1396, 1, 1) } returns TmdbEpisodeDetails(
+            name = "Pilot",
+            episodeNumber = 1,
+            crew = listOf(TmdbCrewMember("Vince Gilligan", "Director", id = 66633)),
+        )
+        coEvery { tmdbClient.getPersonExternalIds(66633) } throws RuntimeException("TMDB is down")
+
+        val updated = episode(episodeId)
+        every {
+            episodeRepository.updateTmdbMetadata(episodeId, match { it.directorImdbId == null })
+        } returns updated
+
+        assertEquals(updated, episodeService.refreshMetadata(episodeId, memberId))
     }
 
     @Test

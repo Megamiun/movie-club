@@ -63,6 +63,22 @@ class TmdbClientTest {
     }
 
     @Test
+    fun `TmdbMovieDetails directorTmdbId reads the Director crew member's own TMDB person id`() {
+        val details = TmdbMovieDetails(
+            originalTitle = "John Wick",
+            title = "John Wick",
+            credits = TmdbCredits(
+                crew = listOf(
+                    TmdbCrewMember("Chad Stahelski", "Director", id = 12891),
+                    TmdbCrewMember("Someone Else", "Writer", id = 999),
+                ),
+            ),
+        )
+
+        assertEquals(12891, details.directorTmdbId)
+    }
+
+    @Test
     fun `TmdbMovieDetails toMetadata is null-safe when credits and translations are absent`() {
         val details = TmdbMovieDetails(originalTitle = "Untitled", title = "Untitled")
 
@@ -126,6 +142,17 @@ class TmdbClientTest {
         assertEquals(59, metadata.runtimeMinutes)
         assertEquals("Vince Gilligan", metadata.director)
         assertEquals(BigDecimal("8.5"), metadata.tmdbRating)
+    }
+
+    @Test
+    fun `TmdbEpisodeDetails directorTmdbId reads the Director crew member's own TMDB person id`() {
+        val details = TmdbEpisodeDetails(
+            name = "Pilot",
+            episodeNumber = 1,
+            crew = listOf(TmdbCrewMember("Vince Gilligan", "Director", id = 66633)),
+        )
+
+        assertEquals(66633, details.directorTmdbId)
     }
 
     @Test

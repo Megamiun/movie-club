@@ -56,6 +56,7 @@ internal data class MovieResponse(
     val displayLanguageCode: String?,
     val year: Int?,
     val director: String?,
+    val directorImdbId: String?,
     val runtimeMinutes: Int?,
     val genre: List<String>?,
     val originCountry: List<String>?,

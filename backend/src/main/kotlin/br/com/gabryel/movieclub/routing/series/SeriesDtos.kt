@@ -89,6 +89,7 @@ internal data class EpisodeResponse(
     val overview: String?,
     val runtimeMinutes: Int?,
     val director: String?,
+    val directorImdbId: String?,
     val tmdbRating: String?,
 )
 

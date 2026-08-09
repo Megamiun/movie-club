@@ -199,6 +199,7 @@ class ExposedMovieRepository : MovieRepository {
         displayLanguageCode = row[MeetingMovies.displayLanguageCode],
         year = row[Movies.year],
         director = row[Movies.director],
+        directorImdbId = row[Movies.directorImdbId],
         runtimeMinutes = row[Movies.runtimeMinutes],
         genre = row[Movies.genre],
         originCountry = row[Movies.originCountry],
@@ -230,6 +231,7 @@ private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbMovieMetadata, medi
     this[Movies.translations] = metadata.translations
     this[Movies.year] = metadata.year
     this[Movies.director] = metadata.director
+    this[Movies.directorImdbId] = metadata.directorImdbId
     this[Movies.runtimeMinutes] = metadata.runtimeMinutes
     this[Movies.genre] = metadata.genre
     this[Movies.originCountry] = metadata.originCountry

@@ -232,6 +232,7 @@ internal fun EpisodeRow.toResponse() = EpisodeResponse(
     overview = overview,
     runtimeMinutes = runtimeMinutes,
     director = director,
+    directorImdbId = directorImdbId,
     tmdbRating = tmdbRating?.toPlainString(),
 )
 

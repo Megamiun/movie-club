@@ -17,6 +17,7 @@ object Movies : UuidTable("movies") {
 
     val year = integer("year").nullable()
     val director = varchar("director", 512).nullable()
+    val directorImdbId = varchar("director_imdb_id", 16).nullable()
     val runtimeMinutes = integer("runtime_minutes").nullable()
     val genre = array("genre", VarCharColumnType(255)).nullable()
     val originCountry = array("origin_country", VarCharColumnType(255)).nullable()

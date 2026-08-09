@@ -126,7 +126,12 @@ enforces those automatically. This section is for conventions ktlint can't check
   way for language-based resolution and is gone entirely, not kept alongside), year, director, runtime, genre,
   `origin_country`, `production_countries` (a second, distinct country list — TMDB's full production-country objects,
   not just origin codes), TMDB rating, IMDB rating (via OMDb, see MediaItem above), poster (stored in S3),
-  `metadata_fetched_at`.
+  `metadata_fetched_at`. Also `director_imdb_id` — resolved from the credited director's TMDB *person* id (`credits`
+  crew entry, job `"Director"`) via a second best-effort `/person/{id}/external_ids` call
+  (`TmdbClient.getPersonExternalIds`); like the OMDb rating lookup, a failure here (rate limit, no linked IMDB page)
+  never blocks adding/refreshing the movie itself, it just leaves `director_imdb_id` null. Used to link the
+  director's name to their own IMDB page, separate from the movie's own `imdb_id`/`ImdbLink`
+  (`kind="name"` vs the default `kind="title"`)
   `display_title_preference` (ORIGINAL|CUSTOM|LANGUAGE, default ORIGINAL) lives on the pick row, alongside
   `display_language_code` (set only when preference is LANGUAGE — a language icon on the movie/series detail view
   opens a dialog listing that item's `translations` to pick from). Resolving ORIGINAL/CUSTOM/LANGUAGE into an actual
@@ -170,9 +175,9 @@ enforces those automatically. This section is for conventions ktlint can't check
   `addSeriesByTmdbId`) immediately triggers `importSeasonsAndEpisodes` best-effort, instead of leaving Season/Episode
   empty until someone visits `SeasonDetailPage` and adds them one at a time. CSV import already did this explicitly
   (see Existing Data below) — this extends the same behavior to the manual-add path
-- Episode cached TMDB metadata: `air_date`, `overview`, `runtime`, director, TMDB rating, `metadata_fetched_at` — no
-  title split (the CSV/user-entered `title` is the only one) and no genre/country/creator (those live at the series
-  level)
+- Episode cached TMDB metadata: `air_date`, `overview`, `runtime`, director, `director_imdb_id` (same best-effort
+  TMDB-person-id → IMDB-id resolution as Movie, see above), TMDB rating, `metadata_fetched_at` — no title split (the
+  CSV/user-entered `title` is the only one) and no genre/country/creator (those live at the series level)
 - Episode TMDB lookup is always best-effort: fetched automatically when the parent series has a `tmdb_id`, silently
   skipped otherwise, never blocking episode creation (unlike Movie/Series, an episode has no id of its own to look up
   by)

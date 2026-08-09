@@ -16,6 +16,7 @@ data class EpisodeRow(
     val overview: String? = null,
     val runtimeMinutes: Int? = null,
     val director: String? = null,
+    val directorImdbId: String? = null,
     val tmdbRating: BigDecimal? = null,
     val metadataFetchedAt: Instant? = null,
 )
@@ -45,6 +46,7 @@ data class TmdbEpisodeMetadata(
     val overview: String? = null,
     val runtimeMinutes: Int? = null,
     val director: String? = null,
+    val directorImdbId: String? = null,
     val tmdbRating: BigDecimal? = null,
     val metadataFetchedAt: Instant? = null,
 )

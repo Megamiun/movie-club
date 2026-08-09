@@ -223,10 +223,9 @@ function MovieRow({
     <TableRow>
       <TableCell>{memberName(club.members, movie.chosenById)}</TableCell>
       <TableCell>
-        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-          <span>{resolveTitle(movie, club)}</span>
-          <ImdbLink imdbId={movie.imdbId} variant="text" />
-        </Stack>
+        <ImdbLink imdbId={movie.imdbId} variant="text">
+          {resolveTitle(movie, club)}
+        </ImdbLink>
         {error && (
           <Typography variant="caption" color="error" display="block">
             {error}
@@ -234,7 +233,19 @@ function MovieRow({
         )}
       </TableCell>
       <TableCell>{movie.year ?? '—'}</TableCell>
-      <TableCell>{movie.director ?? '—'}</TableCell>
+      <TableCell>
+        {movie.director ? (
+          movie.directorImdbId ? (
+            <ImdbLink imdbId={movie.directorImdbId} kind="name" variant="text">
+              {movie.director}
+            </ImdbLink>
+          ) : (
+            movie.director
+          )
+        ) : (
+          '—'
+        )}
+      </TableCell>
       <TableCell>{movie.runtimeMinutes ? formatDuration(movie.runtimeMinutes) : '—'}</TableCell>
       <TableCell>
         <TruncatedList items={movie.genre ?? []} />
@@ -294,13 +305,17 @@ function EpisodeRow({
     <TableRow>
       <TableCell>{series ? memberName(club.members, series.chosenById) : '—'}</TableCell>
       <TableCell>
-        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+        {series ? (
+          <ImdbLink imdbId={series.imdbId} variant="text">
+            Ep. {episode.number}
+            {episode.title ? ` — ${episode.title}` : ''}
+          </ImdbLink>
+        ) : (
           <span>
             Ep. {episode.number}
             {episode.title ? ` — ${episode.title}` : ''}
           </span>
-          {series && <ImdbLink imdbId={series.imdbId} variant="text" />}
-        </Stack>
+        )}
         {error && (
           <Typography variant="caption" color="error" display="block">
             {error}
@@ -316,7 +331,15 @@ function EpisodeRow({
           (displayYear ?? '—')
         )}
       </TableCell>
-      <TableCell>{episode.director ?? series?.creator ?? '—'}</TableCell>
+      <TableCell>
+        {episode.director && episode.directorImdbId ? (
+          <ImdbLink imdbId={episode.directorImdbId} kind="name" variant="text">
+            {episode.director}
+          </ImdbLink>
+        ) : (
+          (episode.director ?? series?.creator ?? '—')
+        )}
+      </TableCell>
       <TableCell>{episode.runtimeMinutes ? formatDuration(episode.runtimeMinutes) : '—'}</TableCell>
       <TableCell>
         <TruncatedList items={series?.genre ?? []} />

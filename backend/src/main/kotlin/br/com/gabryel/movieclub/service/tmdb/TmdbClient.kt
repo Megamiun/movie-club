@@ -95,6 +95,7 @@ data class TmdbGenre(
 data class TmdbCrewMember(
     val name: String,
     val job: String,
+    val id: Int? = null,
 )
 
 @Serializable
@@ -156,6 +157,7 @@ data class TmdbMovieDetails(
 ) {
     val year: Int? get() = releaseDate?.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull()
     val director: String? get() = credits?.crew?.firstOrNull { it.job == "Director" }?.name
+    val directorTmdbId: Int? get() = credits?.crew?.firstOrNull { it.job == "Director" }?.id
 
     fun toMetadata(tmdbId: Int, fetchedAt: Instant = Clock.System.now()) = TmdbMovieMetadata(
         tmdbId = tmdbId.toString(),
@@ -228,6 +230,7 @@ data class TmdbEpisodeDetails(
     val crew: List<TmdbCrewMember> = emptyList(),
 ) {
     val director: String? get() = crew.firstOrNull { it.job == "Director" }?.name
+    val directorTmdbId: Int? get() = crew.firstOrNull { it.job == "Director" }?.id
 
     fun toMetadata(fetchedAt: Instant = Clock.System.now()) = TmdbEpisodeMetadata(
         airDate = airDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
@@ -277,6 +280,11 @@ class TmdbClient(private val accessToken: String) {
 
     suspend fun getSeasonDetails(tvId: Int, seasonNumber: Int): TmdbSeasonDetails =
         http.get("$BASE_URL/tv/$tvId/season/$seasonNumber") { authorized() }.body()
+
+    /** Resolves a crew/cast member's TMDB person id to their IMDB id (`nm...`) -- used to link a movie/episode's
+     * director to their IMDB page, since [TmdbCrewMember] itself only carries the person's TMDB id. */
+    suspend fun getPersonExternalIds(personId: Int): TmdbExternalIds =
+        http.get("$BASE_URL/person/$personId/external_ids") { authorized() }.body()
 
     suspend fun searchMovies(query: String): List<TmdbMovieSearchItem> =
         http.get("$BASE_URL/search/movie") {

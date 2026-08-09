@@ -112,6 +112,7 @@ internal fun MovieRow.toResponse() = MovieResponse(
     displayLanguageCode = displayLanguageCode,
     year = year,
     director = director,
+    directorImdbId = directorImdbId,
     runtimeMinutes = runtimeMinutes,
     genre = genre,
     originCountry = originCountry,
