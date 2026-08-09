@@ -159,7 +159,13 @@ function MeetingRows({
       ))}
       {groupEpisodesBySeries(meeting.episodes).map((group) => (
         <Fragment key={group.series?.id ?? group.picks[0].episode.id}>
-          {group.series && <SeriesHeaderRow series={group.series} club={club} memberCount={club.members.length} />}
+          {group.series && (
+            <TableRow>
+              <TableCell colSpan={columnCount} sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
+                {resolveTitle(group.series, club)}
+              </TableCell>
+            </TableRow>
+          )}
           {group.picks.map((pick) => (
             <EpisodeRow key={pick.episode.id} pick={pick} club={club} scales={scales} myMemberId={myMemberId} onChange={onChange} />
           ))}
@@ -181,41 +187,6 @@ function groupEpisodesBySeries(episodes: MeetingEpisodePick[]) {
     bySeriesId.get(key)!.picks.push(pick)
   }
   return order.map((key) => bySeriesId.get(key)!)
-}
-
-function SeriesHeaderRow({
-  series,
-  club,
-  memberCount,
-}: {
-  series: Series
-  club: ClubOutletContext['club']
-  memberCount: number
-}) {
-  return (
-    <TableRow sx={{ '& td': { color: 'text.secondary' } }}>
-      <TableCell>{memberName(club.members, series.chosenById)}</TableCell>
-      <TableCell>
-        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-          <span>{resolveTitle(series, club)}</span>
-          <ImdbLink imdbId={series.imdbId} />
-        </Stack>
-      </TableCell>
-      <TableCell>{series.year ?? '—'}</TableCell>
-      <TableCell>{series.creator ?? '—'}</TableCell>
-      <TableCell>—</TableCell>
-      <TableCell>{series.genre && series.genre.length > 0 ? series.genre.join(', ') : '—'}</TableCell>
-      <TableCell>
-        {series.productionCountries && series.productionCountries.length > 0
-          ? series.productionCountries.join(', ')
-          : '—'}
-      </TableCell>
-      <TableCell>{ratingLabel(series) ?? '—'}</TableCell>
-      {Array.from({ length: memberCount }).map((_, index) => (
-        <TableCell key={index} />
-      ))}
-    </TableRow>
-  )
 }
 
 function MovieRow({
@@ -299,7 +270,7 @@ function EpisodeRow({
   myMemberId: string | null
   onChange: () => void
 }) {
-  const { episode } = pick
+  const { episode, series } = pick
   const [error, setError] = useState<string | null>(null)
 
   const handleSaveRating = async (qualityOptionId?: string, sentimentOptionId?: string) => {
@@ -312,24 +283,35 @@ function EpisodeRow({
     }
   }
 
+  const rating = episode.tmdbRating ? `TMDB ${episode.tmdbRating}` : series ? ratingLabel(series) : null
+
   return (
     <TableRow>
-      <TableCell>—</TableCell>
+      <TableCell>{series ? memberName(club.members, series.chosenById) : '—'}</TableCell>
       <TableCell>
-        Ep. {episode.number}
-        {episode.title ? ` — ${episode.title}` : ''}
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+          <span>
+            Ep. {episode.number}
+            {episode.title ? ` — ${episode.title}` : ''}
+          </span>
+          {series && <ImdbLink imdbId={series.imdbId} />}
+        </Stack>
         {error && (
           <Typography variant="caption" color="error" display="block">
             {error}
           </Typography>
         )}
       </TableCell>
-      <TableCell>{episode.airDate ?? '—'}</TableCell>
-      <TableCell>{episode.director ?? '—'}</TableCell>
+      <TableCell>{episode.airDate ?? series?.year ?? '—'}</TableCell>
+      <TableCell>{episode.director ?? series?.creator ?? '—'}</TableCell>
       <TableCell>{episode.runtimeMinutes ? `${episode.runtimeMinutes}min` : '—'}</TableCell>
-      <TableCell>—</TableCell>
-      <TableCell>—</TableCell>
-      <TableCell>{episode.tmdbRating ? `TMDB ${episode.tmdbRating}` : '—'}</TableCell>
+      <TableCell>{series?.genre && series.genre.length > 0 ? series.genre.join(', ') : '—'}</TableCell>
+      <TableCell>
+        {series?.productionCountries && series.productionCountries.length > 0
+          ? series.productionCountries.join(', ')
+          : '—'}
+      </TableCell>
+      <TableCell>{rating ?? '—'}</TableCell>
       {club.members.map((clubMember) => {
         const review = pick.reviews.find((r) => r.memberId === clubMember.memberId)
         return (
