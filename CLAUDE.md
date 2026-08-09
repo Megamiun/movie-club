@@ -76,6 +76,20 @@ enforces those automatically. This section is for conventions ktlint can't check
   sends this PATCH immediately after every add/remove/reorder (no batching "Save" button) — same immediate-call,
   revert-local-state-on-error pattern already used by the member-color editor, applied here via a shared `persist`
   helper since one PATCH always carries both lists together
+  - An entry may be a bare language ("pt") or region-qualified ("pt-BR" vs "pt-PT") — `resolveTitle`
+    (`frontend/src/utils/title.ts`) matches a bare entry against any region of that language, a region-qualified one
+    against that specific `Translation.countryCode`. The add-language input (both lists share one
+    `LanguageCodeAutocomplete`) suggests from a static ISO 639-1 code list and validates on submit via
+    `frontend/src/utils/language.ts`'s `isValidLanguageCode`/`languageName` (built on `Intl.DisplayNames`, same
+    approach `utils/country.ts` already used for country names) — an unrecognized code shows an inline error
+    instead of silently doing nothing, and never reaches `persist`
+  - `persist`'s two `setState` calls (one per list) are wrapped in `flushSync` (`react-dom`) — found and fixed
+    live during this feature's own testing: without it, nothing guaranteed the updater callbacks that compute
+    `nextPreferred`/`nextIgnored` actually ran before those variables were read a few lines later to build the PATCH
+    body, and in practice they didn't, so *every* add/remove/reorder was silently sending `[]`/`[]` and wiping both
+    lists. `RotationSection.move` (below) has the same closure-capture shape for the same stated reason and was
+    hardened with `flushSync` too, even though it wasn't independently observed to fail — same risk, once the first
+    instance turned out to be real rather than just a defensive comment
 
 ### Member
 
@@ -136,6 +150,32 @@ enforces those automatically. This section is for conventions ktlint can't check
   (no "IMDB"/"TMDB" prefix, just the bare number, e.g. `8.7`) since there's only ever one possible source. A row
   added before OMDb was wired in, or where OMDb had no match, simply shows no rating
 
+### Person
+
+- A director (Movie/Episode) or creator (Series), normalized into its own table instead of stored inline —
+  `name`, `imdb_id` (nullable, unique when set), `tmdb_id` (nullable, unique when set). `PersonRepository` (interface/
+  dto/exposed split, same as every other domain) exposes a single `findOrCreate`, mirroring `MediaItemRepository`'s
+  find-or-create-by-id pattern
+- Deduplication prefers `tmdb_id` over `imdb_id` — TMDB's credits/`created_by` payload always includes a person's
+  TMDB id up front, before the separate best-effort IMDB-id lookup even runs (see below), so a person gets one row
+  from the very first reference instead of a fresh row every time a refresh runs ahead of that lookup resolving
+- `Movies`/`Episodes` carry `director_person_id`; `Series` carries `creator_person_id` — both nullable FKs onto
+  `people`, replacing what used to be inline `director`/`director_imdb_id`/`creator` text columns on each of those
+  tables. `MovieRow.director`/`directorImdbId`, `EpisodeRow.director`/`directorImdbId`, and `SeriesRow.creator` are
+  unchanged as externally-visible fields — each `Exposed*Repository` left-joins `People` to reconstruct them at read
+  time, so this is purely an internal storage change; no API or frontend change came with it
+- Director resolution (Movie/Episode) still does the same best-effort `TmdbClient.getPersonExternalIds` round trip
+  as before to fill in `imdb_id` — that failure mode is unchanged, it just now feeds `PersonRepository.findOrCreate`
+  instead of writing straight to a `director_imdb_id` column. Creator resolution (Series) does *not* do this lookup
+  yet — nothing reads a creator's IMDB id today, so the extra TMDB call wasn't added; TMDB's `created_by` entries
+  already carry each creator's own TMDB person id for free (`TmdbCreator.id`, previously uncaptured), which is
+  enough on its own to dedupe correctly. A later pass can add the IMDB lookup the same way director resolution
+  already works
+- Bulk season/episode import (`SeriesService.importSeasonsAndEpisodes`) also resolves each episode's
+  `director_person_id`, since the same bulk `/tv/{id}/season/{n}` response already includes per-episode crew — but,
+  like the rest of that bulk path, skips the extra per-person IMDB lookup to avoid one TMDB call per episode. A full
+  `EpisodeService.refreshMetadata` still resolves the IMDB id later, same as before this change
+
 ### Movie
 
 - Split into a **global catalog row** (deduplicated by `imdb_id`, shared by every club that picks the same real movie)
@@ -159,7 +199,9 @@ enforces those automatically. This section is for conventions ktlint can't check
   (`TmdbClient.getPersonExternalIds`); like the OMDb rating lookup, a failure here (rate limit, no linked IMDB page)
   never blocks adding/refreshing the movie itself, it just leaves `director_imdb_id` null. Used to link the
   director's name to their own IMDB page, separate from the movie's own `imdb_id`/`ImdbLink`
-  (`kind="name"` vs the default `kind="title"`)
+  (`kind="name"` vs the default `kind="title"`). `director`/`director_imdb_id` are the catalog row's externally-visible
+  shape only — see Person above for how they're actually stored (a normalized `people` row via `director_person_id`,
+  not inline columns)
   `display_title_preference` (ORIGINAL|CUSTOM|LANGUAGE, default ORIGINAL) lives on the pick row, alongside
   `display_language_code` (set only when preference is LANGUAGE — a language icon on the movie/series detail view
   opens a dialog listing that item's `translations` to pick from). Resolving ORIGINAL/CUSTOM/LANGUAGE into an actual
@@ -207,7 +249,8 @@ enforces those automatically. This section is for conventions ktlint can't check
   rating. This is the opposite of Movie's per-pick reviews, deliberately: Movie supports rewatch-and-re-review,
   Series/Season/Episode assume a linear, watched-once progression
 - Series cached TMDB metadata: `original_title`, `original_language`, `translations`, year, genre, `origin_country`,
-  `production_countries`, IMDB rating (via OMDb, see MediaItem above), creator, poster,
+  `production_countries`, IMDB rating (via OMDb, see MediaItem above), creator (a normalized `people` row via
+  `creator_person_id`, see Person above — no IMDB-id resolution for it yet, unlike director), poster,
   `metadata_fetched_at` — no director/runtime (those are per-episode, not per-series). Same `translations`/
   `display_title_preference`/`display_language_code`/client-side resolution as Movie (see above) — `ClubSeries` has
   its own `display_language_code` column, separate from `MeetingMovies`'
@@ -220,8 +263,9 @@ enforces those automatically. This section is for conventions ktlint can't check
   is idempotent and re-runnable, but nothing called it again automatically. `POST /series/{seriesId}/import-seasons`
   exposes it directly (a "Refresh seasons/episodes" button on `SeriesDetailPage`) as the recovery path — re-running
   only fills in what's missing, never duplicates what's already there
-- Episode cached TMDB metadata: `air_date`, `overview`, `runtime`, director, `director_imdb_id` (same best-effort
-  TMDB-person-id → IMDB-id resolution as Movie, see above), `imdb_id` (the episode's own, from TMDB's per-episode
+- Episode cached TMDB metadata: `air_date`, `overview`, `runtime`, director, `director_imdb_id` (a normalized
+  `people` row via `director_person_id`, see Person above, resolved the same best-effort TMDB-person-id → IMDB-id
+  way as Movie), `imdb_id` (the episode's own, from TMDB's per-episode
   `external_ids` — requested via `append_to_response` on the same call as the rest of an episode's metadata, unlike
   `director_imdb_id` which needs its own separate `/person/{id}/external_ids` round trip), `metadata_fetched_at`, and
   now also its own `imdb_rating` — fetched from OMDb (see MediaItem above) using the episode's own `imdb_id` the
@@ -370,7 +414,8 @@ enforces those automatically. This section is for conventions ktlint can't check
   state through React's functional `setState` updater form rather than a closed-over variable — two rapid actions
   (e.g. clicking "move up" twice, or removing two chips) can both fire from the same render before React
   re-renders in between, and a plain closure read in that window would have the second action compute from the
-  same stale array the first one saw, silently dropping whichever save resolves last
+  same stale array the first one saw, silently dropping whichever save resolves last. Both wrap their `setState`
+  call(s) in `flushSync` (`react-dom`) for the same reason — see Club above for the concrete bug this caught
 - No separate Turn/Slot entity; Meeting is the primary scheduling unit
 - The Meetings page groups meetings into year tabs (client-side, derived from each `Meeting.date` — no `year` field
   or endpoint of its own), matching how the schedule itself is generated a year at a time. Sorted newest-first
@@ -379,6 +424,14 @@ enforces those automatically. This section is for conventions ktlint can't check
   meeting dated today-or-later into view (`block: 'center'`) — the latest meeting instead if every meeting that
   year is already in the past. Scrolls once per year selection (a `useRef` guard, not a data-driven effect), so the
   5-second background poll refreshing meeting data doesn't keep re-scrolling the page out from under the reader
+- Two icon toggles (`MovieIcon`/`LiveTvIcon`) next to the Meetings page heading show/hide movie picks and episode
+  picks independently — there's no separate "series" row to toggle on its own (a meeting only ever has movie picks
+  and episode picks; a series' own name is just a grouping label shown above its episodes), so the "series" toggle
+  maps to `meeting.episodes`. Both default on. Personal display preference, `localStorage`-persisted like
+  `RatingDisplayContext` but plain component state (`MeetingsPage`'s own `MEETING_TYPE_FILTERS_KEY`) rather than a
+  shared context, since nothing outside this page needs it. A meeting whose only picks are all currently filtered
+  out still shows its date/assigned-member header row ("Hidden by filters" instead of "Nothing picked yet") rather
+  than disappearing, so the list doesn't jump around as filters are toggled
 
 ### Key scenarios
 

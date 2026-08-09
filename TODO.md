@@ -106,7 +106,11 @@
 - [x] Director should also link to imdb director page
   - [x] Also save them to DB, get from tmdb, save imdb id
   - `director_imdb_id` column on `movies`/`episodes` (V19 migration), resolved best-effort from the credited director's TMDB person id via `/person/{id}/external_ids` (never blocks add/refresh on failure, same as the OMDb rating lookup). `ImdbLink` gained a `kind: 'title' | 'name'` prop for linking to a person's IMDB page instead of a title's. Meetings list only for now, existing picks need a metadata refresh to backfill (best-effort field, not retroactively populated)
-  - [ ] Show also for episodes
+  - [x] Show also for episodes
+    - Already shipped alongside the movie version, in the same commit (`c4d0648`) -- `MeetingsPage.tsx`'s episode row
+      already links `episode.director` through `episode.directorImdbId` the same way the movie row does. This
+      checkbox was just stale; found unchecked while scoping the People-table normalization below, no code change
+      needed
 - [x] Make the meetings view anual
   - Tabs, one per year with at least one meeting, defaulting to the current calendar year (falling back to the most recent year with meetings if the current year has none yet). Creating a new meeting switches to its year's tab. Newest year sorts leftmost (per follow-up feedback)
 - [x] Give 1 different Columns per person with their ratings
@@ -179,10 +183,56 @@
         list. `useSeasonNumbers` now resolves both per distinct `seasonId`; `episodeCode()` pads each half to its
         width, falling back to unpadded while still loading. Verified live: a 130-episode season renders
         `S0E001`..`S0E130` correctly (season stays unpadded since the series itself only has single-digit seasons)
-- [ ] Director should be in it`s own normalized table(People probably), and episodes, series and so on, should point to it
-- [ ] Validate/Suggest languages
-  - [ ] Languages can be just language or have a country, such as pt or pt-BR or pt-PT
-- [ ] Add icons to the top to show series or episodes, show movies by default, allow for user to turn off or on any
+- [x] Director should be in it`s own normalized table(People probably), and episodes, series and so on, should point to it
+  - New `people` table (`name`, `imdb_id` unique-when-set, `tmdb_id` unique-when-set), `PersonRepository`
+    (interface/dto/exposed split, same as every other domain) with a single `findOrCreate` -- mirrors
+    `MediaItemRepository`'s find-or-create-by-id pattern. `movies`/`episodes` now carry `director_person_id`,
+    `series` carries `creator_person_id`, replacing the old inline `director`/`director_imdb_id`/`creator` text
+    columns (V26 migration, with a name/imdb_id-deduped backfill of existing data -- early-stage dev data, so the
+    no-tmdb-id-yet fallback dedup-by-name is an accepted approximation, same tradeoff V12's MediaItem backfill made)
+  - Dedup key is the TMDB person id first (always known from `credits`/`created_by`, before the separate best-effort
+    IMDB-id lookup even runs), falling back to the IMDB id alone if no TMDB id was given -- so a person still gets
+    one row even before their IMDB id resolves, instead of a fresh row per refresh
+  - `MovieRow.director`/`directorImdbId`, `EpisodeRow.director`/`directorImdbId`, `SeriesRow.creator` -- the
+    externally-visible field names/shapes -- are unchanged; each `Exposed*Repository` now left-joins `People` to
+    reconstruct them at read time instead of storing them inline. Zero API/frontend changes as a result
+  - Series creator gets a `creator_person_id` too, but (deliberately, to avoid scope creep) no IMDB-id resolution
+    for creators yet -- nothing reads a creator's IMDB id today, so the extra best-effort TMDB-person-external-ids
+    round trip wasn't added; TMDB's `created_by` payload already includes each creator's own TMDB person id
+    (`TmdbCreator.id`, previously uncaptured) for free, which is enough to dedupe correctly. A later pass can add
+    the IMDB lookup the same way director resolution already works
+  - Bulk season/episode import (`SeriesService.importSeasonsAndEpisodes`) also resolves each episode's
+    `director_person_id` from the same bulk `/tv/{id}/season/{n}` response (which already includes per-episode
+    crew) -- but, like the rest of that bulk path, skips the extra per-person IMDB lookup to avoid an API call per
+    episode; a full `EpisodeService.refreshMetadata` still resolves the IMDB id later, same as before this change
+- [x] Validate/Suggest languages
+  - [x] Languages can be just language or have a country, such as pt or pt-BR or pt-PT
+  - New `frontend/src/utils/language.ts` (`isValidLanguageCode`/`languageName`/`normalizeLanguageCode`, built on
+    `Intl.DisplayNames` the same way `utils/country.ts` already does for country names) accepts both a bare ISO
+    639-1 code and a region-qualified one (`pt-BR`/`pt-PT`), rejecting anything `Intl` doesn't recognize with an
+    inline error instead of silently no-opping. `LanguageCodeAutocomplete` (shared by both the preferred and
+    ignored add-forms in `LanguagePreferencesSection`) suggests from a static ISO 639-1 list, matching on code or
+    English name, free-solo so a region-qualified code can still be typed directly. `resolveTitle` updated to
+    match a region-qualified preference against a `Translation`'s own `countryCode`, so `pt-BR` actually behaves
+    differently from `pt` instead of just being accepted and silently never matching
+  - Found and fixed a real, pre-existing bug while testing this live: `LanguagePreferencesSection.persist`'s two
+    `setState` calls needed `flushSync` (`react-dom`) -- without it, every single add/remove/reorder was silently
+    sending `[]`/`[]` to the backend, wiping both lists (confirmed by intercepting the actual PATCH body; not
+    theoretical). `RotationSection.move` has the identical closure-capture pattern for the same documented reason
+    and got the same `flushSync` fix as a precaution, even though it wasn't independently observed to fail
+- [x] Add icons to the top to show series or episodes, show movies by default, allow for user to turn off or on any
+  - Two independent icon toggles (`MovieIcon`/`LiveTvIcon`) next to the Meetings page heading, alongside the
+    existing rating-display Tune button. There's no separate "series-only" row to hide independently from
+    episodes (a meeting only ever has movie picks and episode picks; the series name is just a grouping label
+    above its episodes -- see `PickDragPayload.kind: 'movie' | 'episode'`), so "series" in the UI maps to hiding
+    `meeting.episodes` (and, as a consequence, the series grouping headers that have nothing left to group). Both
+    default on, matching "movies by default" while not needlessly hiding series either -- the ask was for a way to
+    turn types off, not for series to start hidden. Persisted to `localStorage`
+    (`frontend/src/pages/MeetingsPage.tsx`'s `MEETING_TYPE_FILTERS_KEY`) as a personal display preference, same
+    tier as `RatingDisplayContext`, but plain component state rather than a shared context since nothing outside
+    this page needs it. A meeting with real picks that are all currently filtered out still shows its date/
+    assigned-member header row (with "Hidden by filters" instead of "Nothing picked yet"), rather than vanishing
+    outright -- keeps the list from jumping around as filters are toggled
 
 # Stretch goals (only start after asked)
 - [ ] Use rectangular (flat) country flags instead of the wavy emoji ones
