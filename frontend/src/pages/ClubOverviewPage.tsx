@@ -40,11 +40,11 @@ import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { memberName } from '../utils/members'
 
 export function ClubOverviewPage() {
-  const { club, reload } = useOutletContext<ClubOutletContext>()
+  const { club, reload, silentReload } = useOutletContext<ClubOutletContext>()
 
   return (
     <Stack spacing={4}>
-      <MembersSection club={club} refresh={reload} />
+      <MembersSection club={club} refresh={reload} refreshColor={silentReload} />
       <RotationSection club={club} />
       <RatingScalesSection clubId={club.id} />
       <LanguagePreferencesSection club={club} />
@@ -52,7 +52,15 @@ export function ClubOverviewPage() {
   )
 }
 
-function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => void }) {
+function MembersSection({
+  club,
+  refresh,
+  refreshColor,
+}: {
+  club: ClubDetail
+  refresh: () => void
+  refreshColor: () => void
+}) {
   const { member: me } = useAuth()
   const myMembership = club.members.find((m) => m.memberId === me?.id)
   const isAdmin = myMembership?.role === 'ADMIN'
@@ -134,7 +142,7 @@ function MembersSection({ club, refresh }: { club: ClubDetail; refresh: () => vo
                     clubId={club.id}
                     member={m}
                     editable={isAdmin || m.memberId === me?.id}
-                    onChange={refresh}
+                    onChange={refreshColor}
                   />
                 </TableCell>
                 <TableCell>{m.name}</TableCell>

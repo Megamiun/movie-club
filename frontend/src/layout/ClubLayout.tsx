@@ -17,7 +17,7 @@ const TABS = [
 export function ClubLayout() {
   const { clubId } = useParams<{ clubId: string }>()
   const location = useLocation()
-  const { data: club, loading, error, reload } = useAsync(() => clubsApi.get(clubId!), [clubId])
+  const { data: club, loading, error, reload, silentReload } = useAsync(() => clubsApi.get(clubId!), [clubId])
 
   const activeTab = useMemo(() => {
     const suffix = location.pathname.split(`/clubs/${clubId}/`)[1] ?? ''
@@ -42,7 +42,7 @@ export function ClubLayout() {
             />
           ))}
         </Tabs>
-        <Outlet context={{ club, reload }} />
+        <Outlet context={{ club, reload, silentReload }} />
       </AsyncState>
     </Box>
   )

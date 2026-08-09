@@ -301,7 +301,11 @@ enforces those automatically. This section is for conventions ktlint can't check
   (`ClubService.deleteRatingOption` fans out to `reassignRatingOption` on `MovieRepository`/`SeriesRepository`/
   `SeasonRepository`/`EpisodeRepository` before deleting the option row itself — repositories still don't depend on
   each other, so this cross-entity composition lives in the service, same as `SeriesService`'s own multi-repository
-  work) — the last remaining option in a scale can't be deleted, since there'd be nothing to reassign to
+  work) — the last remaining option in a scale can't be deleted, since there'd be nothing to reassign to. After
+  deleting, the survivors' `position` values are immediately renumbered to stay contiguous `0..N-1` — every other
+  consumer of `position` (rank display in `InlineRatingEditor`'s `rankOf`, `createRatingOption`'s
+  next-position-is-`size` calculation) assumes no gaps, so this can't be deferred to "whenever the next reorder
+  happens to fix it"
 - Every place a user picks a color by hand (a rating option's color, a new option's initial color, a member's own
   color) uses a shared `PastelColorPicker` (`frontend/src/components/PastelColorPicker.tsx`) instead of a native
   `<input type="color">` — a hue-only slider at a fixed pastel saturation/lightness (`frontend/src/utils/
@@ -334,7 +338,11 @@ enforces those automatically. This section is for conventions ktlint can't check
   `MeetingsPage` uses it both as the `onChange` passed down into every pick row (so any mutation — a rating save,
   a delete, a drag-and-drop move — patches state in place) and on a 5-second `setInterval`, so other members'
   concurrent changes show up without a manual refresh. A failed background poll is silently dropped rather than
-  surfaced, since whatever's already on screen is still valid
+  surfaced, since whatever's already on screen is still valid. `ClubOutletContext` (the club-detail fetch every
+  club-scoped page shares) exposes the same `silentReload` alongside `reload` — `ClubOverviewPage`'s member-color
+  editor uses it specifically (a per-drag-commit save that shouldn't flash the entire Overview page — tabs, every
+  other section — back to a spinner), while genuinely structural member changes (add/remove/role-change) still use
+  the full `reload`, since those actually add/remove table rows
 - Light/dark theme: `theme.ts` already declared `colorSchemes: { light: true, dark: true }` (MUI's CSS-vars mode)
   plus `defaultColorScheme: 'light'` so a fresh visitor always starts light rather than following OS preference. A
   sun/moon `IconButton` in `AppLayout`'s nav bar calls MUI's own `useColorScheme().setMode(...)`, toggling directly

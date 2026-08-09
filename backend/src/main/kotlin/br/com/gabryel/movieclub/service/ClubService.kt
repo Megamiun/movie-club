@@ -246,6 +246,15 @@ class ClubService(
         seasonRepository.reassignRatingOption(optionId, reassignToOptionId)
         episodeRepository.reassignRatingOption(optionId, reassignToOptionId)
         ratingScaleRepository.deleteOption(optionId)
+
+        // Every other consumer of `position` (rank display, createOption's next-position calculation) assumes
+        // it's contiguous 0..N-1 -- deleting one option leaves a gap that must be closed immediately, not left for
+        // the next reorder to happen to fix.
+        ratingScaleRepository.findOptions(option.scaleId)
+            .sortedBy { it.position }
+            .forEachIndexed { index, remaining ->
+                if (remaining.position != index) ratingScaleRepository.updateOptionPosition(remaining.id, index)
+            }
     }
 
     private fun requireClubOption(clubId: Uuid, optionId: Uuid): RatingOptionRow {

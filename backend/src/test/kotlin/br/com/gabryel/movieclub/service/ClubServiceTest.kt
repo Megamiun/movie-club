@@ -341,16 +341,26 @@ class ClubServiceTest {
         val optionId = Uuid.random()
         val reassignToId = Uuid.random()
         every { clubRepository.findMembership(clubId, memberId) } returns membership(role = ADMIN)
-        every { ratingScaleRepository.findOptionById(optionId) } returns ratingOption(optionId, scaleId)
-        every { ratingScaleRepository.findOptionById(reassignToId) } returns ratingOption(reassignToId, scaleId)
+        every { ratingScaleRepository.findOptionById(optionId) } returns ratingOption(optionId, scaleId, position = 0)
+        every {
+            ratingScaleRepository.findOptionById(reassignToId)
+        } returns ratingOption(reassignToId, scaleId, position = 1)
         every { ratingScaleRepository.findScales(clubId) } returns listOf(RatingScaleRow(scaleId, clubId, QUALITY))
-        every { ratingScaleRepository.findOptions(scaleId) } returns
-            listOf(ratingOption(optionId, scaleId), ratingOption(reassignToId, scaleId))
+        every { ratingScaleRepository.findOptions(scaleId) } returnsMany listOf(
+            // Before delete: both options still present (checked by the "not the last option" guard).
+            listOf(ratingOption(optionId, scaleId, position = 0), ratingOption(reassignToId, scaleId, position = 1)),
+            // After delete: only the survivor remains, still at its old position -- must be renumbered to 0 so
+            // `position` stays contiguous (rankOf in InlineRatingEditor assumes 0..N-1, no gaps).
+            listOf(ratingOption(reassignToId, scaleId, position = 1)),
+        )
         every { movieRepository.reassignRatingOption(optionId, reassignToId) } returns Unit
         every { seriesRepository.reassignRatingOption(optionId, reassignToId) } returns Unit
         every { seasonRepository.reassignRatingOption(optionId, reassignToId) } returns Unit
         every { episodeRepository.reassignRatingOption(optionId, reassignToId) } returns Unit
         every { ratingScaleRepository.deleteOption(optionId) } returns Unit
+        every {
+            ratingScaleRepository.updateOptionPosition(reassignToId, 0)
+        } returns ratingOption(reassignToId, scaleId, position = 0)
 
         clubService.deleteRatingOption(clubId, memberId, optionId, reassignToId)
 
@@ -359,6 +369,7 @@ class ClubServiceTest {
         verify { seasonRepository.reassignRatingOption(optionId, reassignToId) }
         verify { episodeRepository.reassignRatingOption(optionId, reassignToId) }
         verify { ratingScaleRepository.deleteOption(optionId) }
+        verify { ratingScaleRepository.updateOptionPosition(reassignToId, 0) }
     }
 
     @Test
