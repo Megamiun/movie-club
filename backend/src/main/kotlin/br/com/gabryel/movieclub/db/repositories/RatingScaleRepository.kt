@@ -23,4 +23,6 @@ interface RatingScaleRepository {
     fun updateOption(id: Uuid, label: String, color: String): RatingOptionRow
 
     fun updateOptionPosition(id: Uuid, position: Int): RatingOptionRow
+
+    fun deleteOption(id: Uuid)
 }

@@ -4,9 +4,14 @@ import br.com.gabryel.movieclub.db.ClubRole
 import br.com.gabryel.movieclub.db.ClubRole.ADMIN
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
+import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.ClubRepository
+import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MemberRepository
+import br.com.gabryel.movieclub.db.repositories.MovieRepository
 import br.com.gabryel.movieclub.db.repositories.RatingScaleRepository
+import br.com.gabryel.movieclub.db.repositories.SeasonRepository
+import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.ClubRow
 import br.com.gabryel.movieclub.db.repositories.dto.RatingOptionRow
@@ -28,7 +33,19 @@ class ClubServiceTest {
     private val clubRepository = mockk<ClubRepository>()
     private val ratingScaleRepository = mockk<RatingScaleRepository>()
     private val memberRepository = mockk<MemberRepository>()
-    private val clubService = ClubService(clubRepository, ratingScaleRepository, memberRepository)
+    private val movieRepository = mockk<MovieRepository>()
+    private val seriesRepository = mockk<SeriesRepository>()
+    private val seasonRepository = mockk<SeasonRepository>()
+    private val episodeRepository = mockk<EpisodeRepository>()
+    private val clubService = ClubService(
+        clubRepository,
+        ratingScaleRepository,
+        memberRepository,
+        movieRepository,
+        seriesRepository,
+        seasonRepository,
+        episodeRepository,
+    )
 
     private val clubId = Uuid.random()
     private val memberId = Uuid.random()
@@ -292,6 +309,103 @@ class ClubServiceTest {
 
         verify { ratingScaleRepository.updateOptionPosition(optionB, 0) }
         verify { ratingScaleRepository.updateOptionPosition(optionA, 1) }
+    }
+
+    @Test
+    fun `createRatingOption appends at the end of the scale`() {
+        val scaleId = Uuid.random()
+        val newOption = ratingOption(Uuid.random(), scaleId, label = "New option", position = 2)
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = ADMIN)
+        every { ratingScaleRepository.findScales(clubId) } returns listOf(RatingScaleRow(scaleId, clubId, QUALITY))
+        every { ratingScaleRepository.findOptions(scaleId) } returns
+            listOf(ratingOption(Uuid.random(), scaleId, position = 0), ratingOption(Uuid.random(), scaleId, position = 1))
+        every { ratingScaleRepository.createOption(scaleId, "New option", 2, "#333333") } returns newOption
+
+        val result = clubService.createRatingOption(clubId, memberId, scaleId, "New option", "#333333")
+
+        assertEquals(newOption, result)
+    }
+
+    @Test
+    fun `createRatingOption throws ForbiddenException when acting member is not admin`() {
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = MEMBER)
+
+        assertFailsWith<ForbiddenException> {
+            clubService.createRatingOption(clubId, memberId, Uuid.random(), "New option", "#333333")
+        }
+    }
+
+    @Test
+    fun `deleteRatingOption reassigns reviews across every entity type before deleting`() {
+        val scaleId = Uuid.random()
+        val optionId = Uuid.random()
+        val reassignToId = Uuid.random()
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = ADMIN)
+        every { ratingScaleRepository.findOptionById(optionId) } returns ratingOption(optionId, scaleId)
+        every { ratingScaleRepository.findOptionById(reassignToId) } returns ratingOption(reassignToId, scaleId)
+        every { ratingScaleRepository.findScales(clubId) } returns listOf(RatingScaleRow(scaleId, clubId, QUALITY))
+        every { ratingScaleRepository.findOptions(scaleId) } returns
+            listOf(ratingOption(optionId, scaleId), ratingOption(reassignToId, scaleId))
+        every { movieRepository.reassignRatingOption(optionId, reassignToId) } returns Unit
+        every { seriesRepository.reassignRatingOption(optionId, reassignToId) } returns Unit
+        every { seasonRepository.reassignRatingOption(optionId, reassignToId) } returns Unit
+        every { episodeRepository.reassignRatingOption(optionId, reassignToId) } returns Unit
+        every { ratingScaleRepository.deleteOption(optionId) } returns Unit
+
+        clubService.deleteRatingOption(clubId, memberId, optionId, reassignToId)
+
+        verify { movieRepository.reassignRatingOption(optionId, reassignToId) }
+        verify { seriesRepository.reassignRatingOption(optionId, reassignToId) }
+        verify { seasonRepository.reassignRatingOption(optionId, reassignToId) }
+        verify { episodeRepository.reassignRatingOption(optionId, reassignToId) }
+        verify { ratingScaleRepository.deleteOption(optionId) }
+    }
+
+    @Test
+    fun `deleteRatingOption throws BadRequestException when it is the last option in the scale`() {
+        val scaleId = Uuid.random()
+        val optionId = Uuid.random()
+        val reassignToId = Uuid.random()
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = ADMIN)
+        every { ratingScaleRepository.findOptionById(optionId) } returns ratingOption(optionId, scaleId)
+        every { ratingScaleRepository.findOptionById(reassignToId) } returns ratingOption(reassignToId, scaleId)
+        every { ratingScaleRepository.findScales(clubId) } returns listOf(RatingScaleRow(scaleId, clubId, QUALITY))
+        every { ratingScaleRepository.findOptions(scaleId) } returns listOf(ratingOption(optionId, scaleId))
+
+        assertFailsWith<BadRequestException> {
+            clubService.deleteRatingOption(clubId, memberId, optionId, reassignToId)
+        }
+        verify(exactly = 0) { ratingScaleRepository.deleteOption(any()) }
+    }
+
+    @Test
+    fun `deleteRatingOption throws BadRequestException when reassigning to itself`() {
+        val scaleId = Uuid.random()
+        val optionId = Uuid.random()
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = ADMIN)
+        every { ratingScaleRepository.findOptionById(optionId) } returns ratingOption(optionId, scaleId)
+        every { ratingScaleRepository.findScales(clubId) } returns listOf(RatingScaleRow(scaleId, clubId, QUALITY))
+
+        assertFailsWith<BadRequestException> {
+            clubService.deleteRatingOption(clubId, memberId, optionId, optionId)
+        }
+    }
+
+    @Test
+    fun `deleteRatingOption throws BadRequestException when reassignment target is from a different scale`() {
+        val scaleId = Uuid.random()
+        val otherScaleId = Uuid.random()
+        val optionId = Uuid.random()
+        val reassignToId = Uuid.random()
+        every { clubRepository.findMembership(clubId, memberId) } returns membership(role = ADMIN)
+        every { ratingScaleRepository.findOptionById(optionId) } returns ratingOption(optionId, scaleId)
+        every { ratingScaleRepository.findOptionById(reassignToId) } returns ratingOption(reassignToId, otherScaleId)
+        every { ratingScaleRepository.findScales(clubId) } returns
+            listOf(RatingScaleRow(scaleId, clubId, QUALITY), RatingScaleRow(otherScaleId, clubId, SENTIMENT))
+
+        assertFailsWith<BadRequestException> {
+            clubService.deleteRatingOption(clubId, memberId, optionId, reassignToId)
+        }
     }
 
     private fun clubRow() = ClubRow(clubId, "Movie Club", createdAt = Clock.System.now())

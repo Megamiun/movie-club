@@ -1,3 +1,4 @@
+import AddIcon from '@mui/icons-material/Add'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -6,6 +7,10 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   MenuItem,
   Paper,
@@ -320,6 +325,8 @@ function RatingScaleCard({
 }) {
   const sortedOptions = [...scale.options].sort((a, b) => a.position - b.position)
   const [error, setError] = useState<string | null>(null)
+  const [newLabel, setNewLabel] = useState('')
+  const [newColor, setNewColor] = useState('#9e9e9e')
 
   const handleMove = async (index: number, direction: -1 | 1) => {
     const target = index + direction
@@ -333,6 +340,18 @@ function RatingScaleCard({
         scale.id,
         reordered.map((o) => o.id),
       )
+      onChange()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  const handleAdd = async (event: FormEvent) => {
+    event.preventDefault()
+    setError(null)
+    try {
+      await clubsApi.createRatingOption(clubId, scale.id, newLabel, newColor)
+      setNewLabel('')
       onChange()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -355,13 +374,37 @@ function RatingScaleCard({
             key={option.id}
             clubId={clubId}
             option={option}
+            otherOptions={sortedOptions.filter((o) => o.id !== option.id)}
             canMoveUp={index > 0}
             canMoveDown={index < sortedOptions.length - 1}
+            canDelete={sortedOptions.length > 1}
             onMove={(direction) => handleMove(index, direction)}
             onChange={onChange}
           />
         ))}
       </Stack>
+      <Box component="form" onSubmit={handleAdd} sx={{ mt: 1.5 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Box
+            component="input"
+            type="color"
+            value={newColor}
+            onChange={(e) => setNewColor(e.target.value)}
+            sx={{ width: 32, height: 32, border: 'none', p: 0, background: 'none', cursor: 'pointer' }}
+          />
+          <TextField
+            size="small"
+            variant="standard"
+            placeholder="New option"
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            sx={{ flexGrow: 1 }}
+          />
+          <IconButton size="small" type="submit" disabled={!newLabel.trim()} title="Add option">
+            <AddIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+      </Box>
     </Paper>
   )
 }
@@ -527,21 +570,26 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
 function RatingOptionEditor({
   clubId,
   option,
+  otherOptions,
   canMoveUp,
   canMoveDown,
+  canDelete,
   onMove,
   onChange,
 }: {
   clubId: string
   option: RatingOption
+  otherOptions: RatingOption[]
   canMoveUp: boolean
   canMoveDown: boolean
+  canDelete: boolean
   onMove: (direction: -1 | 1) => void
   onChange: () => void
 }) {
   const [label, setLabel] = useState(option.label)
   const [color, setColor] = useState(option.color)
   const [error, setError] = useState<string | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const handleBlurSave = async () => {
     if (label === option.label && color === option.color) return
@@ -578,7 +626,76 @@ function RatingOptionEditor({
       <IconButton size="small" onClick={() => onMove(1)} disabled={!canMoveDown}>
         <ArrowDownwardIcon fontSize="small" />
       </IconButton>
+      <IconButton size="small" onClick={() => setDeleteOpen(true)} disabled={!canDelete} title="Delete option">
+        <DeleteIcon fontSize="small" />
+      </IconButton>
       {error && <Alert severity="error">{error}</Alert>}
+      {deleteOpen && (
+        <DeleteRatingOptionDialog
+          clubId={clubId}
+          option={option}
+          otherOptions={otherOptions}
+          onClose={() => setDeleteOpen(false)}
+          onDeleted={onChange}
+        />
+      )}
     </Stack>
+  )
+}
+
+function DeleteRatingOptionDialog({
+  clubId,
+  option,
+  otherOptions,
+  onClose,
+  onDeleted,
+}: {
+  clubId: string
+  option: RatingOption
+  otherOptions: RatingOption[]
+  onClose: () => void
+  onDeleted: () => void
+}) {
+  const [reassignTo, setReassignTo] = useState(otherOptions[0]?.id ?? '')
+  const [error, setError] = useState<string | null>(null)
+
+  const handleConfirm = async () => {
+    setError(null)
+    try {
+      await clubsApi.deleteRatingOption(clubId, option.id, reassignTo)
+      onDeleted()
+      onClose()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  return (
+    <Dialog open onClose={onClose}>
+      <DialogTitle>Delete &ldquo;{option.label}&rdquo;?</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Any existing rating using this option will be moved to the option you pick below.
+        </Typography>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        <Select size="small" fullWidth value={reassignTo} onChange={(e) => setReassignTo(e.target.value)}>
+          {otherOptions.map((o) => (
+            <MenuItem key={o.id} value={o.id}>
+              {o.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button color="error" onClick={handleConfirm} disabled={!reassignTo}>
+          Delete
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }

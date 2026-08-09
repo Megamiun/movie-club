@@ -32,4 +32,12 @@ export const clubsApi = {
 
   updateRatingOptionOrder: (clubId: string, scaleId: string, optionIds: string[]) =>
     api.put<void>(`/clubs/${clubId}/rating-scales/${scaleId}/order`, { optionIds }),
+
+  createRatingOption: (clubId: string, scaleId: string, label: string, color: string) =>
+    api.post<RatingOption>(`/clubs/${clubId}/rating-scales/${scaleId}/options`, { label, color }),
+
+  deleteRatingOption: (clubId: string, optionId: string, reassignToOptionId: string) =>
+    api.delete<void>(
+      `/clubs/${clubId}/rating-options/${optionId}?reassignToOptionId=${encodeURIComponent(reassignToOptionId)}`,
+    ),
 }

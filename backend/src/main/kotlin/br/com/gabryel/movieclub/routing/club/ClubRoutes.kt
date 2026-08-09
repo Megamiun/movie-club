@@ -126,6 +126,30 @@ fun Route.clubRoutes(clubService: ClubService) {
             call.respond(RatingOptionResponse(option.id.toString(), option.label, option.position, option.color))
         }
 
+        post("/clubs/{clubId}/rating-scales/{scaleId}/options") {
+            val body = call.receive<CreateRatingOptionRequest>()
+            val option = clubService.createRatingOption(
+                call.uuidPathParam("clubId"),
+                call.actingMemberId(),
+                call.uuidPathParam("scaleId"),
+                body.label,
+                body.color,
+            )
+            call.respond(Created, RatingOptionResponse(option.id.toString(), option.label, option.position, option.color))
+        }
+
+        delete("/clubs/{clubId}/rating-options/{optionId}") {
+            val reassignToOptionId = call.request.queryParameters["reassignToOptionId"]
+                ?: throw BadRequestException("reassignToOptionId query parameter is required")
+            clubService.deleteRatingOption(
+                call.uuidPathParam("clubId"),
+                call.actingMemberId(),
+                call.uuidPathParam("optionId"),
+                reassignToOptionId.toUuidOrBadRequest(),
+            )
+            call.respond(NoContent)
+        }
+
         put("/clubs/{clubId}/rating-scales/{scaleId}/order") {
             val body = call.receive<UpdateRatingOptionOrderRequest>()
             clubService.updateRatingOptionOrder(

@@ -48,4 +48,9 @@ interface MovieRepository {
     fun findReview(movieId: Uuid, memberId: Uuid): MovieReviewRow?
 
     fun listReviews(movieId: Uuid): List<MovieReviewRow>
+
+    /** Repoints every review currently using [oldOptionId] (as either its quality or sentiment choice, whichever
+     * applies) to [newOptionId] instead -- used when a rating option is deleted, so existing reviews aren't left
+     * dangling. */
+    fun reassignRatingOption(oldOptionId: Uuid, newOptionId: Uuid)
 }

@@ -272,9 +272,14 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Two per Club (quality + sentiment); ordered list of configurable labels
 - Seeded with Portuguese defaults at Club creation
 - Each option also carries a `color` (hex string, e.g. `#2E7D32`), used for chart/UI display — required, not optional,
-  since every option needs one to render consistently. Admins can rename/recolor/reorder options after Club creation
-  (`PATCH /clubs/{clubId}/rating-options/{optionId}`, `PUT .../rating-scales/{scaleId}/order`); `createOption` itself
-  is still only ever called from the default-seeding path, since there's no "add a new option" endpoint
+  since every option needs one to render consistently. Admins can rename/recolor/reorder/add/remove options after
+  Club creation (`PATCH /clubs/{clubId}/rating-options/{optionId}`, `PUT .../rating-scales/{scaleId}/order`,
+  `POST .../rating-scales/{scaleId}/options`, `DELETE .../rating-options/{optionId}?reassignToOptionId=...`).
+  Deleting an option requires naming another option in the *same* scale to take over any reviews already using it
+  (`ClubService.deleteRatingOption` fans out to `reassignRatingOption` on `MovieRepository`/`SeriesRepository`/
+  `SeasonRepository`/`EpisodeRepository` before deleting the option row itself — repositories still don't depend on
+  each other, so this cross-entity composition lives in the service, same as `SeriesService`'s own multi-repository
+  work) — the last remaining option in a scale can't be deleted, since there'd be nothing to reassign to
 - Default seeding gives each scale its *own* six-color best-to-worst palette, matching the original spreadsheet's own
   chip colors per option (see `samples/img_1.png` for quality, `img_2.png` for sentiment) rather than a single shared
   gradient reused across both scales — quality mixes pastel and solid chips, sentiment is consistently pastel;

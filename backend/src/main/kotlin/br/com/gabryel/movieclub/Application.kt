@@ -49,13 +49,21 @@ fun Application.module() {
 
     val memberRepository = ExposedMemberRepository()
     val memberService = MemberService(memberRepository, Argon2PasswordService())
-    val clubService = ClubService(ExposedClubRepository(), ExposedRatingScaleRepository(), memberRepository)
     val ratingScaleRepository = ExposedRatingScaleRepository()
     val meetingRepository = ExposedMeetingRepository()
     val movieRepository = ExposedMovieRepository()
     val seriesRepository = ExposedSeriesRepository()
     val seasonRepository = ExposedSeasonRepository()
     val episodeRepository = ExposedEpisodeRepository()
+    val clubService = ClubService(
+        ExposedClubRepository(),
+        ratingScaleRepository,
+        memberRepository,
+        movieRepository,
+        seriesRepository,
+        seasonRepository,
+        episodeRepository,
+    )
     val mediaItemRepository = ExposedMediaItemRepository()
     val tmdbClient = TmdbClient(config.propertyOrNull("tmdb.accessToken")?.getString().orEmpty())
     val omdbClient = OmdbClient(config.propertyOrNull("omdb.apiKey")?.getString().orEmpty())

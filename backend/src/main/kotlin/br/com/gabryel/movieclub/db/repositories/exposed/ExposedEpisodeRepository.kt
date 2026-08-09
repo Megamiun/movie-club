@@ -195,6 +195,15 @@ class ExposedEpisodeRepository : EpisodeRepository {
             .map(::toReviewRow)
     }
 
+    override fun reassignRatingOption(oldOptionId: Uuid, newOptionId: Uuid): Unit = transaction {
+        MemberEpisodeReviews.update({ MemberEpisodeReviews.qualityOptionId eq oldOptionId }) {
+            it[MemberEpisodeReviews.qualityOptionId] = newOptionId
+        }
+        MemberEpisodeReviews.update({ MemberEpisodeReviews.sentimentOptionId eq oldOptionId }) {
+            it[MemberEpisodeReviews.sentimentOptionId] = newOptionId
+        }
+    }
+
     private fun toRow(row: ResultRow) = EpisodeRow(
         id = row[Episodes.id].value,
         seasonId = row[Episodes.seasonId].value,

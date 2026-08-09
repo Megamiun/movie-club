@@ -83,3 +83,9 @@ internal data class UpdateRatingOptionRequest(
 internal data class UpdateRatingOptionOrderRequest(
     val optionIds: List<String>,
 )
+
+@Serializable
+internal data class CreateRatingOptionRequest(
+    val label: String,
+    val color: String,
+)

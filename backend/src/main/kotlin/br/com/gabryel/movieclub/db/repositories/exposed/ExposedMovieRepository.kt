@@ -161,6 +161,15 @@ class ExposedMovieRepository : MovieRepository {
             .map(::toReviewRow)
     }
 
+    override fun reassignRatingOption(oldOptionId: Uuid, newOptionId: Uuid): Unit = transaction {
+        MemberMovieReviews.update({ MemberMovieReviews.qualityOptionId eq oldOptionId }) {
+            it[MemberMovieReviews.qualityOptionId] = newOptionId
+        }
+        MemberMovieReviews.update({ MemberMovieReviews.sentimentOptionId eq oldOptionId }) {
+            it[MemberMovieReviews.sentimentOptionId] = newOptionId
+        }
+    }
+
     /** Finds the global catalog row for [imdbId], creating it from [metadata] if this is the first time any club
      * has picked it; otherwise overwrites its TMDB data with [metadata] (harmless -- same `imdbId`, same canonical
      * TMDB response either way) so a refresh started from any one pick keeps the shared row current. */

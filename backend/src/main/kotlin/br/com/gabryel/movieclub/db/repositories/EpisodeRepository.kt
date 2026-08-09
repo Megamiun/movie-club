@@ -51,4 +51,9 @@ interface EpisodeRepository {
     fun findReview(episodeId: Uuid, memberId: Uuid): EpisodeReviewRow?
 
     fun listReviews(episodeId: Uuid): List<EpisodeReviewRow>
+
+    /** Repoints every review currently using [oldOptionId] (as either its quality or sentiment choice, whichever
+     * applies) to [newOptionId] instead -- used when a rating option is deleted, so existing reviews aren't left
+     * dangling. */
+    fun reassignRatingOption(oldOptionId: Uuid, newOptionId: Uuid)
 }

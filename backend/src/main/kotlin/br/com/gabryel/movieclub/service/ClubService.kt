@@ -7,8 +7,12 @@ import br.com.gabryel.movieclub.db.RatingScaleType
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.ClubRepository
+import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MemberRepository
+import br.com.gabryel.movieclub.db.repositories.MovieRepository
 import br.com.gabryel.movieclub.db.repositories.RatingScaleRepository
+import br.com.gabryel.movieclub.db.repositories.SeasonRepository
+import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.ClubRow
 import br.com.gabryel.movieclub.db.repositories.dto.RatingOptionRow
@@ -63,6 +67,10 @@ class ClubService(
     private val clubRepository: ClubRepository,
     private val ratingScaleRepository: RatingScaleRepository,
     private val memberRepository: MemberRepository,
+    private val movieRepository: MovieRepository,
+    private val seriesRepository: SeriesRepository,
+    private val seasonRepository: SeasonRepository,
+    private val episodeRepository: EpisodeRepository,
 ) {
     fun requireMembership(clubId: Uuid, memberId: Uuid): ClubMembershipRow =
         clubRepository.findMembership(clubId, memberId)
@@ -206,6 +214,38 @@ class ClubService(
             throw BadRequestException("Order must include every option exactly once")
 
         orderedOptionIds.forEachIndexed { index, optionId -> ratingScaleRepository.updateOptionPosition(optionId, index) }
+    }
+
+    fun createRatingOption(clubId: Uuid, actingMemberId: Uuid, scaleId: Uuid, label: String, color: String): RatingOptionRow {
+        requireAdmin(clubId, actingMemberId)
+        if (ratingScaleRepository.findScales(clubId).none { it.id == scaleId })
+            throw BadRequestException("Rating scale does not belong to this club")
+
+        val position = ratingScaleRepository.findOptions(scaleId).size
+        return ratingScaleRepository.createOption(scaleId, label, position, color)
+    }
+
+    /** Deleting an option would otherwise leave any review that already used it pointing at a dangling id, so a
+     * replacement is mandatory, not optional -- every review using [optionId] (across Movie/Series/Season/Episode,
+     * whichever apply) is repointed to [reassignToOptionId] first. Repositories don't depend on each other (see
+     * CLAUDE.md), so this cross-entity fan-out is composed here instead, the same way [SeriesService] composes
+     * multiple repositories for its own cross-entity work. */
+    fun deleteRatingOption(clubId: Uuid, actingMemberId: Uuid, optionId: Uuid, reassignToOptionId: Uuid) {
+        requireAdmin(clubId, actingMemberId)
+        val option = requireClubOption(clubId, optionId)
+        if (reassignToOptionId == optionId)
+            throw BadRequestException("Cannot reassign a deleted option's reviews to itself")
+        val reassignTo = requireClubOption(clubId, reassignToOptionId)
+        if (reassignTo.scaleId != option.scaleId)
+            throw BadRequestException("Reassignment target must belong to the same scale")
+        if (ratingScaleRepository.findOptions(option.scaleId).size <= 1)
+            throw BadRequestException("Cannot delete the last remaining option in a scale")
+
+        movieRepository.reassignRatingOption(optionId, reassignToOptionId)
+        seriesRepository.reassignRatingOption(optionId, reassignToOptionId)
+        seasonRepository.reassignRatingOption(optionId, reassignToOptionId)
+        episodeRepository.reassignRatingOption(optionId, reassignToOptionId)
+        ratingScaleRepository.deleteOption(optionId)
     }
 
     private fun requireClubOption(clubId: Uuid, optionId: Uuid): RatingOptionRow {

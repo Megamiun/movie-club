@@ -10,7 +10,11 @@
 - [x] Member ids should not be visible usually, use names
 - [x] Add member to club should search by name or email instead of raw member id
 - [x] Allow editing scale text, colors, and order easily
-  - [ ] Allow removing and adding new ratings to the scale, if removing, need to choose which one will receive the old rating
+  - [x] Allow removing and adding new ratings to the scale, if removing, need to choose which one will receive the old rating
+    - `POST .../rating-scales/{scaleId}/options` to add; `DELETE .../rating-options/{optionId}?reassignToOptionId=...`
+      to remove, mandatory reassignment target repointing every existing review across Movie/Series/Season/Episode.
+      Can't delete the last option in a scale. `RatingScaleCard` gets an inline add-option row; each option gets a
+      delete icon opening a confirm dialog to pick the reassignment target
 - [x] Club start screen should be a list of next meetings; configs and club data should be last tab
 - [x] Watchlist "add episode" and "add movie" on the UI should use search by name from TMDB, or IMDB URL/ID
 - [x] Admin panel to see all imported series, movies, and all users

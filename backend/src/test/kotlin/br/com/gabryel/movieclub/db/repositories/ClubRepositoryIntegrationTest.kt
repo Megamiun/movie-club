@@ -5,8 +5,12 @@ import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.dto.RatingScaleRow
 import br.com.gabryel.movieclub.db.repositories.exposed.ExposedClubRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedEpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.exposed.ExposedMemberRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedMovieRepository
 import br.com.gabryel.movieclub.db.repositories.exposed.ExposedRatingScaleRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedSeasonRepository
+import br.com.gabryel.movieclub.db.repositories.exposed.ExposedSeriesRepository
 import br.com.gabryel.movieclub.db.tables.ClubMembers
 import br.com.gabryel.movieclub.db.tables.Clubs
 import br.com.gabryel.movieclub.db.tables.Members
@@ -54,7 +58,15 @@ class ClubRepositoryIntegrationTest {
     @Test
     fun `createClub commits club, admin membership, and both rating scales together`() {
         val creatorId = insertTestMember()
-        val clubService = ClubService(clubRepository, ExposedRatingScaleRepository(), ExposedMemberRepository())
+        val clubService = ClubService(
+            clubRepository,
+            ExposedRatingScaleRepository(),
+            ExposedMemberRepository(),
+            ExposedMovieRepository(),
+            ExposedSeriesRepository(),
+            ExposedSeasonRepository(),
+            ExposedEpisodeRepository(),
+        )
 
         val club = clubService.createClub(TEST_CLUB_NAME, creatorId)
 
@@ -73,7 +85,15 @@ class ClubRepositoryIntegrationTest {
     fun `createClub rolls back everything when scale seeding fails partway through`() {
         val creatorId = insertTestMember()
         val failingScales = FailingAfterFirstScale(ExposedRatingScaleRepository())
-        val clubService = ClubService(clubRepository, failingScales, ExposedMemberRepository())
+        val clubService = ClubService(
+            clubRepository,
+            failingScales,
+            ExposedMemberRepository(),
+            ExposedMovieRepository(),
+            ExposedSeriesRepository(),
+            ExposedSeasonRepository(),
+            ExposedEpisodeRepository(),
+        )
 
         assertFailsWith<IllegalStateException> { clubService.createClub(TEST_CLUB_NAME, creatorId) }
 
