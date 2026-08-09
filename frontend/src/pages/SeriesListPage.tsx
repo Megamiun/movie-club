@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   List,
+  ListItem,
   ListItemButton,
   ListItemText,
   Stack,
@@ -18,6 +19,7 @@ import { seriesApi } from '../api/series'
 import { ApiError } from '../api/client'
 import type { TmdbSearchResult } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { ImdbLink } from '../components/ImdbLink'
 import { TmdbSearchAutocomplete } from '../components/TmdbSearchAutocomplete'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
@@ -59,12 +61,14 @@ export function SeriesListPage() {
         <List>
           {series?.length === 0 && <Typography color="text.secondary">No series followed yet.</Typography>}
           {series?.map((s) => (
-            <ListItemButton key={s.id} component={RouterLink} to={`/series/${s.id}`} divider>
-              <ListItemText
-                primary={resolveTitle(s, club)}
-                secondary={[s.year, s.creator].filter(Boolean).join(' · ')}
-              />
-            </ListItemButton>
+            <ListItem key={s.id} divider disablePadding secondaryAction={<ImdbLink imdbId={s.imdbId} />}>
+              <ListItemButton component={RouterLink} to={`/series/${s.id}`}>
+                <ListItemText
+                  primary={resolveTitle(s, club)}
+                  secondary={[s.year, s.creator].filter(Boolean).join(' · ')}
+                />
+              </ListItemButton>
+            </ListItem>
           ))}
         </List>
       </AsyncState>

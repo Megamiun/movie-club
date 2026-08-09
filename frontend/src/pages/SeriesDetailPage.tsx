@@ -7,6 +7,7 @@ import { seriesApi } from '../api/series'
 import { clubsApi } from '../api/clubs'
 import { ApiError } from '../api/client'
 import { AsyncState } from '../components/AsyncState'
+import { ImdbLink } from '../components/ImdbLink'
 import { LanguagePickerDialog } from '../components/LanguagePickerDialog'
 import { RatingForm } from '../components/RatingForm'
 import { useAsync } from '../hooks/useAsync'
@@ -93,9 +94,12 @@ export function SeriesDetailPage() {
             <Button component={RouterLink} to={`/clubs/${series.clubId}/series`} sx={{ mb: 2 }}>
               &larr; Back to series
             </Button>
-            <Typography variant="h4" gutterBottom>
-              {resolveTitle(series, club ?? { preferredLanguages: [], ignoredLanguages: [] })}
-            </Typography>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+              <Typography variant="h4" gutterBottom>
+                {resolveTitle(series, club ?? { preferredLanguages: [], ignoredLanguages: [] })}
+              </Typography>
+              <ImdbLink imdbId={series.imdbId} />
+            </Stack>
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
               {series.year && <Chip size="small" label={series.year} />}
               {series.creator && <Chip size="small" label={`Created by ${series.creator}`} />}

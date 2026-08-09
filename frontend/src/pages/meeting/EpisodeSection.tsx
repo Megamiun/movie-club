@@ -126,6 +126,7 @@ function EpisodeItem({
             {episode.title ? ` — ${episode.title}` : ''}
           </Typography>
           {episode.airDate && <Chip size="small" label={episode.airDate} />}
+          {episode.tmdbRating && <Chip size="small" label={`TMDB ${episode.tmdbRating}`} />}
         </Stack>
       </AccordionSummary>
       <AccordionDetails>
@@ -135,6 +136,10 @@ function EpisodeItem({
           </Alert>
         )}
         <Stack spacing={2}>
+          <Typography variant="body2" color="text.secondary">
+            Director: {episode.director ?? '—'} &middot; Runtime:{' '}
+            {episode.runtimeMinutes ? `${episode.runtimeMinutes}min` : '—'}
+          </Typography>
           {episode.overview && (
             <Typography variant="body2" color="text.secondary">
               {episode.overview}

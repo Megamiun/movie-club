@@ -2,7 +2,6 @@ import AddIcon from '@mui/icons-material/Add'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import DeleteIcon from '@mui/icons-material/Delete'
-import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { Alert, Box, Button, Chip, IconButton, Paper, Stack, TextField, Typography } from '@mui/material'
 import { useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
@@ -12,6 +11,7 @@ import { watchlistApi } from '../api/watchlist'
 import { ApiError } from '../api/client'
 import type { ClubMember, TmdbSearchResult, WatchlistEntry } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { ImdbLink } from '../components/ImdbLink'
 import { TmdbSearchAutocomplete } from '../components/TmdbSearchAutocomplete'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
@@ -197,15 +197,7 @@ function WatchlistEntryCard({
           <Typography sx={{ fontWeight: 500 }}>{entry.title}</Typography>
           {entry.year && <Chip size="small" label={entry.year} />}
           {rating && <Chip size="small" label={rating} />}
-          <IconButton
-            size="small"
-            href={`https://www.imdb.com/title/${entry.imdbId}/`}
-            target="_blank"
-            rel="noreferrer"
-            title="Open on IMDB"
-          >
-            <OpenInNewIcon fontSize="inherit" />
-          </IconButton>
+          <ImdbLink imdbId={entry.imdbId} />
         </Stack>
         <TextField
           variant="standard"

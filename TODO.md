@@ -22,10 +22,12 @@
 - [ ] Watchlist ordering should be able to be done also via drag and drop
 - [x] Watchlist entries can show media details (year, rating, etc. from TMDB)
   - Entries reference a `MediaItem` directly (poster, title, year, IMDB/TMDB rating); adding is search-only (no freeform manual entry), since a MediaItem only ever exists from a successful TMDB lookup
-- [ ] Meetings pane should show film data similar to the CSV file (director, runtime, genre, etc.)
-- [ ] Everywhere a movie/series title is shown, add a clickable IMDB icon linking to its IMDB page
-  - Done for Watchlist entries; still open for movie/series/episode displays elsewhere (meetings, series pages)
-- [ ] Add a TMDB attribution notice ("This product uses the TMDB API but is not endorsed or certified by TMDB")
+- [x] Meetings pane should show film data similar to the CSV file (director, runtime, genre, etc.)
+  - Movie pick metadata line now also shows Country (was already showing director/runtime/genre); Episode gained a Director/Runtime line and a TMDB rating chip (had neither before)
+- [x] Everywhere a movie/series title is shown, add a clickable IMDB icon linking to its IMDB page
+  - New shared `ImdbLink` component (also used to de-duplicate Watchlist's inline version); added to meeting movie picks, series list, and series detail. Episodes don't have their own `imdb_id` yet (see MediaItem's deferred-Episode note), so skipped there — same scoping as everywhere else in the codebase
+- [x] Add a TMDB attribution notice ("This product uses the TMDB API but is not endorsed or certified by TMDB")
+  - Site-wide footer in `AppLayout`
 - [x] Separate Series and Movies watchlist in the UI
 - [ ] Add a movie tab where you can search for movies outside a meeting, with a button to add to a meeting or to the wishlist
 - [ ] When adding a series episode to a meeting, try to suggest next episode of current series
@@ -40,3 +42,6 @@
 - [x] Allow Clubs to change the exhibition language for a certain media
   - [x] do that by clicking an language icon in the details page, where you will open a dialog, where you may select any translation
   - `DisplayTitlePreference` is now `ORIGINAL | CUSTOM | LANGUAGE` (dropped `ENGLISH`, which was never actually resolved anywhere — `LANGUAGE` + a per-pick `displayLanguageCode` is a strict superset); `LanguagePickerDialog` component reused by both `MovieSection` and `SeriesDetailPage`
+- [ ] Add Move to Watchlist button in meeting
+- [ ] Add move to meeting button in Watchlist
+- [ ] Allow taking movies/episodes from one meeting to another via drag and drop

@@ -23,6 +23,7 @@ import { moviesApi } from '../../api/movies'
 import { ApiError } from '../../api/client'
 import type { ClubMember, Movie, RatingScale, TmdbSearchResult } from '../../api/types'
 import { AsyncState } from '../../components/AsyncState'
+import { ImdbLink } from '../../components/ImdbLink'
 import { LanguagePickerDialog } from '../../components/LanguagePickerDialog'
 import { RatingForm } from '../../components/RatingForm'
 import { ReviewsList } from '../../components/ReviewsList'
@@ -219,6 +220,7 @@ function MovieItem({
           {movie.displayTitlePreference === 'LANGUAGE' && movie.displayLanguageCode && (
             <Chip size="small" label={movie.displayLanguageCode} />
           )}
+          <ImdbLink imdbId={movie.imdbId} />
         </Stack>
       </AccordionSummary>
       <AccordionDetails>
@@ -233,6 +235,9 @@ function MovieItem({
             Runtime:{' '}
             {movie.runtimeMinutes ? `${movie.runtimeMinutes}min` : '—'}
             {movie.genre && movie.genre.length > 0 ? ` · Genre: ${movie.genre.join(', ')}` : ''}
+            {movie.productionCountries && movie.productionCountries.length > 0
+              ? ` · Country: ${movie.productionCountries.join(', ')}`
+              : ''}
           </Typography>
 
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>

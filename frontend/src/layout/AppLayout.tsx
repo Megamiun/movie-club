@@ -42,6 +42,11 @@ export function AppLayout() {
       <Container component="main" maxWidth="lg" sx={{ py: 3, flexGrow: 1 }}>
         <Outlet />
       </Container>
+      <Box component="footer" sx={{ py: 2, textAlign: 'center' }}>
+        <Typography variant="caption" color="text.secondary">
+          This product uses the TMDB API but is not endorsed or certified by TMDB.
+        </Typography>
+      </Box>
     </Box>
   )
 }
