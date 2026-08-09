@@ -20,6 +20,7 @@ import { ApiError } from '../../api/client'
 import type { Episode, EpisodeSearchResult, RatingScale } from '../../api/types'
 import { AsyncState } from '../../components/AsyncState'
 import { EpisodeSearchAutocomplete } from '../../components/EpisodeSearchAutocomplete'
+import { ImdbLink } from '../../components/ImdbLink'
 import { RatingForm } from '../../components/RatingForm'
 import { useAsync } from '../../hooks/useAsync'
 
@@ -157,6 +158,7 @@ function EpisodeItem({
             {episode.title ? ` — ${episode.title}` : ''}
           </Typography>
           {episode.airDate && <Chip size="small" label={episode.airDate} />}
+          {episode.imdbId && <ImdbLink imdbId={episode.imdbId} />}
         </Stack>
       </AccordionSummary>
       <AccordionDetails>

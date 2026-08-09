@@ -1,0 +1,1 @@
+ALTER TABLE episodes ADD COLUMN imdb_id VARCHAR(16);

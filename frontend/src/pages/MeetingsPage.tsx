@@ -406,8 +406,8 @@ function EpisodeRow({
         {series ? <MemberBadge member={club.members.find((m) => m.memberId === series.chosenById)} /> : '—'}
       </TableCell>
       <TableCell>
-        {series ? (
-          <ImdbLink imdbId={series.imdbId} variant="text">
+        {episode.imdbId || series ? (
+          <ImdbLink imdbId={episode.imdbId ?? series!.imdbId} variant="text">
             Ep. {episode.number}
             {episode.title ? ` — ${episode.title}` : ''}
           </ImdbLink>

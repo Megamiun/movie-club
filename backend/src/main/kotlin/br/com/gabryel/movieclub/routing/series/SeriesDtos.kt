@@ -89,6 +89,7 @@ internal data class EpisodeResponse(
     val runtimeMinutes: Int?,
     val director: String?,
     val directorImdbId: String?,
+    val imdbId: String?,
 )
 
 @Serializable

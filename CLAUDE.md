@@ -104,10 +104,12 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Movie and Series catalog rows each carry a `media_item_id` pointing at their MediaItem, created/refreshed
   alongside their own richer columns (director/runtime for Movie, creator for Series — those stay on Movie/Series
   themselves; MediaItem isn't a replacement for the full catalog row, just a shared cross-type reference point)
-- Episode does **not** have a `media_item_id` yet: TMDB only exposes an episode's own `imdb_id` via a separate
-  per-episode `external_ids` call this app has never made (episodes are looked up by `(series, season, episode
-  number)`, not a standalone id). Wiring that up is its own follow-up, not bundled into MediaItem's introduction —
-  see the Episode TMDB lookup note below for why episode enrichment already tolerates missing external data
+- Episode still doesn't have a `media_item_id` — deliberately, not just deferred: nothing reads it, since Watchlist
+  (MediaItem's one cross-type consumer) doesn't support Episode entries. Episode's own `imdb_id` is fetched (via
+  `append_to_response=external_ids` on the same per-episode TMDB call, see the Series → Season → Episode section
+  below) and stored directly as a plain column on `episodes`, the same way Movie/Series already carry their own
+  `imdb_id` alongside their `media_item_id` — MediaItem would just be unused indirection here until something
+  besides display (i.e. Watchlist) actually needs to reference an Episode across types
 - WatchlistEntry references a MediaItem directly instead of duplicating title/year/rating itself (see below)
 - IMDB's own rating is fetched separately from OMDb (`OmdbClient`, `OMDB_API_KEY`) since TMDB's API never exposes it
   (only its own `vote_average`) — optional, silently no-ops when the key is unset, never blocks an add/refresh.
@@ -196,10 +198,15 @@ enforces those automatically. This section is for conventions ktlint can't check
   empty until someone visits `SeasonDetailPage` and adds them one at a time. CSV import already did this explicitly
   (see Existing Data below) — this extends the same behavior to the manual-add path
 - Episode cached TMDB metadata: `air_date`, `overview`, `runtime`, director, `director_imdb_id` (same best-effort
-  TMDB-person-id → IMDB-id resolution as Movie, see above), `metadata_fetched_at` — no rating of its own (Episode
-  never had an OMDb-fetched IMDB rating; the meetings table falls back to the parent series' rating instead) and
-  no title split (the CSV/user-entered `title` is the only one) and no genre/country/creator (those live at the
-  series level)
+  TMDB-person-id → IMDB-id resolution as Movie, see above), `imdb_id` (the episode's own, from TMDB's per-episode
+  `external_ids` — requested via `append_to_response` on the same call as the rest of an episode's metadata, unlike
+  `director_imdb_id` which needs its own separate `/person/{id}/external_ids` round trip), `metadata_fetched_at` —
+  no rating of its own (Episode never had an OMDb-fetched IMDB rating; the meetings table falls back to the parent
+  series' rating instead) and no title split (the CSV/user-entered `title` is the only one) and no
+  genre/country/creator (those live at the series level). `imdb_id` is null until something actually calls
+  `EpisodeService.refreshMetadata` on that episode — the bulk `/tv/{id}/season/{n}` catalog import
+  (`SeriesService.importSeasonsAndEpisodes`) doesn't include per-episode external ids, so a freshly-imported
+  episode has no IMDB link yet
 - Episode TMDB lookup is always best-effort: fetched automatically when the parent series has a `tmdb_id`, silently
   skipped otherwise, never blocking episode creation (unlike Movie/Series, an episode has no id of its own to look up
   by)

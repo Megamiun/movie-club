@@ -113,7 +113,7 @@ class TmdbClientTest {
     }
 
     @Test
-    fun `TmdbEpisodeDetails toMetadata parses air_date and pulls director from crew`() {
+    fun `TmdbEpisodeDetails toMetadata parses air_date, pulls director from crew, and imdbId from external_ids`() {
         val details = TmdbEpisodeDetails(
             name = "Pilot",
             episodeNumber = 1,
@@ -121,6 +121,7 @@ class TmdbClientTest {
             overview = "A chemistry teacher...",
             runtime = 59,
             crew = listOf(TmdbCrewMember("Vince Gilligan", "Director")),
+            externalIds = TmdbExternalIds(imdbId = "tt0959621"),
         )
 
         val metadata = details.toMetadata()
@@ -129,6 +130,14 @@ class TmdbClientTest {
         assertEquals("A chemistry teacher...", metadata.overview)
         assertEquals(59, metadata.runtimeMinutes)
         assertEquals("Vince Gilligan", metadata.director)
+        assertEquals("tt0959621", metadata.imdbId)
+    }
+
+    @Test
+    fun `TmdbEpisodeDetails toMetadata leaves imdbId null when external_ids is absent`() {
+        val details = TmdbEpisodeDetails(name = "Pilot", episodeNumber = 1)
+
+        assertNull(details.toMetadata().imdbId)
     }
 
     @Test

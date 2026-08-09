@@ -237,6 +237,7 @@ internal fun EpisodeRow.toResponse() = EpisodeResponse(
     runtimeMinutes = runtimeMinutes,
     director = director,
     directorImdbId = directorImdbId,
+    imdbId = imdbId,
 )
 
 private fun SeriesReviewRow.toResponse() = SeriesReviewResponse(

@@ -169,6 +169,7 @@ export interface Episode {
   runtimeMinutes: number | null
   director: string | null
   directorImdbId: string | null
+  imdbId: string | null
 }
 
 export interface SeriesReview {

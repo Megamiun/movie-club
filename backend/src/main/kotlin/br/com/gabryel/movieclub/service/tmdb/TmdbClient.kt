@@ -218,15 +218,24 @@ data class TmdbEpisodeDetails(
     val overview: String? = null,
     val runtime: Int? = null,
     val crew: List<TmdbCrewMember> = emptyList(),
+    @SerialName("external_ids") val externalIds: TmdbExternalIds? = null,
 ) {
     val director: String? get() = crew.firstOrNull { it.job == "Director" }?.name
     val directorTmdbId: Int? get() = crew.firstOrNull { it.job == "Director" }?.id
+
+    /** Only populated when fetched via [TmdbClient.getEpisodeDetails] (which requests it via
+     * `append_to_response`) -- the bulk `/tv/{id}/season/{n}` listing [TmdbClient.getSeasonDetails] uses for
+     * CSV/series import doesn't include per-episode external ids, so freshly-imported episodes get this filled in
+     * only once something calls [EpisodeService][br.com.gabryel.movieclub.service.EpisodeService.refreshMetadata]
+     * on them, same as the rest of an episode's best-effort enrichment. */
+    val imdbId: String? get() = externalIds?.imdbId
 
     fun toMetadata(fetchedAt: Instant = Clock.System.now()) = TmdbEpisodeMetadata(
         airDate = airDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
         overview = overview,
         runtimeMinutes = runtime,
         director = director,
+        imdbId = imdbId,
         metadataFetchedAt = fetchedAt,
     )
 }
@@ -265,7 +274,10 @@ class TmdbClient(private val accessToken: String) {
         }.body()
 
     suspend fun getEpisodeDetails(tvId: Int, seasonNumber: Int, episodeNumber: Int): TmdbEpisodeDetails =
-        http.get("$BASE_URL/tv/$tvId/season/$seasonNumber/episode/$episodeNumber") { authorized() }.body()
+        http.get("$BASE_URL/tv/$tvId/season/$seasonNumber/episode/$episodeNumber") {
+            authorized()
+            parameter("append_to_response", "external_ids")
+        }.body()
 
     suspend fun getSeasonDetails(tvId: Int, seasonNumber: Int): TmdbSeasonDetails =
         http.get("$BASE_URL/tv/$tvId/season/$seasonNumber") { authorized() }.body()

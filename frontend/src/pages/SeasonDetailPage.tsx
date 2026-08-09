@@ -21,6 +21,7 @@ import { clubsApi } from '../api/clubs'
 import { ApiError } from '../api/client'
 import type { Episode, RatingScale } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { ImdbLink } from '../components/ImdbLink'
 import { RatingForm } from '../components/RatingForm'
 import { useAsync } from '../hooks/useAsync'
 import { resolveTitle } from '../utils/title'
@@ -157,6 +158,7 @@ function EpisodeRow({ episode, scales, onChange }: { episode: Episode; scales: R
             {episode.title ? ` — ${episode.title}` : ''}
           </Typography>
           {episode.airDate && <Chip size="small" label={episode.airDate} />}
+          {episode.imdbId && <ImdbLink imdbId={episode.imdbId} />}
         </Stack>
       </AccordionSummary>
       <AccordionDetails>
