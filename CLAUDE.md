@@ -310,7 +310,10 @@ enforces those automatically. This section is for conventions ktlint can't check
   "these ids, in this order, become positions `0..N-1`" assignment from a caller-supplied order instead of the
   current DB order) — every other consumer of `position` (rank display in `InlineRatingEditor`'s `rankOf`,
   `createRatingOption`'s next-position-is-`size` calculation) assumes no gaps, so this can't be deferred to
-  "whenever the next reorder happens to fix it"
+  "whenever the next reorder happens to fix it". `RatingScalesSection` (`ClubOverviewPage`) fetches its options via
+  its own local `useAsync`, separate from the club-level one — every mutation here (color/label edit, reorder,
+  add, delete) passes that hook's own `silentReload` as `onChange`, not `reload`, for the same reason as the
+  member-color editor below: a spinner-flash on every drag-commit is disruptive, not informative
 - Every place a user picks a color by hand (a rating option's color, a new option's initial color, a member's own
   color) uses a shared `PastelColorPicker` (`frontend/src/components/PastelColorPicker.tsx`) instead of a native
   `<input type="color">` — a hue-only slider at a fixed pastel saturation/lightness (`frontend/src/utils/

@@ -302,7 +302,7 @@ function RotationSection({ club }: { club: ClubDetail }) {
 }
 
 function RatingScalesSection({ clubId }: { clubId: string }) {
-  const { data: scales, loading, error, reload } = useAsync(() => clubsApi.getRatingScales(clubId), [clubId])
+  const { data: scales, loading, error, silentReload } = useAsync(() => clubsApi.getRatingScales(clubId), [clubId])
 
   return (
     <Box>
@@ -312,7 +312,7 @@ function RatingScalesSection({ clubId }: { clubId: string }) {
       <AsyncState loading={loading} error={error}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
           {scales?.map((scale) => (
-            <RatingScaleCard key={scale.id} clubId={clubId} scale={scale} onChange={reload} />
+            <RatingScaleCard key={scale.id} clubId={clubId} scale={scale} onChange={silentReload} />
           ))}
         </Stack>
       </AsyncState>
