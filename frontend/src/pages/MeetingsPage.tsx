@@ -1,10 +1,14 @@
 import AddIcon from '@mui/icons-material/Add'
+import TuneIcon from '@mui/icons-material/Tune'
 import {
   Alert,
   Box,
   Button,
+  IconButton,
   Link,
   Paper,
+  Popover,
+  Slider,
   Stack,
   Tab,
   Table,
@@ -14,6 +18,8 @@ import {
   TableRow,
   Tabs,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material'
@@ -34,6 +40,7 @@ import { TruncatedList } from '../components/TruncatedList'
 import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
+import { useRatingDisplay, type RatingFillWith } from '../settings/RatingDisplayContext'
 import { countryFlag, countryName } from '../utils/country'
 import { formatDuration } from '../utils/duration'
 import { memberName } from '../utils/members'
@@ -91,9 +98,12 @@ export function MeetingsPage() {
 
   return (
     <Box>
-      <Typography variant="h5" gutterBottom>
-        Meetings
-      </Typography>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+        <Typography variant="h5" gutterBottom sx={{ mb: 0 }}>
+          Meetings
+        </Typography>
+        <RatingDisplaySettingsButton />
+      </Stack>
 
       <AsyncState loading={loading} error={error}>
         {sorted.length === 0 ? (
@@ -161,6 +171,57 @@ export function MeetingsPage() {
         </Stack>
       </Box>
     </Box>
+  )
+}
+
+function RatingDisplaySettingsButton() {
+  const { gradientPercent, fillWith, setGradientPercent, setFillWith } = useRatingDisplay()
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
+
+  return (
+    <>
+      <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)} title="Rating display settings">
+        <TuneIcon fontSize="small" />
+      </IconButton>
+      <Popover
+        open={Boolean(anchorEl)}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <Stack spacing={2} sx={{ p: 2, width: 240 }}>
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              Gradient blend ({gradientPercent}%)
+            </Typography>
+            <Slider
+              size="small"
+              value={gradientPercent}
+              onChange={(_, value) => setGradientPercent(value as number)}
+              min={0}
+              max={50}
+              step={5}
+              marks
+            />
+          </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+              Fill with
+            </Typography>
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              fullWidth
+              value={fillWith}
+              onChange={(_, value: RatingFillWith | null) => value && setFillWith(value)}
+            >
+              <ToggleButton value="number">Number</ToggleButton>
+              <ToggleButton value="description">Description</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        </Stack>
+      </Popover>
+    </>
   )
 }
 

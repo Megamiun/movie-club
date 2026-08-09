@@ -269,6 +269,14 @@ enforces those automatically. This section is for conventions ktlint can't check
   existing clubs' still-default-colored options to this palette (each matched by exact old label+color together, so
   a club that already customized a color is untouched). Since chips range from pale to solid, the frontend picks
   white-vs-dark chip text per option by luminance (`frontend/src/utils/color.ts`) rather than assuming either
+- The Meetings table's per-member rating box (`InlineRatingEditor`) is driven by two personal display settings —
+  gradient blend percent (0–50%, how much of the box blends between the quality and sentiment colors around the
+  midpoint) and fill content (`Number` = rank digit, `Description` = written label) — held in
+  `frontend/src/settings/RatingDisplayContext.tsx` and persisted to `localStorage`, not on Member server-side, since
+  it's a personal display preference like a theme toggle rather than club data. Edited via a Tune-icon button next to
+  the Meetings page heading. A rating that hasn't been given renders as nothing at all (fully transparent, no text) —
+  never the other rating filling the whole box, and never a placeholder — so fill only ever represents a rating that
+  was actually given; the blend band itself is only ever drawn when both quality and sentiment are set
 
 ## Schedule Model
 

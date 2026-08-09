@@ -40,6 +40,7 @@
   - New "Movies" club tab (`MoviesPage`, between Meetings and Series). TMDB search + a meeting picker + "Add to meeting"/"Add to watchlist" buttons, composing the existing search/add endpoints -- no new backend endpoint
 - [x] When adding a series episode to a meeting, try to suggest next episode of current series
   - New `GET /clubs/{clubId}/episodes/next-suggestions` (`EpisodeRepository.findNextUnscheduled`) returns one suggestion per followed series -- its earliest episode not yet scheduled to any of the club's meetings, skipping series with nothing left to suggest. Shown as clickable "Up next" chips in the meeting detail page's Episodes section, alongside the existing search box
+  - [ ] Only show suggestions from already running series, or from series in our watchlist
 - [x] Allow Club to have a list of ranked preferred languages
 - [x] Allow Club to have a list of ignored languages
 - [x] Instead of keeping alternative titles, use translations field, which calls translations API
@@ -78,6 +79,8 @@
   - New `TruncatedList` component (`frontend/src/components/TruncatedList.tsx`), meetings list only for now
 - [x] Convert duration to format like '1h25m' or '45m'
   - `frontend/src/utils/duration.ts`, meetings list only for now
+  - [ ] Align to the right
+  - [ ] Fill the minutes with spaces(or 0) if the minutes part is just one character
 - [x] Only show year on meetings page, but allow to hover to see whole date
   - Clarified: this was about episode air dates, not the meeting's own date. Episode rows show just the year (from `air_date` or the series' `year` as fallback), with the full `air_date` as a hover tooltip when known
 - [x] Director should also link to imdb director page
@@ -91,3 +94,13 @@
 - [x] Show a unfilled shape similar to the current for missing ratings
   - A dashed-outline shape, colored with the member's own color instead of a generic gray. Per follow-up feedback ("a little less compact, at least one square for each"), quality and sentiment each render as their own small square side by side instead of being merged into a single split-color dot
   - Further follow-up: back to one rectangle (34x18) that fills edge-to-edge with the rating color(s) instead of two separate squares with padding/gaps -- solid if only one of quality/sentiment is set, a `linear-gradient` that blends smoothly across the middle 40%-60% band (solid color on either side of that band) if both are. The member-color identification ring moved from a `border` to a thinner (1px) `outline`, since `outline` doesn't eat into the box's own fill area the way `border` would
+  - Final redesign: the fixed 40%-60% blend band and the label-less dot are now two user-configurable settings instead
+    of fixed choices -- a gradient-blend-percent slider (0-50%) and a fill-with `Number`/`Description` toggle, edited
+    via a Tune-icon button next to the page heading, persisted client-side only (`frontend/src/settings/RatingDisplayContext.tsx`,
+    `localStorage`) since it's a personal display preference, not club data. Also changes the missing-rating treatment
+    above: a half with no rating now shows nothing at all (fully transparent, no text) rather than a dashed placeholder
+    or gray track, so the box's fill only ever represents a rating that was actually given. Same design mocked up
+    interactively in the artifact used to explore this feature, kept in sync with the shipped settings
+  - [ ] Always use dashed border for the ratings, even if the user has not added his rating.
+- [ ] Make both a light and dark theme available
+- [ ] Don't refresh the whole page when rating changes
