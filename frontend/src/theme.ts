@@ -7,4 +7,11 @@ export const theme = createTheme({
     secondary: { main: '#c0392b' },
   },
   shape: { borderRadius: 8 },
+  components: {
+    MuiLink: {
+      defaultProps: {
+        color: 'inherit',
+      },
+    },
+  },
 })

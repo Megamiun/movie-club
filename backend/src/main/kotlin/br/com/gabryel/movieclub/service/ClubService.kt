@@ -50,8 +50,8 @@ private val DEFAULT_SENTIMENT_LABELS =
  * a generic shared gradient -- each scale has its own distinct best-to-worst palette, not just a lighter/darker
  * shade of the same color. Quality's chips are mostly solid/dark; sentiment's are consistently pastel -- the
  * frontend picks white-vs-dark text per chip by luminance (`contrastTextColor`) rather than assuming either style. */
-private val DEFAULT_QUALITY_COLORS = listOf("#D9EAD3", "#1C4587", "#9FC5E8", "#A67C52", "#B45F06", "#CC0000")
-private val DEFAULT_SENTIMENT_COLORS = listOf("#9FC5E8", "#B6D7A8", "#D9D9A3", "#FFE599", "#F9CB9C", "#EA9999")
+private val DEFAULT_QUALITY_COLORS = listOf("#11734B", "#181492", "#487FBE", "#753800", "#B96713", "#B10202")
+private val DEFAULT_SENTIMENT_COLORS = listOf("#C6DBE1", "#D4EDBC", "#FFE5A0", "#FFE5A0", "#FFC8AA", "#FFCFC9")
 
 /** Auto-assigned to a member's own initials badge (meetings table, rotation list) when they join, cycling by
  * rotation order -- distinct from the rating-scale palettes above, which color rating *options*, not people.

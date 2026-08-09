@@ -39,10 +39,12 @@ import { MemberBadge } from '../components/MemberBadge'
 import { TruncatedList } from '../components/TruncatedList'
 import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
+import { useSeasonNumbers } from '../hooks/useSeasonNumbers'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { useRatingDisplay, type RatingFillWith } from '../settings/RatingDisplayContext'
 import { countryFlag, countryName } from '../utils/country'
 import { formatDuration } from '../utils/duration'
+import { episodeCode } from '../utils/episode'
 import { memberName } from '../utils/members'
 import { ratingLabel } from '../utils/rating'
 import { resolveTitle } from '../utils/title'
@@ -89,6 +91,7 @@ export function MeetingsPage() {
 
   const sorted = [...(meetings ?? [])].sort((a, b) => a.date.localeCompare(b.date))
   const columnCount = 8 + club.members.length
+  const seasonNumbers = useSeasonNumbers(sorted.flatMap((meeting) => meeting.episodes.map((pick) => pick.episode.seasonId)))
 
   const years = [...new Set(sorted.map((meeting) => meeting.date.slice(0, 4)))].sort((a, b) => b.localeCompare(a))
   const currentYear = String(new Date().getFullYear())
@@ -120,7 +123,7 @@ export function MeetingsPage() {
               ))}
             </Tabs>
             <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
+              <Table size="small" sx={{ '& .MuiTableCell-root': { px: 1.25 } }}>
                 <TableBody>
                   {meetingsForYear.map((meeting) => (
                     <MeetingRows
@@ -130,6 +133,7 @@ export function MeetingsPage() {
                       scales={scales ?? []}
                       myMemberId={member?.id ?? null}
                       columnCount={columnCount}
+                      seasonNumbers={seasonNumbers}
                       onChange={reload}
                     />
                   ))}
@@ -205,7 +209,7 @@ function RatingDisplaySettingsButton() {
             />
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
               Fill with
             </Typography>
             <ToggleButtonGroup
@@ -231,6 +235,7 @@ function MeetingRows({
   scales,
   myMemberId,
   columnCount,
+  seasonNumbers,
   onChange,
 }: {
   meeting: MeetingWithPicks
@@ -238,6 +243,7 @@ function MeetingRows({
   scales: RatingScale[]
   myMemberId: string | null
   columnCount: number
+  seasonNumbers: Map<string, number> | null
   onChange: () => void
 }) {
   const hasPicks = meeting.movies.length > 0 || meeting.episodes.length > 0
@@ -329,6 +335,7 @@ function MeetingRows({
               myMemberId={myMemberId}
               meetingId={meeting.id}
               dropProps={dropProps}
+              seasonNumber={seasonNumbers?.get(pick.episode.seasonId)}
               onChange={onChange}
             />
           ))}
@@ -398,7 +405,7 @@ function MovieRow({
           {resolveTitle(movie, club)}
         </ImdbLink>
         {error && (
-          <Typography variant="caption" color="error" display="block">
+          <Typography variant="caption" color="error" sx={{ display: 'block' }}>
             {error}
           </Typography>
         )}
@@ -452,6 +459,7 @@ function EpisodeRow({
   myMemberId,
   meetingId,
   dropProps,
+  seasonNumber,
   onChange,
 }: {
   pick: MeetingEpisodePick
@@ -460,6 +468,7 @@ function EpisodeRow({
   myMemberId: string | null
   meetingId: string
   dropProps: PickDropProps
+  seasonNumber: number | undefined
   onChange: () => void
 }) {
   const { episode, series } = pick
@@ -492,17 +501,17 @@ function EpisodeRow({
       <TableCell>
         {episode.imdbId || series ? (
           <ImdbLink imdbId={episode.imdbId ?? series!.imdbId} variant="text">
-            Ep. {episode.number}
-            {episode.title ? ` — ${episode.title}` : ''}
+            {episodeCode(seasonNumber, episode.number)}
+            {episode.title ? ` - ${episode.title}` : ''}
           </ImdbLink>
         ) : (
           <span>
-            Ep. {episode.number}
-            {episode.title ? ` — ${episode.title}` : ''}
+            {episodeCode(seasonNumber, episode.number)}
+            {episode.title ? ` - ${episode.title}` : ''}
           </span>
         )}
         {error && (
-          <Typography variant="caption" color="error" display="block">
+          <Typography variant="caption" color="error" sx={{ display: 'block' }}>
             {error}
           </Typography>
         )}

@@ -24,6 +24,7 @@ import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
 import { RatingForm } from '../components/RatingForm'
 import { useAsync } from '../hooks/useAsync'
+import { episodeCode } from '../utils/episode'
 import { resolveTitle } from '../utils/title'
 
 export function SeasonDetailPage() {
@@ -32,6 +33,7 @@ export function SeasonDetailPage() {
   const seriesId = searchParams.get('seriesId')
 
   const { data: episodes, loading, error, reload } = useAsync(() => seasonsApi.listEpisodes(seasonId!), [seasonId])
+  const { data: season } = useAsync(() => seasonsApi.get(seasonId!), [seasonId])
   const { data: series } = useAsync(() => (seriesId ? seriesApi.get(seriesId) : Promise.resolve(null)), [seriesId])
   const { data: club } = useAsync(() => (series ? clubsApi.get(series.clubId) : Promise.resolve(null)), [
     series?.clubId,
@@ -95,7 +97,13 @@ export function SeasonDetailPage() {
           {episodes
             ?.sort((a, b) => a.number - b.number)
             .map((episode) => (
-              <EpisodeRow key={episode.id} episode={episode} scales={scales ?? []} onChange={reload} />
+              <EpisodeRow
+                key={episode.id}
+                episode={episode}
+                seasonNumber={season?.number}
+                scales={scales ?? []}
+                onChange={reload}
+              />
             ))}
         </Stack>
 
@@ -132,7 +140,17 @@ export function SeasonDetailPage() {
   )
 }
 
-function EpisodeRow({ episode, scales, onChange }: { episode: Episode; scales: RatingScale[]; onChange: () => void }) {
+function EpisodeRow({
+  episode,
+  seasonNumber,
+  scales,
+  onChange,
+}: {
+  episode: Episode
+  seasonNumber: number | undefined
+  scales: RatingScale[]
+  onChange: () => void
+}) {
   const [error, setError] = useState<string | null>(null)
 
   const handleRefresh = async () => {
@@ -154,7 +172,7 @@ function EpisodeRow({ episode, scales, onChange }: { episode: Episode; scales: R
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexGrow: 1 }}>
           <Typography sx={{ flexGrow: 1 }}>
-            Ep. {episode.number}
+            {episodeCode(seasonNumber, episode.number)}
             {episode.title ? ` — ${episode.title}` : ''}
           </Typography>
           {episode.airDate && <Chip size="small" label={episode.airDate} />}

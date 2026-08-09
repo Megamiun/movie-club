@@ -10,6 +10,7 @@
 - [x] Member ids should not be visible usually, use names
 - [x] Add member to club should search by name or email instead of raw member id
 - [x] Allow editing scale text, colors, and order easily
+  - [ ] Allow removing and adding new ratings to the scale, if removing, need to choose which one will receive the old rating
 - [x] Club start screen should be a list of next meetings; configs and club data should be last tab
 - [x] Watchlist "add episode" and "add movie" on the UI should use search by name from TMDB, or IMDB URL/ID
 - [x] Admin panel to see all imported series, movies, and all users
@@ -45,6 +46,8 @@
 - [x] Allow Club to have a list of ignored languages
 - [x] Instead of keeping alternative titles, use translations field, which calls translations API
   - `Movie`/`Series` now store `translations` (TMDB's per-language `/translations` endpoint, via `append_to_response`) instead of `alternative_titles` (per-country); also added `originalLanguage`
+- [ ] Languages updates should be sent to the BE as soon as changed in the FE
+- [ ] Rotation order should be sent to the BE as soon as changed in the FE
 - [x] Allow Clubs to default to:
   - [x] first available preferred language, or original if unavailable
   - [x] use original title, unless in ignored languages
@@ -77,6 +80,7 @@
   - Follow-up: the movie/episode title itself is now the underlined link (was a plain title + separate "IMDB" text before)
 - [x] Limit genres to 2, followed by a "+ x", all are shown if hovered
   - New `TruncatedList` component (`frontend/src/components/TruncatedList.tsx`), meetings list only for now
+  - [ ] For genres, limit total length, if second genre is too long, also don't show it, should always fit in one line
 - [x] Convert duration to format like '1h25m' or '45m'
   - `frontend/src/utils/duration.ts`, meetings list only for now
   - [ ] Align to the right
@@ -86,6 +90,7 @@
 - [x] Director should also link to imdb director page
   - [x] Also save them to DB, get from tmdb, save imdb id
   - `director_imdb_id` column on `movies`/`episodes` (V19 migration), resolved best-effort from the credited director's TMDB person id via `/person/{id}/external_ids` (never blocks add/refresh on failure, same as the OMDb rating lookup). `ImdbLink` gained a `kind: 'title' | 'name'` prop for linking to a person's IMDB page instead of a title's. Meetings list only for now, existing picks need a metadata refresh to backfill (best-effort field, not retroactively populated)
+  - [ ] Show also for episodes
 - [x] Make the meetings view anual
   - Tabs, one per year with at least one meeting, defaulting to the current calendar year (falling back to the most recent year with meetings if the current year has none yet). Creating a new meeting switches to its year's tab. Newest year sorts leftmost (per follow-up feedback)
 - [x] Give 1 different Columns per person with their ratings
@@ -101,6 +106,35 @@
     above: a half with no rating now shows nothing at all (fully transparent, no text) rather than a dashed placeholder
     or gray track, so the box's fill only ever represents a rating that was actually given. Same design mocked up
     interactively in the artifact used to explore this feature, kept in sync with the shipped settings
+  - [ ] Should also have a no fill option, where no text is shown
   - [ ] Always use dashed border for the ratings, even if the user has not added his rating.
 - [ ] Make both a light and dark theme available
 - [ ] Don't refresh the whole page when rating changes
+- [ ] For all colors selections, only allow pastel colors for now
+  - [ ] Use this in the UI for the bg and text color should be the stronger version of the color
+- [ ] Focus in the next meeting when opening the current year
+- [ ] IMDB rating should be episode rating, not series rating
+- [ ] If imported series not found on IMDB AND TMDB, do not add them
+    - [ ] Twin Peaks is able to load the original 3 seasons, but not the new ones
+      - In IMDB they are two different series, in TMDB they are grouped as one
+- [x] Use S#E# format for episode prefixes
+  - `Episode` only ever carried its own `seasonId`, not the parent season's `number`, so every "Ep. #" spot needed a
+    season lookup added: new `GET /seasons/{seasonId}` (`SeasonService.getById`, same club-membership-derived
+    permission check as `SeasonService.rate`) plus a frontend `seasonsApi.get`. `SeasonDetailPage` already has one
+    fixed `seasonId` from the route, so it just fetches that season directly; `MeetingsPage` and `EpisodeSection`
+    (meeting detail) can show episodes from several seasons/series at once, so they use a new shared
+    `useSeasonNumbers` hook that resolves every distinct `seasonId` referenced on the page in parallel and returns a
+    lookup map. Shared `episodeCode(seasonNumber, episodeNumber)` util (`frontend/src/utils/episode.ts`) renders
+    `S#E#`, falling back to just `E#` while the season number is still loading rather than blocking the row on it.
+    `EpisodeSearchAutocomplete`'s and the "Up next" suggestion chips' own S#E# labels were already correct (they
+    come from `EpisodeSearchResult`, which already denormalizes `seasonNumber`) -- the suggestion chip was switched
+    to the same shared util for consistency, `EpisodeSearchAutocomplete` was left as-is
+    - [ ] On Display, fill the episode and season numbers with the 0, until the number of the episode is the same as the largest season/episode
+
+# Stretch goals (only start after asked)
+- [ ] Use rectangular (flat) country flags instead of the wavy emoji ones
+    - Currently `countryFlag()` (`frontend/src/utils/country.ts`) renders Unicode regional-indicator-symbol emoji --
+      the wavy/ribbon look isn't something the app controls, it's just how the OS's emoji font draws that character.
+      Getting real flat rectangular flags needs an actual flag-icon library (e.g. `flag-icons`, SVG/sprite assets
+      addressed by ISO code) swapped in for `CountryFlags` in `MeetingsPage.tsx` + the `countryFlag()` util
+- [ ] 

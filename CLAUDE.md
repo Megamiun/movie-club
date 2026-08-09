@@ -222,6 +222,14 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Episode TMDB lookup is always best-effort: fetched automatically when the parent series has a `tmdb_id`, silently
   skipped otherwise, never blocking episode creation (unlike Movie/Series, an episode has no id of its own to look up
   by)
+- Every episode listing in the UI prefixes the episode with its "S#E#" code. `Episode` itself only carries
+  `seasonId`, not the parent season's own `number`, so this is resolved via `GET /seasons/{seasonId}`
+  (`SeasonService.getById`) — same club-membership-derived permission check as `SeasonService.rate`. Pages that
+  already know a single fixed season (`SeasonDetailPage`) fetch it directly; pages that can show episodes spanning
+  several seasons/series at once (`MeetingsPage`, the meeting detail page's Episodes section) use a shared
+  `useSeasonNumbers` hook that resolves every distinct `seasonId` on the page in parallel into one lookup map. The
+  shared `episodeCode()` util (`frontend/src/utils/episode.ts`) falls back to just "E#" while the season number is
+  still loading, rather than blocking the row on it
 - When assigning an episode to a meeting, the UI suggests one "up next" episode per series the club follows —
   the earliest (season, then episode number) episode of that series not yet scheduled to any of the club's own
   meetings (`GET /clubs/{clubId}/episodes/next-suggestions`, `EpisodeRepository.findNextUnscheduled`). Series with

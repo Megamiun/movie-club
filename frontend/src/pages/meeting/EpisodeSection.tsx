@@ -23,6 +23,8 @@ import { EpisodeSearchAutocomplete } from '../../components/EpisodeSearchAutocom
 import { ImdbLink } from '../../components/ImdbLink'
 import { RatingForm } from '../../components/RatingForm'
 import { useAsync } from '../../hooks/useAsync'
+import { useSeasonNumbers } from '../../hooks/useSeasonNumbers'
+import { episodeCode } from '../../utils/episode'
 
 export function EpisodeSection({
   meetingId,
@@ -35,6 +37,7 @@ export function EpisodeSection({
 }) {
   const { data: episodes, loading, error, reload } = useAsync(() => episodesApi.listForMeeting(meetingId), [meetingId])
   const { data: suggestions, reload: reloadSuggestions } = useAsync(() => episodesApi.nextSuggestions(clubId), [clubId])
+  const seasonNumbers = useSeasonNumbers((episodes ?? []).map((episode) => episode.seasonId))
   const [selectedEpisode, setSelectedEpisode] = useState<EpisodeSearchResult | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -73,7 +76,14 @@ export function EpisodeSection({
         <Stack spacing={1}>
           {episodes?.length === 0 && <Typography color="text.secondary">No episodes scheduled yet.</Typography>}
           {episodes?.map((episode) => (
-            <EpisodeItem key={episode.id} episode={episode} meetingId={meetingId} scales={scales} onChange={reload} />
+            <EpisodeItem
+              key={episode.id}
+              episode={episode}
+              seasonNumber={seasonNumbers?.get(episode.seasonId)}
+              meetingId={meetingId}
+              scales={scales}
+              onChange={reload}
+            />
           ))}
         </Stack>
       </AsyncState>
@@ -88,7 +98,7 @@ export function EpisodeSection({
               key={suggestion.episodeId}
               size="small"
               icon={<PlaylistAddIcon fontSize="small" />}
-              label={`${suggestion.seriesTitle} S${suggestion.seasonNumber}E${suggestion.episodeNumber}${suggestion.episodeTitle ? ` — ${suggestion.episodeTitle}` : ''}`}
+              label={`${suggestion.seriesTitle} ${episodeCode(suggestion.seasonNumber, suggestion.episodeNumber)}${suggestion.episodeTitle ? ` — ${suggestion.episodeTitle}` : ''}`}
               onClick={() => handleQuickAssign(suggestion.episodeId)}
             />
           ))}
@@ -114,11 +124,13 @@ export function EpisodeSection({
 
 function EpisodeItem({
   episode,
+  seasonNumber,
   meetingId,
   scales,
   onChange,
 }: {
   episode: Episode
+  seasonNumber: number | undefined
   meetingId: string
   scales: RatingScale[]
   onChange: () => void
@@ -154,7 +166,7 @@ function EpisodeItem({
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexGrow: 1 }}>
           <Typography sx={{ flexGrow: 1 }}>
-            Ep. {episode.number}
+            {episodeCode(seasonNumber, episode.number)}
             {episode.title ? ` — ${episode.title}` : ''}
           </Typography>
           {episode.airDate && <Chip size="small" label={episode.airDate} />}

@@ -29,6 +29,14 @@ class SeasonService(
         return seasonRepository.listBySeries(series.globalSeriesId)
     }
 
+    /** [seasonId] here is the *global* season id, same as [rate] -- access is derived the same way, by finding the
+     * acting member's own club's pick of the season's parent series. */
+    fun getById(seasonId: Uuid, actingMemberId: Uuid): SeasonRow {
+        val season = seasonRepository.findById(seasonId) ?: throw NotFoundException("Season not found")
+        requireClubSeriesForMember(season.seriesId, actingMemberId)
+        return season
+    }
+
     /** [seasonId] here is the *global* season id (Season has no per-club fields, so routes address it directly) --
      * access is derived by finding the acting member's own club's pick of the season's parent series. */
     fun rate(
