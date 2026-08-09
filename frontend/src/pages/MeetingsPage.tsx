@@ -1,4 +1,6 @@
 import AddIcon from '@mui/icons-material/Add'
+import LiveTvIcon from '@mui/icons-material/LiveTv'
+import MovieIcon from '@mui/icons-material/Movie'
 import TuneIcon from '@mui/icons-material/Tune'
 import {
   Alert,
@@ -65,6 +67,27 @@ interface PickDropProps {
   onDrop: (event: DragEvent) => void
 }
 
+/** Which pick types show in the meetings table -- a personal display preference like `RatingDisplayContext`
+ * (persisted to `localStorage`, not club data), but plain component state rather than a shared context since
+ * nothing outside this page's own component tree needs it. Both default to shown; movies were the only pick type
+ * before series/episodes existed, so defaulting them on keeps today's view unchanged until a user actively hides
+ * something. */
+const MEETING_TYPE_FILTERS_KEY = 'movieclub.meetingTypeFilters'
+
+interface MeetingTypeFilters {
+  showMovies: boolean
+  showEpisodes: boolean
+}
+
+function loadMeetingTypeFilters(): MeetingTypeFilters {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MEETING_TYPE_FILTERS_KEY) ?? '{}')
+    return { showMovies: parsed.showMovies ?? true, showEpisodes: parsed.showEpisodes ?? true }
+  } catch {
+    return { showMovies: true, showEpisodes: true }
+  }
+}
+
 export function MeetingsPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { member } = useAuth()
@@ -74,11 +97,16 @@ export function MeetingsPage() {
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [selectedYear, setSelectedYear] = useState<string | null>(null)
+  const [typeFilters, setTypeFilters] = useState(loadMeetingTypeFilters)
 
   useEffect(() => {
     const interval = setInterval(silentReload, 5000)
     return () => clearInterval(interval)
   }, [silentReload])
+
+  useEffect(() => {
+    localStorage.setItem(MEETING_TYPE_FILTERS_KEY, JSON.stringify(typeFilters))
+  }, [typeFilters])
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault()
@@ -126,6 +154,7 @@ export function MeetingsPage() {
           Meetings
         </Typography>
         <RatingDisplaySettingsButton />
+        <MeetingTypeFilterButtons filters={typeFilters} onChange={setTypeFilters} />
       </Stack>
 
       <AsyncState loading={loading} error={error}>
@@ -154,6 +183,7 @@ export function MeetingsPage() {
                       myMemberId={member?.id ?? null}
                       columnCount={columnCount}
                       seasonNumbers={seasonNumbers}
+                      typeFilters={typeFilters}
                       onChange={silentReload}
                       registerRow={(el) => {
                         if (el) rowRefs.current.set(meeting.id, el)
@@ -254,6 +284,31 @@ function RatingDisplaySettingsButton() {
   )
 }
 
+/** Two icon toggles -- Movies and Series -- for which pick types show in the table below. Each is independently
+ * on/off (not exclusive: both, either, or neither can be active at once). */
+function MeetingTypeFilterButtons({ filters, onChange }: { filters: MeetingTypeFilters; onChange: (next: MeetingTypeFilters) => void }) {
+  return (
+    <Stack direction="row" spacing={0.5}>
+      <IconButton
+        size="small"
+        color={filters.showMovies ? 'primary' : 'default'}
+        onClick={() => onChange({ ...filters, showMovies: !filters.showMovies })}
+        title={filters.showMovies ? 'Hide movies' : 'Show movies'}
+      >
+        <MovieIcon fontSize="small" />
+      </IconButton>
+      <IconButton
+        size="small"
+        color={filters.showEpisodes ? 'primary' : 'default'}
+        onClick={() => onChange({ ...filters, showEpisodes: !filters.showEpisodes })}
+        title={filters.showEpisodes ? 'Hide series' : 'Show series'}
+      >
+        <LiveTvIcon fontSize="small" />
+      </IconButton>
+    </Stack>
+  )
+}
+
 function MeetingRows({
   meeting,
   club,
@@ -261,6 +316,7 @@ function MeetingRows({
   myMemberId,
   columnCount,
   seasonNumbers,
+  typeFilters,
   onChange,
   registerRow,
 }: {
@@ -270,10 +326,14 @@ function MeetingRows({
   myMemberId: string | null
   columnCount: number
   seasonNumbers: Map<string, SeasonCodeInfo> | null
+  typeFilters: MeetingTypeFilters
   onChange: () => void
   registerRow: (el: HTMLTableRowElement | null) => void
 }) {
-  const hasPicks = meeting.movies.length > 0 || meeting.episodes.length > 0
+  const hasAnyPicks = meeting.movies.length > 0 || meeting.episodes.length > 0
+  const visibleMovies = typeFilters.showMovies ? meeting.movies : []
+  const visibleEpisodeGroups = typeFilters.showEpisodes ? groupEpisodesBySeries(meeting.episodes) : []
+  const hasVisiblePicks = visibleMovies.length > 0 || visibleEpisodeGroups.length > 0
   const [isDragOver, setIsDragOver] = useState(false)
   const [moveError, setMoveError] = useState<string | null>(null)
 
@@ -323,7 +383,8 @@ function MeetingRows({
             </Link>
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 400 }}>
               {meeting.assignedMemberId ? memberName(club.members, meeting.assignedMemberId) : 'Shared / merged'}
-              {!hasPicks && ' · Nothing picked yet'}
+              {!hasAnyPicks && ' · Nothing picked yet'}
+              {hasAnyPicks && !hasVisiblePicks && ' · Hidden by filters'}
             </Typography>
             {moveError && (
               <Typography variant="caption" color="error">
@@ -333,7 +394,7 @@ function MeetingRows({
           </Stack>
         </TableCell>
       </TableRow>
-      {meeting.movies.map((pick) => (
+      {visibleMovies.map((pick) => (
         <MovieRow
           key={pick.movie.id}
           pick={pick}
@@ -345,7 +406,7 @@ function MeetingRows({
           onChange={onChange}
         />
       ))}
-      {groupEpisodesBySeries(meeting.episodes).map((group) => (
+      {visibleEpisodeGroups.map((group) => (
         <Fragment key={group.series?.id ?? group.picks[0].episode.id}>
           {group.series && (
             <TableRow {...dropProps}>

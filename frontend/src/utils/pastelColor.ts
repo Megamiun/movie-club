@@ -3,6 +3,11 @@
 const PASTEL_SATURATION = 60
 const PASTEL_LIGHTNESS = 82
 
+/** Saturation/lightness band for `strongPastelHex` -- same hue as the pastel band above, but bold/dark enough to
+ * read as text on top of it, instead of a generic black/white contrast pick. */
+const STRONG_SATURATION = 70
+const STRONG_LIGHTNESS = 32
+
 function hslToHex(h: number, s: number, l: number): string {
   const sat = s / 100
   const light = l / 100
@@ -16,8 +21,9 @@ function hslToHex(h: number, s: number, l: number): string {
   return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`
 }
 
-/** Approximates a hex color's hue -- used only to position the picker's thumb, including for a pre-existing
- * custom color that isn't itself on the pastel band (it's left alone until the user actually touches the picker). */
+/** Approximates a hex color's hue -- used to position the picker's thumb (including for a pre-existing custom color
+ * that isn't itself on the pastel band, left alone until the user actually touches the picker) and by
+ * `strongPastelHex` to derive a same-hue text/accent color. */
 function hexToHue(hex: string): number {
   const r = parseInt(hex.slice(1, 3), 16) / 255
   const g = parseInt(hex.slice(3, 5), 16) / 255
@@ -42,4 +48,11 @@ export function hueToPastelHex(hue: number): string {
 
 export function pastelHexToHue(hex: string): number {
   return hexToHue(hex)
+}
+
+/** A bolder, more saturated same-hue variant of [hex] -- for text/accents wherever a pastel-picker color (member
+ * color, rating option color) is otherwise only ever used as a background, instead of a generic black/white
+ * contrast pick. Only meaningful for an actual pastel hex; a gray/desaturated input has no real hue to preserve. */
+export function strongPastelHex(hex: string): string {
+  return hslToHex(hexToHue(hex), STRONG_SATURATION, STRONG_LIGHTNESS)
 }
