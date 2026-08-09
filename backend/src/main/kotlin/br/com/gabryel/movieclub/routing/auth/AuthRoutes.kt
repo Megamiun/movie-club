@@ -17,7 +17,7 @@ fun Route.authRoutes(jwtService: JwtService, memberService: MemberService) {
             Created,
             AuthResponse(
                 token = jwtService.generate(member.id),
-                member = MemberResponse(member.id.toString(), member.name, member.username, member.email),
+                member = MemberResponse(member.id.toString(), member.name, member.username, member.email, member.isSiteAdmin),
             ),
         )
     }
@@ -28,7 +28,7 @@ fun Route.authRoutes(jwtService: JwtService, memberService: MemberService) {
         call.respond(
             AuthResponse(
                 token = jwtService.generate(member.id),
-                member = MemberResponse(member.id.toString(), member.name, member.username, member.email),
+                member = MemberResponse(member.id.toString(), member.name, member.username, member.email, member.isSiteAdmin),
             ),
         )
     }

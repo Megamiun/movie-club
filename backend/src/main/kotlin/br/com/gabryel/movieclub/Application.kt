@@ -17,6 +17,7 @@ import br.com.gabryel.movieclub.plugins.configureDatabase
 import br.com.gabryel.movieclub.plugins.configureErrors
 import br.com.gabryel.movieclub.plugins.configureRouting
 import br.com.gabryel.movieclub.plugins.configureSerialization
+import br.com.gabryel.movieclub.service.AdminService
 import br.com.gabryel.movieclub.service.ClubService
 import br.com.gabryel.movieclub.service.EpisodeService
 import br.com.gabryel.movieclub.service.MeetingService
@@ -94,6 +95,7 @@ fun Application.module() {
         watchlistService,
         ratingScaleRepository,
     )
+    val adminService = AdminService(memberRepository, mediaItemRepository)
 
     configureCallLogging()
     configureSerialization()
@@ -111,5 +113,6 @@ fun Application.module() {
         episodeService,
         watchlistService,
         importService,
+        adminService,
     )
 }

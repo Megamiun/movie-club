@@ -85,6 +85,18 @@ enforces those automatically. This section is for conventions ktlint can't check
   after that — self-service by the member themselves, or by any club admin (`PATCH
   /clubs/{clubId}/members/{memberId}/color`). Used for the meetings table's chosen-by column (`MemberBadge`, a
   colored initials avatar) instead of the plain member name
+- Has `is_site_admin` (default false) — a member-level flag, unlike every other role/permission in this app, which
+  is scoped per-club (`club_members.role`). No self-service way to grant it exists yet (no UI, no endpoint) — it's
+  bootstrapped onto whichever account has the earliest `created_at` by a migration (V23), on the assumption that's
+  the operator who originally stood up the instance. `AdminService.requireSiteAdmin` gates the `/admin/*` routes;
+  every other `*Service` in this codebase scopes access by club membership/role instead, so this is the one
+  deliberate exception
+- **Site Admin** panel (`/admin`, `AdminPage`, site-admin members only — the nav link itself is hidden for everyone
+  else, though the backend is the actual enforcement, not the hidden link): lists every registered user, and every
+  `MediaItem` site-wide (movies + series pulled from every club at once) — read-only for now, no user/content
+  management actions. Reuses the existing `MediaItem` "universal handle" table wholesale (`MediaItemRepository.listAll`)
+  rather than separately unioning the `Movies`/`Series` catalog tables, since MediaItem already dedupes both types
+  into one row per TMDB item
 
 ### Meeting
 

@@ -39,4 +39,5 @@ internal data class MemberResponse(
     val name: String,
     val username: String,
     val email: String,
+    val isSiteAdmin: Boolean,
 )

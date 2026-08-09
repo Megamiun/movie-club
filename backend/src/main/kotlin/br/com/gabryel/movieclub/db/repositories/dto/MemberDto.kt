@@ -22,6 +22,7 @@ data class RegisteredMember(
     val name: String,
     val username: String,
     val passwordHash: String,
+    val isSiteAdmin: Boolean = false,
 ) : MemberRow() {
     override val displayName: String get() = name
 }

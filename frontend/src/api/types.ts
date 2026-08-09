@@ -3,6 +3,26 @@ export interface Member {
   name: string
   username: string
   email: string
+  isSiteAdmin: boolean
+}
+
+export interface AdminUser {
+  id: string
+  name: string
+  username: string
+  email: string
+  isSiteAdmin: boolean
+}
+
+export interface AdminMediaItem {
+  id: string
+  type: 'MOVIE' | 'SERIES' | 'EPISODE'
+  imdbId: string
+  tmdbId: string | null
+  title: string
+  year: number | null
+  posterUrl: string | null
+  imdbRating: string | null
 }
 
 export interface AuthResponse {

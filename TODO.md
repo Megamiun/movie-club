@@ -12,7 +12,8 @@
 - [x] Allow editing scale text, colors, and order easily
 - [x] Club start screen should be a list of next meetings; configs and club data should be last tab
 - [x] Watchlist "add episode" and "add movie" on the UI should use search by name from TMDB, or IMDB URL/ID
-- [ ] Admin panel to see all imported series, movies, and all users
+- [x] Admin panel to see all imported series, movies, and all users
+  - Site-wide (confirmed with the user, not per-club) -- new `is_site_admin` flag on Member (per-member, unlike every other role in this app which is per-club), bootstrapped onto the earliest-created account by a migration (V23) since no self-service grant flow exists. New `AdminService` + `GET /admin/users` + `GET /admin/media-items`, gated by `requireSiteAdmin`. New `/admin` page (nav link hidden for non-admins, though the backend is the real enforcement) with two read-only tables: every registered user, and every `MediaItem` site-wide across all clubs (reuses the existing MediaItem table instead of separately unioning Movies/Series)
 - [x] When adding a movie/series/etc. that already exists, update the existing record with new/missing info instead of duplicating
   - Movie/Series catalog rows already dedupe-and-refresh by `imdb_id` on add (`findOrCreateMovie`/`findOrCreateSeries`); the shared `MediaItem` table (see CLAUDE.md) extends this same dedup-by-`imdb_id` behavior to anything referencing it (e.g. Watchlist)
 - [x] Don't add repeated entries to meetings, watchlist, series and so on.

@@ -21,4 +21,9 @@ interface MediaItemRepository {
     ): MediaItemRow
 
     fun findById(id: Uuid): MediaItemRow?
+
+    /** Every MediaItem site-wide, regardless of which club(s) reference it -- used by the site-admin panel to show
+     * every movie/series ever imported via TMDB in one list, since MediaItem is already the one place both types
+     * are deduplicated to a single row (see [br.com.gabryel.movieclub.db.tables.MediaItems]). */
+    fun listAll(): List<MediaItemRow>
 }

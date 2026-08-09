@@ -1,5 +1,6 @@
 package br.com.gabryel.movieclub.plugins
 
+import br.com.gabryel.movieclub.routing.admin.adminRoutes
 import br.com.gabryel.movieclub.routing.auth.authRoutes
 import br.com.gabryel.movieclub.routing.club.clubRoutes
 import br.com.gabryel.movieclub.routing.import.importRoutes
@@ -8,6 +9,7 @@ import br.com.gabryel.movieclub.routing.member.memberRoutes
 import br.com.gabryel.movieclub.routing.movie.movieRoutes
 import br.com.gabryel.movieclub.routing.series.seriesRoutes
 import br.com.gabryel.movieclub.routing.watchlist.watchlistRoutes
+import br.com.gabryel.movieclub.service.AdminService
 import br.com.gabryel.movieclub.service.ClubService
 import br.com.gabryel.movieclub.service.EpisodeService
 import br.com.gabryel.movieclub.service.MeetingService
@@ -34,6 +36,7 @@ fun Application.configureRouting(
     episodeService: EpisodeService,
     watchlistService: WatchlistService,
     importService: ImportService,
+    adminService: AdminService,
 ) {
     routing {
         get("/health") {
@@ -48,5 +51,6 @@ fun Application.configureRouting(
         seriesRoutes(seriesService, seasonService, episodeService)
         watchlistRoutes(watchlistService)
         importRoutes(importService)
+        adminRoutes(adminService)
     }
 }

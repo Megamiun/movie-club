@@ -9,5 +9,6 @@ object Members : UuidTable("members") {
     val username = varchar("username", 32).nullable().uniqueIndex()
     val passwordHash = varchar("password_hash", 255).nullable()
     val inviteToken = uuid("invite_token").nullable().uniqueIndex()
+    val isSiteAdmin = bool("is_site_admin").default(false)
     val createdAt = timestamp("created_at")
 }

@@ -60,6 +60,13 @@ class ExposedMemberRepository : MemberRepository {
             .mapNotNull(::toRow)
     }
 
+    override fun listAll(): List<RegisteredMember> = transaction {
+        Members
+            .selectAll()
+            .mapNotNull(::toRow)
+            .filterIsInstance<RegisteredMember>()
+    }
+
     override fun invite(email: String): InvitedMember = transaction {
         val token = Uuid.random()
         val result = Members.insert {
@@ -99,7 +106,8 @@ class ExposedMemberRepository : MemberRepository {
         val passwordHash = row[Members.passwordHash]
         return when {
             inviteToken != null -> InvitedMember(id, email, inviteToken)
-            name != null && username != null && passwordHash != null -> RegisteredMember(id, email, name, username, passwordHash)
+            name != null && username != null && passwordHash != null ->
+                RegisteredMember(id, email, name, username, passwordHash, row[Members.isSiteAdmin])
             else -> null
         }
     }

@@ -55,6 +55,10 @@ class ExposedMediaItemRepository : MediaItemRepository {
             .singleOrNull()
     }
 
+    override fun listAll(): List<MediaItemRow> = transaction {
+        MediaItems.selectAll().map(::toRow)
+    }
+
     private fun UpdateBuilder<*>.apply(
         type: MediaItemType,
         title: String,

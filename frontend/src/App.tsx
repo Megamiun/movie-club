@@ -5,6 +5,7 @@ import { AuthProvider } from './auth/AuthContext'
 import { RequireAuth } from './auth/RequireAuth'
 import { AppLayout } from './layout/AppLayout'
 import { ClubLayout } from './layout/ClubLayout'
+import { AdminPage } from './pages/AdminPage'
 import { ClubOverviewPage } from './pages/ClubOverviewPage'
 import { ClubsPage } from './pages/ClubsPage'
 import { ImportPage } from './pages/ImportPage'
@@ -40,6 +41,7 @@ function App() {
               <Route index element={<Navigate to="/clubs" replace />} />
               <Route path="/clubs" element={<ClubsPage />} />
               <Route path="/invite" element={<InvitePage />} />
+              <Route path="/admin" element={<AdminPage />} />
               <Route path="/meetings/:meetingId" element={<MeetingDetailPage />} />
               <Route path="/series/:seriesId" element={<SeriesDetailPage />} />
               <Route path="/seasons/:seasonId" element={<SeasonDetailPage />} />
