@@ -33,7 +33,12 @@ export function SeasonDetailPage() {
   const seriesId = searchParams.get('seriesId')
 
   const { data: episodes, loading, error, reload } = useAsync(() => seasonsApi.listEpisodes(seasonId!), [seasonId])
-  const { data: season } = useAsync(() => seasonsApi.get(seasonId!), [seasonId])
+  const { data: siblingSeasons } = useAsync(() => seasonsApi.listSiblings(seasonId!), [seasonId])
+  const season = siblingSeasons?.find((s) => s.id === seasonId)
+  const seasonDigits = siblingSeasons?.length
+    ? Math.max(...siblingSeasons.map((s) => s.number), 1).toString().length
+    : undefined
+  const episodeDigits = episodes?.length ? Math.max(...episodes.map((e) => e.number), 1).toString().length : undefined
   const { data: series } = useAsync(() => (seriesId ? seriesApi.get(seriesId) : Promise.resolve(null)), [seriesId])
   const { data: club } = useAsync(() => (series ? clubsApi.get(series.clubId) : Promise.resolve(null)), [
     series?.clubId,
@@ -101,6 +106,8 @@ export function SeasonDetailPage() {
                 key={episode.id}
                 episode={episode}
                 seasonNumber={season?.number}
+                seasonDigits={seasonDigits}
+                episodeDigits={episodeDigits}
                 scales={scales ?? []}
                 onChange={reload}
               />
@@ -143,11 +150,15 @@ export function SeasonDetailPage() {
 function EpisodeRow({
   episode,
   seasonNumber,
+  seasonDigits,
+  episodeDigits,
   scales,
   onChange,
 }: {
   episode: Episode
   seasonNumber: number | undefined
+  seasonDigits: number | undefined
+  episodeDigits: number | undefined
   scales: RatingScale[]
   onChange: () => void
 }) {
@@ -172,7 +183,7 @@ function EpisodeRow({
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexGrow: 1 }}>
           <Typography sx={{ flexGrow: 1 }}>
-            {episodeCode(seasonNumber, episode.number)}
+            {episodeCode(seasonNumber, episode.number, seasonDigits, episodeDigits)}
             {episode.title ? ` — ${episode.title}` : ''}
           </Typography>
           {episode.airDate && <Chip size="small" label={episode.airDate} />}

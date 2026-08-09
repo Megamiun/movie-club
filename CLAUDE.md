@@ -241,6 +241,16 @@ enforces those automatically. This section is for conventions ktlint can't check
   `useSeasonNumbers` hook that resolves every distinct `seasonId` on the page in parallel into one lookup map. The
   shared `episodeCode()` util (`frontend/src/utils/episode.ts`) falls back to just "E#" while the season number is
   still loading, rather than blocking the row on it
+  - Both halves zero-pad to the width of the largest number they could show (e.g. `S0E001` in a 130-episode
+    season) — `useSeasonNumbers` also resolves, per distinct `seasonId`, the season's siblings (via
+    `GET /seasons/{seasonId}/siblings`, `SeasonService.listSiblingSeasons` — every season sharing that season's
+    parent series, resolved straight from the season the same way `getById` derives access, without the caller
+    needing the club-scoped series pick id `listSeasons` requires) for the season-number digit width, and the
+    season's own episode list for the episode-number digit width (scoped to *that* season, not the whole series).
+    `SeasonDetailPage` derives both directly from data it already loads (its own `listSiblings` call plus the full
+    episode list already shown on the page) rather than going through the shared hook. `episodeCode()` falls back
+    to unpadded numbers when a width isn't known yet, same "never block the row" principle as the season-number
+    fallback above
 - When assigning an episode to a meeting, the UI suggests one "up next" episode per series the club follows —
   the earliest (season, then episode number) episode of that series not yet scheduled to any of the club's own
   meetings (`GET /clubs/{clubId}/episodes/next-suggestions`, `EpisodeRepository.findNextUnscheduled`). Series with

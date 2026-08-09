@@ -40,6 +40,8 @@ export const seriesApi = {
 export const seasonsApi = {
   get: (seasonId: string) => api.get<Season>(`/seasons/${seasonId}`),
 
+  listSiblings: (seasonId: string) => api.get<Season[]>(`/seasons/${seasonId}/siblings`),
+
   rate: (seasonId: string, qualityOptionId?: string, sentimentOptionId?: string, comment?: string) =>
     api.put<SeasonReview>(`/seasons/${seasonId}/review`, { qualityOptionId, sentimentOptionId, comment }),
 

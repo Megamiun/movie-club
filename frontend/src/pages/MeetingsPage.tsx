@@ -39,7 +39,7 @@ import { MemberBadge } from '../components/MemberBadge'
 import { TruncatedList } from '../components/TruncatedList'
 import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
-import { useSeasonNumbers } from '../hooks/useSeasonNumbers'
+import { useSeasonNumbers, type SeasonCodeInfo } from '../hooks/useSeasonNumbers'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { useRatingDisplay, type RatingFillWith } from '../settings/RatingDisplayContext'
 import { countryFlag, countryName } from '../utils/country'
@@ -249,7 +249,7 @@ function MeetingRows({
   scales: RatingScale[]
   myMemberId: string | null
   columnCount: number
-  seasonNumbers: Map<string, number> | null
+  seasonNumbers: Map<string, SeasonCodeInfo> | null
   onChange: () => void
 }) {
   const hasPicks = meeting.movies.length > 0 || meeting.episodes.length > 0
@@ -341,7 +341,7 @@ function MeetingRows({
               myMemberId={myMemberId}
               meetingId={meeting.id}
               dropProps={dropProps}
-              seasonNumber={seasonNumbers?.get(pick.episode.seasonId)}
+              seasonCode={seasonNumbers?.get(pick.episode.seasonId)}
               onChange={onChange}
             />
           ))}
@@ -465,7 +465,7 @@ function EpisodeRow({
   myMemberId,
   meetingId,
   dropProps,
-  seasonNumber,
+  seasonCode,
   onChange,
 }: {
   pick: MeetingEpisodePick
@@ -474,7 +474,7 @@ function EpisodeRow({
   myMemberId: string | null
   meetingId: string
   dropProps: PickDropProps
-  seasonNumber: number | undefined
+  seasonCode: SeasonCodeInfo | undefined
   onChange: () => void
 }) {
   const { episode, series } = pick
@@ -507,12 +507,12 @@ function EpisodeRow({
       <TableCell>
         {episode.imdbId || series ? (
           <ImdbLink imdbId={episode.imdbId ?? series!.imdbId} variant="text">
-            {episodeCode(seasonNumber, episode.number)}
+            {episodeCode(seasonCode?.number, episode.number, seasonCode?.seasonDigits, seasonCode?.episodeDigits)}
             {episode.title ? ` - ${episode.title}` : ''}
           </ImdbLink>
         ) : (
           <span>
-            {episodeCode(seasonNumber, episode.number)}
+            {episodeCode(seasonCode?.number, episode.number, seasonCode?.seasonDigits, seasonCode?.episodeDigits)}
             {episode.title ? ` - ${episode.title}` : ''}
           </span>
         )}

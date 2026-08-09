@@ -163,7 +163,13 @@
     `EpisodeSearchAutocomplete`'s and the "Up next" suggestion chips' own S#E# labels were already correct (they
     come from `EpisodeSearchResult`, which already denormalizes `seasonNumber`) -- the suggestion chip was switched
     to the same shared util for consistency, `EpisodeSearchAutocomplete` was left as-is
-    - [ ] On Display, fill the episode and season numbers with the 0, until the number of the episode is the same as the largest season/episode
+    - [x] On Display, fill the episode and season numbers with the 0, until the number of the episode is the same as the largest season/episode
+      - New `GET /seasons/{seasonId}/siblings` (`SeasonService.listSiblingSeasons`) resolves every season sharing
+        a season's parent series, straight from the season id (no club-scoped pick id needed, unlike `listSeasons`)
+        -- gives the season-number digit width. Episode-number width comes from that specific season's own episode
+        list. `useSeasonNumbers` now resolves both per distinct `seasonId`; `episodeCode()` pads each half to its
+        width, falling back to unpadded while still loading. Verified live: a 130-episode season renders
+        `S0E001`..`S0E130` correctly (season stays unpadded since the series itself only has single-digit seasons)
 - [ ] Director should be in it`s own normalized table(People probably), and episodes, series and so on, should point to it
 - [ ] Validate/Suggest languages
   - [ ] Languages can be just language or have a country, such as pt or pt-BR or pt-PT

@@ -37,6 +37,15 @@ class SeasonService(
         return season
     }
 
+    /** Every season sharing [seasonId]'s parent series, [seasonId] included -- used to zero-pad an "S#E#" code to
+     * the width of the series' own largest season number, without the caller needing to know the club-scoped pick
+     * id (unlike [listSeasons], access here is derived the same way as [getById], straight from the season). */
+    fun listSiblingSeasons(seasonId: Uuid, actingMemberId: Uuid): List<SeasonRow> {
+        val season = seasonRepository.findById(seasonId) ?: throw NotFoundException("Season not found")
+        requireClubSeriesForMember(season.seriesId, actingMemberId)
+        return seasonRepository.listBySeries(season.seriesId)
+    }
+
     /** [seasonId] here is the *global* season id (Season has no per-club fields, so routes address it directly) --
      * access is derived by finding the acting member's own club's pick of the season's parent series. */
     fun rate(

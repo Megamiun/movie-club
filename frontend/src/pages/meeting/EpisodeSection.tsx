@@ -23,7 +23,7 @@ import { EpisodeSearchAutocomplete } from '../../components/EpisodeSearchAutocom
 import { ImdbLink } from '../../components/ImdbLink'
 import { RatingForm } from '../../components/RatingForm'
 import { useAsync } from '../../hooks/useAsync'
-import { useSeasonNumbers } from '../../hooks/useSeasonNumbers'
+import { useSeasonNumbers, type SeasonCodeInfo } from '../../hooks/useSeasonNumbers'
 import { episodeCode } from '../../utils/episode'
 
 export function EpisodeSection({
@@ -79,7 +79,7 @@ export function EpisodeSection({
             <EpisodeItem
               key={episode.id}
               episode={episode}
-              seasonNumber={seasonNumbers?.get(episode.seasonId)}
+              seasonCode={seasonNumbers?.get(episode.seasonId)}
               meetingId={meetingId}
               scales={scales}
               onChange={reload}
@@ -124,13 +124,13 @@ export function EpisodeSection({
 
 function EpisodeItem({
   episode,
-  seasonNumber,
+  seasonCode,
   meetingId,
   scales,
   onChange,
 }: {
   episode: Episode
-  seasonNumber: number | undefined
+  seasonCode: SeasonCodeInfo | undefined
   meetingId: string
   scales: RatingScale[]
   onChange: () => void
@@ -166,7 +166,7 @@ function EpisodeItem({
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexGrow: 1 }}>
           <Typography sx={{ flexGrow: 1 }}>
-            {episodeCode(seasonNumber, episode.number)}
+            {episodeCode(seasonCode?.number, episode.number, seasonCode?.seasonDigits, seasonCode?.episodeDigits)}
             {episode.title ? ` — ${episode.title}` : ''}
           </Typography>
           {episode.airDate && <Chip size="small" label={episode.airDate} />}

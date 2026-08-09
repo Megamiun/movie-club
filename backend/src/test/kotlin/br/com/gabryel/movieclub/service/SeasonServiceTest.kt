@@ -59,6 +59,32 @@ class SeasonServiceTest {
     }
 
     @Test
+    fun `listSiblingSeasons returns every season sharing the parent series, seasonId's own season included`() {
+        val seasonId = Uuid.random()
+        val siblingId = Uuid.random()
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 3)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        val siblings = listOf(
+            SeasonRow(Uuid.random(), globalSeriesId, 1),
+            SeasonRow(Uuid.random(), globalSeriesId, 2),
+            SeasonRow(seasonId, globalSeriesId, 3),
+            SeasonRow(siblingId, globalSeriesId, 4),
+        )
+        every { seasonRepository.listBySeries(globalSeriesId) } returns siblings
+
+        assertEquals(siblings, seasonService.listSiblingSeasons(seasonId, memberId))
+    }
+
+    @Test
+    fun `listSiblingSeasons throws ForbiddenException when acting member isn't in any club following the series`() {
+        val seasonId = Uuid.random()
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns null
+
+        assertFailsWith<ForbiddenException> { seasonService.listSiblingSeasons(seasonId, memberId) }
+    }
+
+    @Test
     fun `rate resolves the club through the season's global series`() {
         val seasonId = Uuid.random()
         every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)

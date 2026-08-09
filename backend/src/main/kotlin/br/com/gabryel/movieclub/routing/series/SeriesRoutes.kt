@@ -124,6 +124,11 @@ fun Route.seriesRoutes(seriesService: SeriesService, seasonService: SeasonServic
             call.respond(season.toResponse())
         }
 
+        get("/seasons/{seasonId}/siblings") {
+            val seasons = seasonService.listSiblingSeasons(call.uuidPathParam("seasonId"), call.actingMemberId())
+            call.respond(seasons.map { it.toResponse() })
+        }
+
         put("/seasons/{seasonId}/review") {
             val body = call.receive<RateRequest>()
             val review = seasonService.rate(
