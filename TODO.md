@@ -19,7 +19,8 @@
   - `MovieService`/`SeriesService`/`WatchlistService`/`EpisodeService` now reject a second add of the same `imdb_id`/MediaItem/episode within its natural scope: same meeting for a movie pick (rewatch at a *different* meeting is still allowed, by design), same club for a series pick, same (club, member) for a watchlist entry, same meeting for an episode assignment -- all four now give the same clear error instead of three erroring and one silently no-opping. Backed by real DB unique constraints (`club_series`, `meeting_movies`, `watchlist_entries` -- `meeting_episodes` already had one) so a race between two near-simultaneous requests can't slip a duplicate past the application-level check either. CSV import keeps its own separate, softer "already imported" skip logic (a warning, not a hard error), since re-running an import is expected to encounter rows it's seen before
 - [x] Watchlist should be positional (orderable, positions can change)
   - Position scoped per (club, MediaItem type); reorder via up/down arrows swapping with the adjacent same-type entry
-- [ ] Watchlist ordering should be able to be done also via drag and drop
+- [x] Watchlist ordering should be able to be done also via drag and drop
+  - New dependency: `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities` (actively maintained, accessible; `react-beautiful-dnd` is not). Dragging replays the existing adjacent-swap `move` endpoint once per position stepped, so no backend change was needed. Up/down arrow buttons kept alongside as a non-drag fallback
 - [x] Watchlist entries can show media details (year, rating, etc. from TMDB)
   - Entries reference a `MediaItem` directly (poster, title, year, IMDB/TMDB rating); adding is search-only (no freeform manual entry), since a MediaItem only ever exists from a successful TMDB lookup
 - [x] Meetings pane should show film data similar to the CSV file (director, runtime, genre, etc.)

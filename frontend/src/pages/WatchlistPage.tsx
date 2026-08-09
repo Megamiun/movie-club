@@ -2,8 +2,19 @@ import AddIcon from '@mui/icons-material/Add'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import DeleteIcon from '@mui/icons-material/Delete'
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import EventIcon from '@mui/icons-material/Event'
 import { Alert, Box, Button, Chip, IconButton, MenuItem, Paper, Select, Stack, TextField, Typography } from '@mui/material'
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { meetingsApi } from '../api/meetings'
@@ -88,7 +99,9 @@ function WatchlistSection({
   const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
   const [notes, setNotes] = useState('')
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [dragError, setDragError] = useState<string | null>(null)
   const sorted = [...entries].sort((a, b) => a.position - b.position)
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const handleAdd = async (event: FormEvent) => {
     event.preventDefault()
@@ -104,6 +117,28 @@ function WatchlistSection({
     }
   }
 
+  /** The backend only supports swapping with an *adjacent* sibling (see `WatchlistService.moveEntry`) -- dropping
+   * further away just replays that same swap one step at a time until the dragged entry reaches where it was
+   * dropped, reusing the up/down buttons' own primitive instead of adding a "set exact position" endpoint. */
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = sorted.findIndex((entry) => entry.id === active.id)
+    const newIndex = sorted.findIndex((entry) => entry.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const direction = newIndex > oldIndex ? 'DOWN' : 'UP'
+    setDragError(null)
+    try {
+      for (let step = 0; step < Math.abs(newIndex - oldIndex); step++) {
+        await watchlistApi.move(active.id as string, direction)
+      }
+      onChange()
+    } catch (err) {
+      setDragError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
@@ -116,20 +151,30 @@ function WatchlistSection({
         </Typography>
       )}
 
-      <Stack spacing={1} sx={{ mb: 2 }}>
-        {sorted.map((entry, index) => (
-          <WatchlistEntryCard
-            key={entry.id}
-            entry={entry}
-            members={members}
-            canMoveUp={index > 0}
-            canMoveDown={index < sorted.length - 1}
-            meetings={meetings}
-            isOwner={entry.memberId === myMemberId}
-            onChange={onChange}
-          />
-        ))}
-      </Stack>
+      {dragError && (
+        <Alert severity="error" sx={{ mb: 1 }} onClose={() => setDragError(null)}>
+          {dragError}
+        </Alert>
+      )}
+
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={sorted.map((entry) => entry.id)} strategy={verticalListSortingStrategy}>
+          <Stack spacing={1} sx={{ mb: 2 }}>
+            {sorted.map((entry, index) => (
+              <WatchlistEntryCard
+                key={entry.id}
+                entry={entry}
+                members={members}
+                canMoveUp={index > 0}
+                canMoveDown={index < sorted.length - 1}
+                meetings={meetings}
+                isOwner={entry.memberId === myMemberId}
+                onChange={onChange}
+              />
+            ))}
+          </Stack>
+        </SortableContext>
+      </DndContext>
 
       {submitError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -174,6 +219,7 @@ function WatchlistEntryCard({
   const [notes, setNotes] = useState(entry.notes ?? '')
   const [targetMeetingId, setTargetMeetingId] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: entry.id })
 
   const handleBlurSave = async () => {
     if (notes === (entry.notes ?? '')) return
@@ -222,7 +268,27 @@ function WatchlistEntryCard({
   const canMoveToMeeting = isOwner && entry.type === 'MOVIE' && meetings.length > 0
 
   return (
-    <Paper variant="outlined" sx={{ p: 1.5, display: 'flex', gap: 1.5, alignItems: 'center' }}>
+    <Paper
+      ref={setNodeRef}
+      variant="outlined"
+      sx={{
+        p: 1.5,
+        display: 'flex',
+        gap: 1.5,
+        alignItems: 'center',
+        opacity: isDragging ? 0.5 : 1,
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
+      <Box
+        {...attributes}
+        {...listeners}
+        sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.disabled', flexShrink: 0 }}
+        title="Drag to reorder"
+      >
+        <DragIndicatorIcon fontSize="small" />
+      </Box>
       {entry.posterUrl && (
         <Box component="img" src={entry.posterUrl} alt="" sx={{ width: 46, borderRadius: 0.5, flexShrink: 0 }} />
       )}

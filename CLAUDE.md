@@ -207,7 +207,10 @@ enforces those automatically. This section is for conventions ktlint can't check
   lists, so position only needs to be meaningful within one type at a time, not club-wide. Reordering swaps an entry
   with whichever one is immediately adjacent in that type's list. Any club member may reorder it (a shared,
   collaboratively prioritized list); editing an entry's `notes` or deleting it stays owner-only
-  (`WatchlistService.requireOwnedEntry`)
+  (`WatchlistService.requireOwnedEntry`). The frontend offers both up/down icon buttons and drag-and-drop (`@dnd-kit`,
+  `WatchlistPage`'s `DndContext`/`SortableContext`) for reordering — dragging further than one slot just replays the
+  same adjacent-swap `POST /watchlist/{id}/move` call once per step to walk the entry to its dropped position,
+  reusing the existing primitive rather than adding a "set exact position" endpoint
 - `notes` is the only freeform field left on an entry — personal commentary, not media data
 - Movies only (not Series) can be moved between a meeting pick and the watchlist, in either direction — there's no
   dedicated backend "move" endpoint; the frontend just composes the existing add + delete calls (e.g. add the movie
