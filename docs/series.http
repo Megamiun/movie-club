@@ -19,7 +19,11 @@ Content-Type: application/json
   client.global.set("clubId", response.body.id);
 %}
 
-### 2. Add a series by IMDB id (TMDB TV fetch populates everything else)
+### 2. Search series in TMDB catalog
+GET http://localhost:8080/series/search?q=Breaking+Bad
+Authorization: Bearer {{jwt}}
+
+### 3. Add a series by IMDB id (TMDB TV fetch populates everything else)
 POST http://localhost:8080/clubs/{{clubId}}/series
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
@@ -30,11 +34,15 @@ Content-Type: application/json
   client.global.set("seriesId", response.body.id);
 %}
 
-### 3. List series for the club
+### 4. List series for the club
 GET http://localhost:8080/clubs/{{clubId}}/series
 Authorization: Bearer {{jwt}}
 
-### 4. Add season 1
+### 5. Import all seasons and episodes for a series automatically from TMDB
+POST http://localhost:8080/series/{{seriesId}}/import-seasons
+Authorization: Bearer {{jwt}}
+
+### 6. Add season 1 manually
 POST http://localhost:8080/series/{{seriesId}}/seasons
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
@@ -45,7 +53,7 @@ Content-Type: application/json
   client.global.set("seasonId", response.body.id);
 %}
 
-### 5. Create a meeting to schedule an episode against
+### 7. Create a meeting to schedule an episode against
 POST http://localhost:8080/clubs/{{clubId}}/meetings
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
@@ -56,7 +64,7 @@ Content-Type: application/json
   client.global.set("meetingId", response.body.id);
 %}
 
-### 6. Add episode 1, scheduled to the meeting
+### 8. Add episode 1, scheduled to the meeting
 POST http://localhost:8080/seasons/{{seasonId}}/episodes
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
@@ -67,27 +75,34 @@ Content-Type: application/json
   client.global.set("episodeId", response.body.id);
 %}
 
-### 7. Add episode 2, unscheduled (no meeting yet)
+### 9. Add episode 2, unscheduled (no meeting yet)
 POST http://localhost:8080/seasons/{{seasonId}}/episodes
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
 { "number": 2, "title": "Cat's in the Bag..." }
 
-### 8. List episodes scheduled for the meeting
+### 10. Search club episodes
+GET http://localhost:8080/clubs/{{clubId}}/episodes/search?q=Pilot
+Authorization: Bearer {{jwt}}
+
+### 11. Get next suggested episodes for scheduling
+GET http://localhost:8080/clubs/{{clubId}}/episodes/next-suggestions
+Authorization: Bearer {{jwt}}
+
+### 12. List episodes scheduled for the meeting
 GET http://localhost:8080/meetings/{{meetingId}}/episodes
 Authorization: Bearer {{jwt}}
 
-### 8b. Schedule episode 2 to the same meeting too (episodes are global, so a club can independently
-### assign/unassign any episode to any of its own meetings -- this isn't tied to how it was created)
+### 13. Schedule episode 2 to the same meeting too
 POST http://localhost:8080/episodes/{{episodeId}}/meetings/{{meetingId}}
 Authorization: Bearer {{jwt}}
 
-### 8c. Unassign it again
+### 14. Unassign it again
 DELETE http://localhost:8080/episodes/{{episodeId}}/meetings/{{meetingId}}
 Authorization: Bearer {{jwt}}
 
-### 9. Get rating scale option ids
+### 15. Get rating scale option ids
 GET http://localhost:8080/clubs/{{clubId}}/rating-scales
 Authorization: Bearer {{jwt}}
 
@@ -95,7 +110,7 @@ Authorization: Bearer {{jwt}}
   client.global.set("qualityOptionId", response.body[0].options[1].id);
 %}
 
-### 10. Rate at series, season, and episode level independently
+### 16. Rate at series, season, and episode level independently
 PUT http://localhost:8080/series/{{seriesId}}/review
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
@@ -116,6 +131,6 @@ Content-Type: application/json
 
 { "qualityOptionId": "{{qualityOptionId}}", "comment": "great pilot" }
 
-### 11. Refresh TMDB metadata
+### 17. Refresh TMDB metadata
 POST http://localhost:8080/series/{{seriesId}}/refresh-metadata
 Authorization: Bearer {{jwt}}

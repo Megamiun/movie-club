@@ -60,24 +60,76 @@ Content-Type: application/json
 
 { "memberId": "{{carolId}}", "role": "MEMBER" }
 
-### 6. Promote Carol to admin
+### 6. Set custom member badge color
+PATCH http://localhost:8080/clubs/{{clubId}}/members/{{carolId}}/color
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "color": "#E1BEE7" }
+
+### 7. Update club language preferences (supports bare ISO codes and region tags like pt-BR)
+PATCH http://localhost:8080/clubs/{{clubId}}/language-preferences
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "preferredLanguages": ["pt-BR", "en"],
+  "ignoredLanguages": ["fr"]
+}
+
+### 8. Promote Carol to admin
 PATCH http://localhost:8080/clubs/{{clubId}}/members/{{carolId}}
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
 { "role": "ADMIN" }
 
-### 7. Reorder rotation
+### 9. Reorder rotation
 PUT http://localhost:8080/clubs/{{clubId}}/rotation
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
 { "memberIds": ["{{carolId}}", "{{adminId}}"] }
 
-### 8. Get rating scales (default Portuguese quality/sentiment options)
+### 10. Get rating scales
 GET http://localhost:8080/clubs/{{clubId}}/rating-scales
 Authorization: Bearer {{jwt}}
 
-### 9. Remove Carol
+> {%
+  client.global.set("qualityScaleId", response.body[0].id);
+  client.global.set("option1Id", response.body[0].options[0].id);
+  client.global.set("option2Id", response.body[0].options[1].id);
+%}
+
+### 11. Add a new rating option to a scale
+POST http://localhost:8080/clubs/{{clubId}}/rating-scales/{{qualityScaleId}}/options
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "label": "Masterpiece", "color": "#81C784" }
+
+> {%
+  client.global.set("newOptionId", response.body.id);
+%}
+
+### 12. Update rating option label and pastel color
+PATCH http://localhost:8080/clubs/{{clubId}}/rating-options/{{newOptionId}}
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "label": "Instant Classic", "color": "#A5D6A7" }
+
+### 13. Reorder rating options
+PUT http://localhost:8080/clubs/{{clubId}}/rating-scales/{{qualityScaleId}}/order
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "optionIds": ["{{newOptionId}}", "{{option1Id}}", "{{option2Id}}"] }
+
+### 14. Delete a rating option (reassigning existing reviews to option1Id)
+DELETE http://localhost:8080/clubs/{{clubId}}/rating-options/{{newOptionId}}?reassignToOptionId={{option1Id}}
+Authorization: Bearer {{jwt}}
+
+### 15. Remove Carol
 DELETE http://localhost:8080/clubs/{{clubId}}/members/{{carolId}}
 Authorization: Bearer {{jwt}}

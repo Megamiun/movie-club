@@ -1,0 +1,17 @@
+### 0. Login as Site Admin (uses docs/dummy-user.sql seeded admin@example.com)
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "hunter2" }
+
+> {%
+  client.global.set("jwt", response.body.token);
+%}
+
+### 1. List system users (Admin only)
+GET http://localhost:8080/admin/users
+Authorization: Bearer {{jwt}}
+
+### 2. List media items in global catalog (Admin only)
+GET http://localhost:8080/admin/media-items
+Authorization: Bearer {{jwt}}

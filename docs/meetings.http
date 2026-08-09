@@ -88,7 +88,7 @@ Content-Type: application/json
 
 { "date": "2026-03-09" }
 
-### 12. Create a second meeting and swap assignments
+### 12. Create a second meeting
 POST http://localhost:8080/clubs/{{clubId}}/meetings
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
@@ -99,19 +99,26 @@ Content-Type: application/json
   client.global.set("meetingId2", response.body.id);
 %}
 
-###
+### 13. Move movie pick to the second meeting
+POST http://localhost:8080/movies/{{movieId}}/move
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{ "meetingId": "{{meetingId2}}" }
+
+### 14. Swap assignments between meetings
 POST http://localhost:8080/meetings/{{meetingId}}/swap/{{meetingId2}}
 Authorization: Bearer {{jwt}}
 
-### 13. Deleting a meeting with movies fails (409)
-DELETE http://localhost:8080/meetings/{{meetingId}}
+### 15. Deleting a meeting with movies fails (409)
+DELETE http://localhost:8080/meetings/{{meetingId2}}
 Authorization: Bearer {{jwt}}
 
-### 14. Merge the empty meeting into the movie's meeting
+### 16. Merge meetings
 POST http://localhost:8080/meetings/{{meetingId}}/merge/{{meetingId2}}
 Authorization: Bearer {{jwt}}
 
-### 15. Delete the movie, then the now-empty meeting
+### 17. Delete the movie, then the now-empty meeting
 DELETE http://localhost:8080/movies/{{movieId}}
 Authorization: Bearer {{jwt}}
 
