@@ -8,6 +8,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.TmdbEpisodeMetadata
 import br.com.gabryel.movieclub.db.tables.ClubSeries
 import br.com.gabryel.movieclub.db.tables.Episodes
 import br.com.gabryel.movieclub.db.tables.MeetingEpisodes
+import br.com.gabryel.movieclub.db.tables.Meetings
 import br.com.gabryel.movieclub.db.tables.MemberEpisodeReviews
 import br.com.gabryel.movieclub.db.tables.Seasons
 import br.com.gabryel.movieclub.db.tables.Series
@@ -89,6 +90,25 @@ class ExposedEpisodeRepository : EpisodeRepository {
                     seriesTitle = row[ClubSeries.customTitle] ?: row[Series.originalTitle],
                 )
             }
+    }
+
+    /** The earliest (season, then episode number) episode of [globalSeriesId] that [clubId] hasn't scheduled to any
+     * of its own meetings yet -- powers the "suggest next episode" prompt. Scans every known episode of the series
+     * rather than the last-scheduled-plus-one, since gaps (an episode skipped, or added out of order) shouldn't
+     * make the suggestion skip ahead past something still unwatched. */
+    override fun findNextUnscheduled(clubId: Uuid, globalSeriesId: Uuid): EpisodeRow? = transaction {
+        val scheduledEpisodeIds = (MeetingEpisodes innerJoin Meetings)
+            .selectAll()
+            .where { Meetings.clubId eq clubId }
+            .map { it[MeetingEpisodes.episodeId].value }
+            .toSet()
+
+        (Seasons innerJoin Episodes)
+            .selectAll()
+            .where { Seasons.seriesId eq globalSeriesId }
+            .orderBy(Seasons.number to ASC, Episodes.number to ASC)
+            .map(::toRow)
+            .firstOrNull { it.id !in scheduledEpisodeIds }
     }
 
     override fun findSeriesImdbId(episodeId: Uuid): String? = transaction {

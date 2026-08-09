@@ -49,6 +49,9 @@ export const episodesApi = {
   search: (clubId: string, query: string) =>
     api.get<EpisodeSearchResult[]>(`/clubs/${clubId}/episodes/search?q=${encodeURIComponent(query)}`),
 
+  nextSuggestions: (clubId: string) =>
+    api.get<EpisodeSearchResult[]>(`/clubs/${clubId}/episodes/next-suggestions`),
+
   refreshMetadata: (episodeId: string) => api.post<Episode>(`/episodes/${episodeId}/refresh-metadata`),
 
   assignToMeeting: (episodeId: string, meetingId: string) =>

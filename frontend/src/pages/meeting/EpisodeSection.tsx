@@ -1,4 +1,5 @@
 import LinkOffIcon from '@mui/icons-material/LinkOff'
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import {
@@ -32,6 +33,7 @@ export function EpisodeSection({
   scales: RatingScale[]
 }) {
   const { data: episodes, loading, error, reload } = useAsync(() => episodesApi.listForMeeting(meetingId), [meetingId])
+  const { data: suggestions, reload: reloadSuggestions } = useAsync(() => episodesApi.nextSuggestions(clubId), [clubId])
   const [selectedEpisode, setSelectedEpisode] = useState<EpisodeSearchResult | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -43,6 +45,18 @@ export function EpisodeSection({
       await episodesApi.assignToMeeting(selectedEpisode.episodeId, meetingId)
       setSelectedEpisode(null)
       reload()
+      reloadSuggestions()
+    } catch (err) {
+      setSubmitError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  const handleQuickAssign = async (episodeId: string) => {
+    setSubmitError(null)
+    try {
+      await episodesApi.assignToMeeting(episodeId, meetingId)
+      reload()
+      reloadSuggestions()
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
@@ -62,6 +76,23 @@ export function EpisodeSection({
           ))}
         </Stack>
       </AsyncState>
+
+      {suggestions && suggestions.length > 0 && (
+        <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            Up next:
+          </Typography>
+          {suggestions.map((suggestion) => (
+            <Chip
+              key={suggestion.episodeId}
+              size="small"
+              icon={<PlaylistAddIcon fontSize="small" />}
+              label={`${suggestion.seriesTitle} S${suggestion.seasonNumber}E${suggestion.episodeNumber}${suggestion.episodeTitle ? ` — ${suggestion.episodeTitle}` : ''}`}
+              onClick={() => handleQuickAssign(suggestion.episodeId)}
+            />
+          ))}
+        </Stack>
+      )}
 
       <Box component="form" onSubmit={handleAssign} sx={{ mt: 2 }}>
         {submitError && (

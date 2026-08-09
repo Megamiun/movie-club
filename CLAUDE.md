@@ -203,6 +203,11 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Episode TMDB lookup is always best-effort: fetched automatically when the parent series has a `tmdb_id`, silently
   skipped otherwise, never blocking episode creation (unlike Movie/Series, an episode has no id of its own to look up
   by)
+- When assigning an episode to a meeting, the UI suggests one "up next" episode per series the club follows —
+  the earliest (season, then episode number) episode of that series not yet scheduled to any of the club's own
+  meetings (`GET /clubs/{clubId}/episodes/next-suggestions`, `EpisodeRepository.findNextUnscheduled`). Series with
+  nothing left to suggest (fully scheduled, or no episodes imported yet) are silently omitted, not an empty/error
+  state. Scoped per club: another club scheduling the same global episode doesn't affect this club's own suggestion
 - CSV import of series sources the **full** Season/Episode catalog from TMDB up front (`SeriesService.importSeasonsAndEpisodes`
   — every season, every episode, including ones the club never watched), then matches each CSV row onto it by
   `(season_number, episode_number)` rather than trusting the CSV's own row structure to define the catalog. A CSV row

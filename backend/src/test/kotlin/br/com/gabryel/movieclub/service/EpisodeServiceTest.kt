@@ -209,6 +209,26 @@ class EpisodeServiceTest {
     }
 
     @Test
+    fun `listNextSuggestions returns one suggestion per series, skipping series with nothing left to suggest`() {
+        val clubId = this.clubId
+        val fullyScheduledSeriesGlobalId = Uuid.random()
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { seriesRepository.listByClub(clubId) } returns listOf(
+            series(),
+            series().copy(globalSeriesId = fullyScheduledSeriesGlobalId, customTitle = "Fully Scheduled Show"),
+        )
+        every { episodeRepository.findNextUnscheduled(clubId, globalSeriesId) } returns episode()
+        every { episodeRepository.findNextUnscheduled(clubId, fullyScheduledSeriesGlobalId) } returns null
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+
+        val result = episodeService.listNextSuggestions(clubId, memberId)
+
+        assertEquals(1, result.size)
+        assertEquals("Breaking Bad", result.single().seriesTitle)
+        assertEquals(1, result.single().seasonNumber)
+    }
+
+    @Test
     fun `rate resolves the club through season and the global series`() {
         val episodeId = Uuid.random()
         every { episodeRepository.findById(episodeId) } returns episode(episodeId)

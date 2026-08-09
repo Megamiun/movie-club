@@ -20,6 +20,11 @@ interface EpisodeRepository {
      * an existing episode to assign to a meeting instead of requiring its raw id. */
     fun searchByClub(clubId: Uuid, query: String, limit: Int = 20): List<EpisodeSearchRow>
 
+    /** The earliest (by season, then episode number) episode of [globalSeriesId] that [clubId] hasn't scheduled to
+     * any of its own meetings yet -- null if every known episode is already scheduled, or the series has none.
+     * Used to suggest "what's next" when assigning an episode to a meeting. */
+    fun findNextUnscheduled(clubId: Uuid, globalSeriesId: Uuid): EpisodeRow?
+
     /** The `imdb_id` of the episode's parent (global) series -- lets a caller resolve a club's own pick of that
      * series (e.g. via `SeriesRepository.findByClubAndImdbId`) without `EpisodeRepository` depending on
      * `SeriesRepository` itself. Used by `MeetingService` to show/group a meeting's episodes by series. */

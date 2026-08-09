@@ -132,6 +132,48 @@ class SeasonAndEpisodeRepositoryIntegrationTest {
         assertTrue(episodeRepository.listByMeeting(meetingB).any { it.id == episode.id })
     }
 
+    @Test
+    fun `findNextUnscheduled returns the earliest episode not yet scheduled to any of the club's meetings`() {
+        val series = newSeries()
+        val season1 = seasonRepository.create(series, 1)
+        val season2 = seasonRepository.create(series, 2)
+        val episode1 = episodeRepository.create(season1.id, 1, "Pilot")
+        episodeRepository.create(season1.id, 2, "Episode 2")
+        episodeRepository.create(season2.id, 1, "Season 2 Premiere")
+        val clubId = IntegrationFixtures.insertClub().also { clubIds.add(it) }
+        episodeRepository.assignToMeeting(episode1.id, IntegrationFixtures.insertMeeting(clubId))
+
+        val next = episodeRepository.findNextUnscheduled(clubId, series)
+
+        assertEquals(2, next?.number, "episode 1 is already scheduled, so season 1's episode 2 is next")
+        assertEquals(season1.id, next?.seasonId)
+    }
+
+    @Test
+    fun `findNextUnscheduled returns null once every known episode has been scheduled`() {
+        val series = newSeries()
+        val season = seasonRepository.create(series, 1)
+        val episode = episodeRepository.create(season.id, 1, "Pilot")
+        val clubId = IntegrationFixtures.insertClub().also { clubIds.add(it) }
+        episodeRepository.assignToMeeting(episode.id, IntegrationFixtures.insertMeeting(clubId))
+
+        assertEquals(null, episodeRepository.findNextUnscheduled(clubId, series))
+    }
+
+    @Test
+    fun `findNextUnscheduled is scoped per club -- another club's scheduling doesn't count`() {
+        val series = newSeries()
+        val season = seasonRepository.create(series, 1)
+        val episode = episodeRepository.create(season.id, 1, "Pilot")
+        val clubA = IntegrationFixtures.insertClub().also { clubIds.add(it) }
+        val clubB = IntegrationFixtures.insertClub().also { clubIds.add(it) }
+        episodeRepository.assignToMeeting(episode.id, IntegrationFixtures.insertMeeting(clubA))
+
+        val next = episodeRepository.findNextUnscheduled(clubB, series)
+
+        assertEquals(episode.id, next?.id, "club B hasn't scheduled this episode itself, so it's still next for them")
+    }
+
     private fun newSeries() = IntegrationFixtures.insertSeries().also { seriesIds.add(it) }
 
     private fun newMeeting(): Uuid {

@@ -93,6 +93,19 @@ class EpisodeService(
         return episodeRepository.searchByClub(clubId, query.trim())
     }
 
+    /** One suggestion per series the club follows -- the earliest episode of that series it hasn't scheduled to
+     * any meeting yet (see [EpisodeRepository.findNextUnscheduled]). Series with nothing left to suggest (every
+     * known episode already scheduled, or none imported yet) are silently skipped rather than erroring, since this
+     * is a convenience prompt, not something the caller picks a series for up front. */
+    fun listNextSuggestions(clubId: Uuid, actingMemberId: Uuid): List<EpisodeSearchRow> {
+        clubService.requireMembership(clubId, actingMemberId)
+        return seriesRepository.listByClub(clubId).mapNotNull { series ->
+            val next = episodeRepository.findNextUnscheduled(clubId, series.globalSeriesId) ?: return@mapNotNull null
+            val season = seasonRepository.findById(next.seasonId) ?: return@mapNotNull null
+            EpisodeSearchRow(episode = next, seasonNumber = season.number, seriesTitle = series.customTitle ?: series.originalTitle)
+        }
+    }
+
     fun rate(
         episodeId: Uuid,
         actingMemberId: Uuid,

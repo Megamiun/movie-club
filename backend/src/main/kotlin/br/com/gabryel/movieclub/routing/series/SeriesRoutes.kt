@@ -63,6 +63,11 @@ fun Route.seriesRoutes(seriesService: SeriesService, seasonService: SeasonServic
             call.respond(results.map { it.toResponse() })
         }
 
+        get("/clubs/{clubId}/episodes/next-suggestions") {
+            val results = episodeService.listNextSuggestions(call.uuidPathParam("clubId"), call.actingMemberId())
+            call.respond(results.map { it.toResponse() })
+        }
+
         get("/series/{seriesId}") {
             val series = seriesService.getSeries(call.uuidPathParam("seriesId"), call.actingMemberId())
             call.respond(series.toResponse())
