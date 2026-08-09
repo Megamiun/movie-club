@@ -90,6 +90,11 @@ fun Route.seriesRoutes(seriesService: SeriesService, seasonService: SeasonServic
             call.respond(series.toResponse())
         }
 
+        post("/series/{seriesId}/import-seasons") {
+            val created = seriesService.importSeasonsAndEpisodes(call.uuidPathParam("seriesId"), call.actingMemberId())
+            call.respond(ImportSeasonsResponse(created))
+        }
+
         put("/series/{seriesId}/review") {
             val body = call.receive<RateRequest>()
             val review = seriesService.rate(

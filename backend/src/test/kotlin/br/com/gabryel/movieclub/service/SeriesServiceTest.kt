@@ -336,6 +336,74 @@ class SeriesServiceTest {
         }
 
     @Test
+    fun `importSeasonsAndEpisodes recovers on retry after a transient failure partway through`(): Unit =
+        runBlocking {
+            // Mirrors the real-world "Twin Peaks" symptom: a single best-effort import call hits a transient
+            // TMDB failure partway through, leaving later seasons permanently missing since nothing retries it.
+            // The fix is the manual re-import endpoint -- this proves calling importSeasonsAndEpisodes again
+            // picks up exactly what the first call didn't finish, without duplicating what it did.
+            val seriesId = Uuid.random()
+            val globalSeriesId = Uuid.random()
+            val season1Id = Uuid.random()
+            val season2Id = Uuid.random()
+            every {
+                seriesRepository.findById(seriesId)
+            } returns series(id = seriesId, globalSeriesId = globalSeriesId)
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+            coEvery { tmdbClient.getTvDetails(1396) } returns TmdbTvDetails(
+                originalName = "Twin Peaks",
+                name = "Twin Peaks",
+                seasons = listOf(TmdbSeasonSummary(1), TmdbSeasonSummary(2)),
+            )
+            every { seasonRepository.create(globalSeriesId, 1) } returns SeasonRow(season1Id, globalSeriesId, 1)
+            coEvery { tmdbClient.getSeasonDetails(1396, 1) } returns TmdbSeasonDetails(
+                seasonNumber = 1,
+                episodes = listOf(TmdbEpisodeDetails(name = "Pilot", episodeNumber = 1)),
+            )
+            every { episodeRepository.listBySeason(season1Id) } returns emptyList()
+            every {
+                episodeRepository.create(season1Id, 1, "Pilot")
+            } returns EpisodeRow(Uuid.random(), season1Id, 1, title = "Pilot")
+            every { episodeRepository.updateTmdbMetadata(any(), any()) } answers {
+                firstArg<Uuid>().let { id -> EpisodeRow(id, season1Id, 1) }
+            }
+
+            // First call: season 1 imports fine, season 2 hits a transient failure.
+            every { seasonRepository.listBySeries(globalSeriesId) } returns emptyList()
+            coEvery { tmdbClient.getSeasonDetails(1396, 2) } throws RuntimeException("TMDB rate limited")
+
+            assertFailsWith<RuntimeException> { seriesService.importSeasonsAndEpisodes(seriesId, memberId) }
+            verify { seasonRepository.create(globalSeriesId, 1) }
+            verify { episodeRepository.create(season1Id, 1, "Pilot") }
+
+            // Retry via the manual re-import endpoint: season 1 is already there (idempotent, not recreated),
+            // season 2 (the revival, in the real-world case) now succeeds and gets created.
+            every {
+                seasonRepository.listBySeries(globalSeriesId)
+            } returns listOf(SeasonRow(season1Id, globalSeriesId, 1))
+            every {
+                episodeRepository.listBySeason(season1Id)
+            } returns listOf(EpisodeRow(Uuid.random(), season1Id, 1, title = "Pilot"))
+            every { seasonRepository.create(globalSeriesId, 2) } returns SeasonRow(season2Id, globalSeriesId, 2)
+            coEvery { tmdbClient.getSeasonDetails(1396, 2) } returns TmdbSeasonDetails(
+                seasonNumber = 2,
+                episodes = listOf(TmdbEpisodeDetails(name = "The Return", episodeNumber = 1)),
+            )
+            every { episodeRepository.listBySeason(season2Id) } returns emptyList()
+            every {
+                episodeRepository.create(season2Id, 1, "The Return")
+            } returns EpisodeRow(Uuid.random(), season2Id, 1, title = "The Return")
+
+            val created = seriesService.importSeasonsAndEpisodes(seriesId, memberId)
+
+            assertEquals(2, created) // season 2 + its 1 episode
+            verify(exactly = 1) { seasonRepository.create(globalSeriesId, 1) }
+            verify { seasonRepository.create(globalSeriesId, 2) }
+            verify { episodeRepository.create(season2Id, 1, "The Return") }
+        }
+
+    @Test
     fun `requireSeriesAccess denies non-members`() {
         val seriesId = Uuid.random()
         every { seriesRepository.findById(seriesId) } returns series(id = seriesId)

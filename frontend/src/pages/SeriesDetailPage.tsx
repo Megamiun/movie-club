@@ -31,6 +31,7 @@ export function SeriesDetailPage() {
   const [seasonNumber, setSeasonNumber] = useState('')
   const [seasonTitle, setSeasonTitle] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
+  const [importMessage, setImportMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (series) {
@@ -71,6 +72,18 @@ export function SeriesDetailPage() {
 
   const handleRate = async (qualityOptionId?: string, sentimentOptionId?: string, comment?: string) => {
     await seriesApi.rate(seriesId!, qualityOptionId, sentimentOptionId, comment)
+  }
+
+  const handleImportSeasons = async () => {
+    setActionError(null)
+    setImportMessage(null)
+    try {
+      const { created } = await seriesApi.importSeasons(seriesId!)
+      setImportMessage(created === 0 ? 'Everything TMDB has is already imported.' : `Imported ${created} new row(s).`)
+      reloadSeasons()
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
   }
 
   const handleAddSeason = async (event: FormEvent) => {
@@ -148,9 +161,19 @@ export function SeriesDetailPage() {
             </Typography>
             <RatingForm scales={scales ?? []} onSave={handleRate} />
 
-            <Typography variant="h6" sx={{ mt: 4 }} gutterBottom>
-              Seasons
-            </Typography>
+            <Stack direction="row" spacing={1} sx={{ mt: 4, alignItems: 'center' }}>
+              <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+                Seasons
+              </Typography>
+              <IconButton size="small" onClick={handleImportSeasons} title="Refresh seasons/episodes from TMDB">
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+            {importMessage && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {importMessage}
+              </Typography>
+            )}
             <List>
               {seasons?.length === 0 && <Typography color="text.secondary">No seasons yet.</Typography>}
               {seasons

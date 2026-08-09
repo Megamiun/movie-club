@@ -114,9 +114,16 @@
   - [ ] Use this in the UI for the bg and text color should be the stronger version of the color
 - [ ] Focus in the next meeting when opening the current year
 - [ ] IMDB rating should be episode rating, not series rating
-- [ ] If imported series not found on IMDB AND TMDB, do not add them
-    - [ ] Twin Peaks is able to load the original 3 seasons, but not the new ones
-      - In IMDB they are two different series, in TMDB they are grouped as one
+- [x] If imported series not found on IMDB AND TMDB, do not add them
+  - Already enforced on both add paths: `SeriesService.addSeries` throws if TMDB has no match for the given IMDB
+    id, and `createFromTmdb` (used by both `addSeries` and `addSeriesByTmdbId`) throws if the matched TMDB show has
+    no linked IMDB id. No change needed here
+  - [x] Twin Peaks is able to load the original 3 seasons, but not the new ones
+    - Turned out not to be an IMDB/TMDB grouping mismatch at all -- verified against the live TMDB API: the
+      revival ("The Return") is already season 3 of the *same* TMDB show, fully populated. The real bug:
+      `importSeasonsAndEpisodes` only ever ran once (wrapped in `runCatching` on initial add) with no way to retry
+      it, so a transient TMDB failure partway through left the catalog stuck incomplete forever. Fixed with a
+      manual re-import endpoint (see Domain Model, Series → Season → Episode)
 - [x] Use S#E# format for episode prefixes
   - `Episode` only ever carried its own `seasonId`, not the parent season's `number`, so every "Ep. #" spot needed a
     season lookup added: new `GET /seasons/{seasonId}` (`SeasonService.getById`, same club-membership-derived
@@ -130,6 +137,7 @@
     come from `EpisodeSearchResult`, which already denormalizes `seasonNumber`) -- the suggestion chip was switched
     to the same shared util for consistency, `EpisodeSearchAutocomplete` was left as-is
     - [ ] On Display, fill the episode and season numbers with the 0, until the number of the episode is the same as the largest season/episode
+- [ ] Director should be in it`s own normalized table(People probably), and episodes, series and so on, should point to it
 
 # Stretch goals (only start after asked)
 - [ ] Use rectangular (flat) country flags instead of the wavy emoji ones
@@ -137,4 +145,6 @@
       the wavy/ribbon look isn't something the app controls, it's just how the OS's emoji font draws that character.
       Getting real flat rectangular flags needs an actual flag-icon library (e.g. `flag-icons`, SVG/sprite assets
       addressed by ISO code) swapped in for `CountryFlags` in `MeetingsPage.tsx` + the `countryFlag()` util
-- [ ] 
+- [ ] Make import async, show loading when looking at meeting list
+  - [ ] Prioritize loading movies and series, then episodes and then at last directors
+ 

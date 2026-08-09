@@ -33,6 +33,8 @@ export const seriesApi = {
 
   addSeason: (seriesId: string, number: number, title?: string) =>
     api.post<Season>(`/series/${seriesId}/seasons`, { number, title }),
+
+  importSeasons: (seriesId: string) => api.post<{ created: number }>(`/series/${seriesId}/import-seasons`),
 }
 
 export const seasonsApi = {

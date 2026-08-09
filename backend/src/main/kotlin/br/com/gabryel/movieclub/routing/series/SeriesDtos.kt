@@ -58,6 +58,11 @@ internal data class SeriesResponse(
 )
 
 @Serializable
+internal data class ImportSeasonsResponse(
+    val created: Int,
+)
+
+@Serializable
 internal data class AddSeasonRequest(
     val number: Int,
     val title: String? = null,

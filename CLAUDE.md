@@ -208,7 +208,12 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Adding a series through the UI (by IMDB URL or by `tmdb_id` via title search — `SeriesService.addSeries` /
   `addSeriesByTmdbId`) immediately triggers `importSeasonsAndEpisodes` best-effort, instead of leaving Season/Episode
   empty until someone visits `SeasonDetailPage` and adds them one at a time. CSV import already did this explicitly
-  (see Existing Data below) — this extends the same behavior to the manual-add path
+  (see Existing Data below) — this extends the same behavior to the manual-add path. Since that initial trigger is
+  wrapped in `runCatching` (a TMDB hiccup shouldn't fail the add itself), a transient failure partway through (rate
+  limit, timeout) can leave the catalog permanently incomplete with no error surfaced — `importSeasonsAndEpisodes`
+  is idempotent and re-runnable, but nothing called it again automatically. `POST /series/{seriesId}/import-seasons`
+  exposes it directly (a "Refresh seasons/episodes" button on `SeriesDetailPage`) as the recovery path — re-running
+  only fills in what's missing, never duplicates what's already there
 - Episode cached TMDB metadata: `air_date`, `overview`, `runtime`, director, `director_imdb_id` (same best-effort
   TMDB-person-id → IMDB-id resolution as Movie, see above), `imdb_id` (the episode's own, from TMDB's per-episode
   `external_ids` — requested via `append_to_response` on the same call as the rest of an episode's metadata, unlike
