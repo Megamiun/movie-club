@@ -3,8 +3,10 @@ import { Tooltip, Typography } from '@mui/material'
 /**
  * [maxChars], if given, caps the *joined* length of the shown items (beyond just their count via [limit]) so a
  * long second item doesn't wrap the row -- it's dropped into the "+N" count instead of being shown truncated or
- * overflowing. The first item is always shown in full even if it alone exceeds [maxChars], so there's never
- * nothing to show.
+ * overflowing. The budget reserves room for that " +N" suffix itself whenever fitting one more item would still
+ * leave something hidden (a suffix is otherwise-unaccounted-for width that'd push the row over -- e.g.
+ * "Animation, Comedy" alone fits 20 chars, but "Animation, Comedy +1" no longer does). The first item is always
+ * shown in full even if it alone exceeds [maxChars], so there's never nothing to show.
  */
 export function TruncatedList({
   items,
@@ -23,7 +25,9 @@ export function TruncatedList({
     let length = 0
     for (const item of shownItems) {
       const nextLength = length === 0 ? item.length : length + 2 + item.length
-      if (fitted.length > 0 && nextLength > maxChars) break
+      const hiddenIfShown = items.length - (fitted.length + 1)
+      const suffixLength = hiddenIfShown > 0 ? 2 + String(hiddenIfShown).length : 0
+      if (fitted.length > 0 && nextLength + suffixLength > maxChars) break
       fitted.push(item)
       length = nextLength
     }
