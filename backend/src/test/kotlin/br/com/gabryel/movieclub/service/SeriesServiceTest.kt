@@ -21,6 +21,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.service.omdb.OmdbClient
+import br.com.gabryel.movieclub.service.omdb.OmdbSeasonEpisode
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbEpisodeDetails
 import br.com.gabryel.movieclub.service.tmdb.TmdbExternalIds
@@ -150,6 +151,7 @@ class SeriesServiceTest {
             every { seriesRepository.create(clubId, memberId, "tt0903747", any(), any()) } returns created
             every { seriesRepository.findById(seriesId) } returns created
 
+            coEvery { omdbClient.getSeasonEpisodes(any(), any()) } returns null
             every { seasonRepository.listBySeries(globalSeriesId) } returns emptyList()
             every { seasonRepository.create(globalSeriesId, 1) } returns SeasonRow(seasonId, globalSeriesId, 1)
             coEvery { tmdbClient.getSeasonDetails(1396, 1) } returns TmdbSeasonDetails(
@@ -270,6 +272,7 @@ class SeriesServiceTest {
                 name = "Breaking Bad",
                 seasons = listOf(TmdbSeasonSummary(1), TmdbSeasonSummary(2)),
             )
+            coEvery { omdbClient.getSeasonEpisodes(any(), any()) } returns null
             every { seasonRepository.listBySeries(globalSeriesId) } returns emptyList()
             every { seasonRepository.create(globalSeriesId, 1) } returns SeasonRow(season1Id, globalSeriesId, 1)
             every { seasonRepository.create(globalSeriesId, 2) } returns SeasonRow(season2Id, globalSeriesId, 2)
@@ -304,6 +307,172 @@ class SeriesServiceTest {
         }
 
     @Test
+    fun `importSeasonsAndEpisodes creates the episode under OMDb's canonical number when it disagrees with TMDB's`(): Unit =
+        runBlocking {
+            // Reproduces the real Cowboy Bebop bug: TMDB numbers this episode 14 (broadcast order), but OMDb
+            // (IMDB) -- and every English-language source, including this club's own CSV -- calls it episode 4.
+            val seriesId = Uuid.random()
+            val globalSeriesId = Uuid.random()
+            val seasonId = Uuid.random()
+            every {
+                seriesRepository.findById(seriesId)
+            } returns series(id = seriesId, globalSeriesId = globalSeriesId)
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+            coEvery { tmdbClient.getTvDetails(1396) } returns TmdbTvDetails(
+                originalName = "Cowboy Bebop",
+                name = "Cowboy Bebop",
+                seasons = listOf(TmdbSeasonSummary(1)),
+            )
+            every { seasonRepository.listBySeries(globalSeriesId) } returns emptyList()
+            every { seasonRepository.create(globalSeriesId, 1) } returns SeasonRow(seasonId, globalSeriesId, 1)
+
+            coEvery { tmdbClient.getSeasonDetails(1396, 1) } returns TmdbSeasonDetails(
+                seasonNumber = 1,
+                episodes = listOf(TmdbEpisodeDetails(name = "Gateway Shuffle", episodeNumber = 14)),
+            )
+            coEvery { omdbClient.getSeasonEpisodes("tt0903747", 1) } returns listOf(
+                OmdbSeasonEpisode(title = "Gateway Shuffle", episode = "4", imdbId = "tt0618968", imdbRating = "7.7"),
+            )
+            every { episodeRepository.listBySeason(seasonId) } returns emptyList()
+            every {
+                episodeRepository.create(seasonId, 4, "Gateway Shuffle")
+            } returns EpisodeRow(Uuid.random(), seasonId, 4, title = "Gateway Shuffle")
+            every {
+                episodeRepository.updateTmdbMetadata(any(), match { it.imdbId == "tt0618968" && it.imdbRating == BigDecimal("7.7") })
+            } answers { EpisodeRow(firstArg(), seasonId, 4, title = "Gateway Shuffle") }
+
+            seriesService.importSeasonsAndEpisodes(seriesId, memberId)
+
+            verify { episodeRepository.create(seasonId, 4, "Gateway Shuffle") }
+            verify(exactly = 0) { episodeRepository.create(seasonId, 14, any()) }
+        }
+
+    @Test
+    fun `importSeasonsAndEpisodes falls back to TMDB's own number for one episode OMDb has no confident match for`(): Unit =
+        runBlocking {
+            // Season has two episodes; OMDb only has usable data for one of them (e.g. a title drifted too far,
+            // or OMDb is simply missing that entry) -- the other one keeps TMDB's own number, not a forced match.
+            val seriesId = Uuid.random()
+            val globalSeriesId = Uuid.random()
+            val seasonId = Uuid.random()
+            every {
+                seriesRepository.findById(seriesId)
+            } returns series(id = seriesId, globalSeriesId = globalSeriesId)
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+            coEvery { tmdbClient.getTvDetails(1396) } returns TmdbTvDetails(
+                originalName = "Cowboy Bebop",
+                name = "Cowboy Bebop",
+                seasons = listOf(TmdbSeasonSummary(1)),
+            )
+            every { seasonRepository.listBySeries(globalSeriesId) } returns emptyList()
+            every { seasonRepository.create(globalSeriesId, 1) } returns SeasonRow(seasonId, globalSeriesId, 1)
+
+            coEvery { tmdbClient.getSeasonDetails(1396, 1) } returns TmdbSeasonDetails(
+                seasonNumber = 1,
+                episodes = listOf(
+                    TmdbEpisodeDetails(name = "Gateway Shuffle", episodeNumber = 14),
+                    TmdbEpisodeDetails(name = "A Completely Unmatched Recap Special", episodeNumber = 27),
+                ),
+            )
+            coEvery { omdbClient.getSeasonEpisodes("tt0903747", 1) } returns listOf(
+                OmdbSeasonEpisode(title = "Gateway Shuffle", episode = "4", imdbId = "tt0618968"),
+            )
+            every { episodeRepository.listBySeason(seasonId) } returns emptyList()
+            every {
+                episodeRepository.create(seasonId, 4, "Gateway Shuffle")
+            } returns EpisodeRow(Uuid.random(), seasonId, 4, title = "Gateway Shuffle")
+            every {
+                episodeRepository.create(seasonId, 27, "A Completely Unmatched Recap Special")
+            } returns EpisodeRow(Uuid.random(), seasonId, 27, title = "A Completely Unmatched Recap Special")
+            every { episodeRepository.updateTmdbMetadata(any(), any()) } answers {
+                EpisodeRow(firstArg(), seasonId, 1)
+            }
+
+            seriesService.importSeasonsAndEpisodes(seriesId, memberId)
+
+            verify { episodeRepository.create(seasonId, 4, "Gateway Shuffle") }
+            verify { episodeRepository.create(seasonId, 27, "A Completely Unmatched Recap Special") }
+        }
+
+    @Test
+    fun `importSeasonsAndEpisodes falls back to TMDB's own numbering entirely when OMDb has nothing for this season`(): Unit =
+        runBlocking {
+            val seriesId = Uuid.random()
+            val globalSeriesId = Uuid.random()
+            val seasonId = Uuid.random()
+            every {
+                seriesRepository.findById(seriesId)
+            } returns series(id = seriesId, globalSeriesId = globalSeriesId)
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+            coEvery { tmdbClient.getTvDetails(1396) } returns TmdbTvDetails(
+                originalName = "Breaking Bad",
+                name = "Breaking Bad",
+                seasons = listOf(TmdbSeasonSummary(1)),
+            )
+            every { seasonRepository.listBySeries(globalSeriesId) } returns emptyList()
+            every { seasonRepository.create(globalSeriesId, 1) } returns SeasonRow(seasonId, globalSeriesId, 1)
+
+            coEvery { tmdbClient.getSeasonDetails(1396, 1) } returns TmdbSeasonDetails(
+                seasonNumber = 1,
+                episodes = listOf(TmdbEpisodeDetails(name = "Pilot", episodeNumber = 1)),
+            )
+            coEvery { omdbClient.getSeasonEpisodes("tt0903747", 1) } returns null
+            every { episodeRepository.listBySeason(seasonId) } returns emptyList()
+            every {
+                episodeRepository.create(seasonId, 1, "Pilot")
+            } returns EpisodeRow(Uuid.random(), seasonId, 1, title = "Pilot")
+            every { episodeRepository.updateTmdbMetadata(any(), any()) } answers {
+                EpisodeRow(firstArg(), seasonId, 1)
+            }
+
+            seriesService.importSeasonsAndEpisodes(seriesId, memberId)
+
+            verify { episodeRepository.create(seasonId, 1, "Pilot") }
+        }
+
+    @Test
+    fun `importSeasonsAndEpisodes does not create a duplicate for a legacy episode already sitting under TMDB's old wrong number`(): Unit =
+        runBlocking {
+            // A prior (pre-fix) import already created this episode under TMDB's own wrong number (14). Re-running
+            // now that OMDb corrects it to 4 must not create a second row for the same story at number 4 -- the
+            // stale number=14 row stays exactly as it is (per the "fill only, never renumber" decision), but no
+            // duplicate is created alongside it.
+            val seriesId = Uuid.random()
+            val globalSeriesId = Uuid.random()
+            val seasonId = Uuid.random()
+            every {
+                seriesRepository.findById(seriesId)
+            } returns series(id = seriesId, globalSeriesId = globalSeriesId)
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+            coEvery { tmdbClient.getTvDetails(1396) } returns TmdbTvDetails(
+                originalName = "Cowboy Bebop",
+                name = "Cowboy Bebop",
+                seasons = listOf(TmdbSeasonSummary(1)),
+            )
+            every { seasonRepository.listBySeries(globalSeriesId) } returns listOf(SeasonRow(seasonId, globalSeriesId, 1))
+
+            coEvery { tmdbClient.getSeasonDetails(1396, 1) } returns TmdbSeasonDetails(
+                seasonNumber = 1,
+                episodes = listOf(TmdbEpisodeDetails(name = "Gateway Shuffle", episodeNumber = 14)),
+            )
+            coEvery { omdbClient.getSeasonEpisodes("tt0903747", 1) } returns listOf(
+                OmdbSeasonEpisode(title = "Gateway Shuffle", episode = "4", imdbId = "tt0618968"),
+            )
+            every {
+                episodeRepository.listBySeason(seasonId)
+            } returns listOf(EpisodeRow(Uuid.random(), seasonId, 14, title = "Gateway Shuffle"))
+
+            val created = seriesService.importSeasonsAndEpisodes(seriesId, memberId)
+
+            assertEquals(0, created)
+            verify(exactly = 0) { episodeRepository.create(any(), any(), any()) }
+        }
+
+    @Test
     fun `importSeasonsAndEpisodes is idempotent -- existing seasons and episodes aren't recreated`(): Unit =
         runBlocking {
             val seriesId = Uuid.random()
@@ -319,6 +488,7 @@ class SeriesServiceTest {
                 name = "Breaking Bad",
                 seasons = listOf(TmdbSeasonSummary(1)),
             )
+            coEvery { omdbClient.getSeasonEpisodes(any(), any()) } returns null
             every {
                 seasonRepository.listBySeries(globalSeriesId)
             } returns listOf(SeasonRow(seasonId, globalSeriesId, 1))
@@ -359,6 +529,7 @@ class SeriesServiceTest {
                 name = "Twin Peaks",
                 seasons = listOf(TmdbSeasonSummary(1), TmdbSeasonSummary(2)),
             )
+            coEvery { omdbClient.getSeasonEpisodes(any(), any()) } returns null
             every { seasonRepository.create(globalSeriesId, 1) } returns SeasonRow(season1Id, globalSeriesId, 1)
             coEvery { tmdbClient.getSeasonDetails(1396, 1) } returns TmdbSeasonDetails(
                 seasonNumber = 1,
@@ -405,6 +576,75 @@ class SeriesServiceTest {
             verify { seasonRepository.create(globalSeriesId, 2) }
             verify { episodeRepository.create(season2Id, 1, "The Return") }
         }
+
+    @Test
+    fun `episodeTitleSimilarity is 1 for an exact match, near 0 for unrelated titles`() {
+        assertEquals(1.0, episodeTitleSimilarity("Gateway Shuffle", "Gateway Shuffle"))
+        assertEquals(0.0, episodeTitleSimilarity("Waltz for Venus", "Gateway Shuffle"))
+    }
+
+    @Test
+    fun `episodeTitleSimilarity tolerates the punctuation-only drift seen between TMDB and OMDb titles`() {
+        // TMDB: "Jupiter Jazz (1)" / OMDb: "Jupiter Jazz: Part 1" -- same episode, different formatting.
+        val similarity = episodeTitleSimilarity("Jupiter Jazz (1)", "Jupiter Jazz: Part 1")
+
+        assert(similarity > 0.5) { "expected > 0.5, was $similarity" }
+    }
+
+    @Test
+    fun `episodeTitleSimilarity does not confuse a two-parter's other half`() {
+        val correctPart = episodeTitleSimilarity("Jupiter Jazz (1)", "Jupiter Jazz: Part 1")
+        val wrongPart = episodeTitleSimilarity("Jupiter Jazz (1)", "Jupiter Jazz: Part 2")
+
+        assert(wrongPart < correctPart) { "expected Part 2 ($wrongPart) to score below Part 1 ($correctPart)" }
+    }
+
+    @Test
+    fun `matchOmdbEpisodes pairs TMDB's mis-numbered episodes to OMDb's canonical numbering by title`() {
+        // Real Cowboy Bebop data: TMDB's own numbering is broadcast-order, not the internationally-known
+        // session order OMDb (IMDB) uses -- TMDB's episode 4 is "Waltz for Venus", but OMDb (correctly) calls
+        // that episode 8, and TMDB's episode 14 ("Gateway Shuffle" per TMDB) is OMDb's episode 4.
+        val tmdbEpisodes = listOf(
+            TmdbEpisodeDetails(name = "Waltz for Venus", episodeNumber = 4),
+            TmdbEpisodeDetails(name = "Gateway Shuffle", episodeNumber = 14),
+        )
+        val omdbEpisodes = listOf(
+            OmdbSeasonEpisode(title = "Gateway Shuffle", episode = "4", imdbId = "tt0618968"),
+            OmdbSeasonEpisode(title = "Waltz for Venus", episode = "8", imdbId = "tt0618981"),
+        )
+
+        val matches = matchOmdbEpisodes(tmdbEpisodes, omdbEpisodes)
+
+        assertEquals(8, matches[4]?.number)
+        assertEquals(4, matches[14]?.number)
+    }
+
+    @Test
+    fun `matchOmdbEpisodes omits a TMDB episode with no confident OMDb match`() {
+        val tmdbEpisodes = listOf(TmdbEpisodeDetails(name = "A Bonus Recap Special", episodeNumber = 27))
+        val omdbEpisodes = listOf(OmdbSeasonEpisode(title = "Gateway Shuffle", episode = "4", imdbId = "tt0618968"))
+
+        assertEquals(emptyMap(), matchOmdbEpisodes(tmdbEpisodes, omdbEpisodes))
+    }
+
+    @Test
+    fun `matchOmdbEpisodes never reuses the same OMDb episode for two different TMDB episodes`() {
+        // Both TMDB titles are near-identical ("Jupiter Jazz" two-parter) -- without a uniqueness guarantee,
+        // a naive best-match-per-TMDB-entry pass could greedily give both the same OMDb episode.
+        val tmdbEpisodes = listOf(
+            TmdbEpisodeDetails(name = "Jupiter Jazz (1)", episodeNumber = 8),
+            TmdbEpisodeDetails(name = "Jupiter Jazz (2)", episodeNumber = 9),
+        )
+        val omdbEpisodes = listOf(
+            OmdbSeasonEpisode(title = "Jupiter Jazz: Part 1", episode = "12", imdbId = "tt0618973"),
+            OmdbSeasonEpisode(title = "Jupiter Jazz: Part 2", episode = "13", imdbId = "tt0824569"),
+        )
+
+        val matches = matchOmdbEpisodes(tmdbEpisodes, omdbEpisodes)
+
+        assertEquals(12, matches[8]?.number)
+        assertEquals(13, matches[9]?.number)
+    }
 
     @Test
     fun `requireSeriesAccess denies non-members`() {
