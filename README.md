@@ -70,18 +70,75 @@ npm install
 npm run dev
 ```
 
+## Deploying to production (via CI)
+
+Every push to `main` builds and tests automatically (`.github/workflows/deploy-backend.yml` /
+`deploy-frontend.yml`), but nothing actually ships without a human approving it — both `deploy` jobs are gated
+behind the repo's `production` GitHub Environment (Settings → Environments → add at least one required reviewer).
+Infrastructure itself is provisioned separately by Terraform (see [infra/README.md](infra/README.md)) — this
+section covers the app-deploy pipeline that runs against already-provisioned infra, not provisioning itself.
+
+Authentication is via GitHub OIDC the whole way through — **no AWS access keys are ever stored in GitHub**. Each
+workflow assumes an IAM role by ARN, set as a GitHub *Variable* (not a secret — an ARN isn't sensitive by itself).
+
+### GitHub repo configuration (Settings → Secrets and variables → Actions)
+
+**Variables** — used by `deploy-backend.yml` / `deploy-frontend.yml`:
+
+| Variable                     | Used for                                             |
+|------------------------------|------------------------------------------------------|
+| `AWS_DEPLOY_ROLE_ARN`        | IAM role both deploy workflows assume via OIDC       |
+| `EC2_INSTANCE_ID`            | Backend deploy target (SSM Run Command, not SSH)     |
+| `API_BASE_URL`               | Baked into the frontend build as `VITE_API_BASE_URL` |
+| `CLOUDFRONT_DISTRIBUTION_ID` | Invalidated after every frontend deploy              |
+
+Only needed if `terraform.yml` also runs in CI (see [infra/README.md](infra/README.md) for the full setup,
+including the one-time local bootstrap it requires first):
+
+| Variable                                              | Used for                                                                                                                                                                                                               |
+|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `AWS_TERRAFORM_ROLE_ARN`                              | Separate, broader-permission IAM role for `terraform plan`/`apply`                                                                                                                                                     |
+| `TF_STATE_BUCKET` / `TF_STATE_REGION`                 | Terraform state bucket name/region — same as your local `infra/backend.hcl`. `TF_STATE_BUCKET` does double duty: also passed as `TF_VAR_tf_state_bucket_name` to scope `github_actions_terraform`'s own S3 permissions |
+| `DOMAIN_NAME` / `SSH_PUBLIC_KEY` / `SSH_ALLOWED_CIDR` | Mirror the same values already in `infra/terraform.tfvars`                                                                                                                                                             |
+
+**No GitHub Secrets are needed at all**, for either the app-deploy workflows (OIDC + SSM Run Command, no stored
+keys or passwords) or `terraform.yml` — `jwt_secret`/`database_password`/`tmdb_access_token`/`omdb_api_key` were
+Terraform variables (fed from GitHub secrets) at one point, but aren't anymore, see below.
+
+### AWS-side secrets (SSM Parameter Store)
+
+The four sensitive values live *only* in SSM Parameter Store (`SecureString`, AWS-managed KMS key) under
+`/movie-club/*` — set directly by hand (`aws ssm put-parameter`, see
+[infra/README.md](infra/README.md#one-time-bootstrap-the-secrets)), not by Terraform and not via a GitHub secret.
+`infra/ssm.tf` only *reads* them (as `data` sources, with decryption turned off, since nothing in Terraform ever
+needs the plaintext), so they never pass through a GitHub secret, a `.tfvars` file, or Terraform state:
+
+| SSM parameter                   |
+|---------------------------------|
+| `/movie-club/jwt_secret`        |
+| `/movie-club/database_password` |
+| `/movie-club/tmdb_access_token` |
+| `/movie-club/omdb_api_key`      |
+
+At deploy time, the backend deploy step runs `fetch-secrets.sh` on the EC2 instance (over SSM Run Command, same
+OIDC-assumed role) to regenerate its `.env` file fresh from these parameters, right before `docker compose pull &&
+up -d` — nothing sensitive sits at rest in EC2 `user_data`, a GitHub secret, or Terraform state.
+
+See [infra/README.md](infra/README.md) for the full picture: Terraform state bootstrap, provisioning, deriving
+these variables from `terraform output`, and why the app-deploy and Terraform-apply roles are kept separate.
+
 ## Environment variables
 
 All defined in [.env.example](.env.example):
 
-| Variable                                                                        | Purpose                                                                                                                                 |
-|---------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
-| `DATABASE_URL` / `DATABASE_USER` / `DATABASE_PASSWORD`                          | Postgres connection. Defaults match `docker compose up db`.                                                                             |
-| `JWT_SECRET`                                                                    | Signing secret for auth tokens. Change for anything beyond local dev.                                                                   |
-| `TMDB_API_KEY` / `TMDB_ACCESS_TOKEN`                                            | From [TMDB's API settings](https://www.themoviedb.org/settings/api). The access token (v4, Bearer) is what's actually used for lookups. |
+| Variable                                                                        | Purpose                                                                                                                                                                                        |
+|---------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `DATABASE_URL` / `DATABASE_USER` / `DATABASE_PASSWORD`                          | Postgres connection. Defaults match `docker compose up db`.                                                                                                                                    |
+| `JWT_SECRET`                                                                    | Signing secret for auth tokens. Change for anything beyond local dev.                                                                                                                          |
+| `TMDB_API_KEY` / `TMDB_ACCESS_TOKEN`                                            | From [TMDB's API settings](https://www.themoviedb.org/settings/api). The access token (v4, Bearer) is what's actually used for lookups.                                                        |
 | `OMDB_API_KEY`                                                                  | From [OMDb's API key page](https://www.omdbapi.com/apikey.aspx) (free tier). Used only to fetch IMDB's own rating — TMDB doesn't expose it. Optional: lookups are silently skipped when unset. |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `S3_BUCKET_NAME` | Reserved for poster storage — the S3 SDK is a dependency but no code uses it yet.                                                       |
-| `VITE_API_BASE_URL`                                                             | Backend URL baked into the frontend build. See the note above.                                                                          |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `S3_BUCKET_NAME` | Reserved for poster storage — the S3 SDK is a dependency but no code uses it yet.                                                                                                              |
+| `VITE_API_BASE_URL`                                                             | Backend URL baked into the frontend build. See the note above.                                                                                                                                 |
 
 ## Seeding a dev user
 
@@ -123,8 +180,10 @@ npm run lint     # oxlint
 ## Project structure
 
 ```
-backend/    Ktor API — routing/, service/, db/ (Exposed repositories + Flyway migrations)
-frontend/   Vite + React + MUI SPA
-docs/       Auth flow write-up + .http request collections + dev-user seed SQL
-samples/    Real CSV data for the importer
+backend/            Ktor API — routing/, service/, db/ (Exposed repositories + Flyway migrations)
+frontend/           Vite + React + MUI SPA
+docs/               Auth flow write-up + .http request collections + dev-user seed SQL
+samples/            Real CSV data for the importer
+infra/              Terraform for the AWS deployment (see infra/README.md)
+.github/workflows/  CI: test + deploy (backend/frontend) + Terraform plan/apply
 ```
