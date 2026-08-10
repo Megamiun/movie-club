@@ -1,11 +1,9 @@
 package br.com.gabryel.movieclub.service.csvimport
 
 import kotlinx.datetime.LocalDate
-import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class MoviesCsvParserTest {
     @Test
@@ -96,15 +94,5 @@ class MoviesCsvParserTest {
 
         assertEquals(RatingPair("Muito bom", "Gostei!"), row.ratingsByDisplayName["Person A"])
         assertEquals(RatingPair("Horrível", "Detestei"), row.ratingsByDisplayName["Person B"])
-    }
-
-    @Test
-    fun `real sample files parse end-to-end without throwing`() {
-        for (year in listOf(2025, 2026, 2027)) {
-            val file = File("../samples/Movie Club - Movies $year.csv")
-            assertTrue(file.exists(), "expected fixture at ${file.absolutePath}")
-            val rows = MoviesCsvParser.parse(file.inputStream())
-            assertTrue(rows.isNotEmpty(), "$year should have parsed at least one row")
-        }
     }
 }

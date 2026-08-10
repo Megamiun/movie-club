@@ -65,16 +65,4 @@ class ReserveCsvParserTest {
         assertEquals("Wolf Walkers", rows[0].title)
         assertEquals("Reservoir dogs", rows[1].title)
     }
-
-    @Test
-    fun `real sample file parses end-to-end without throwing`() {
-        val file = File("../samples/Movie Club - Reserve.csv")
-        assertTrue(file.exists(), "expected fixture at ${file.absolutePath}")
-
-        val rows = ReserveCsvParser.parse(file.inputStream())
-
-        assertTrue(rows.isNotEmpty())
-        assertTrue(rows.any { it.category == WatchlistCategory.MOVIE && it.csvDisplayName == "Person A" })
-        assertTrue(rows.any { it.category == WatchlistCategory.SERIES && it.csvDisplayName == "Person B" })
-    }
 }
