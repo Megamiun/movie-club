@@ -24,6 +24,7 @@ import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
 import { RatingForm } from '../components/RatingForm'
 import { useAsync } from '../hooks/useAsync'
+import { useSmartPolling } from '../hooks/useSmartPolling'
 import { digitsOf } from '../hooks/useSeasonNumbers'
 import { episodeCode } from '../utils/episode'
 import { resolveTitle } from '../utils/title'
@@ -33,7 +34,8 @@ export function SeasonDetailPage() {
   const [searchParams] = useSearchParams()
   const seriesId = searchParams.get('seriesId')
 
-  const { data: episodes, loading, error, reload } = useAsync(() => seasonsApi.listEpisodes(seasonId!), [seasonId])
+  const { data: episodes, loading, error, reload, silentReload } = useAsync(() => seasonsApi.listEpisodes(seasonId!), [seasonId])
+  useSmartPolling(silentReload, 15000)
   const { data: siblingSeasons } = useAsync(() => seasonsApi.listSiblings(seasonId!), [seasonId])
   const season = siblingSeasons?.find((s) => s.id === seasonId)
   const seasonDigits = siblingSeasons?.length ? digitsOf(Math.max(...siblingSeasons.map((s) => s.number))) : undefined

@@ -11,13 +11,18 @@ import { ImdbLink } from '../components/ImdbLink'
 import { LanguagePickerDialog } from '../components/LanguagePickerDialog'
 import { RatingForm } from '../components/RatingForm'
 import { useAsync } from '../hooks/useAsync'
+import { useSmartPolling } from '../hooks/useSmartPolling'
 import { ratingLabel } from '../utils/rating'
 import { resolveTitle } from '../utils/title'
 
 export function SeriesDetailPage() {
   const { seriesId } = useParams<{ seriesId: string }>()
-  const { data: series, loading, error, reload } = useAsync(() => seriesApi.get(seriesId!), [seriesId])
-  const { data: seasons, reload: reloadSeasons } = useAsync(() => seriesApi.listSeasons(seriesId!), [seriesId])
+  const { data: series, loading, error, reload, silentReload } = useAsync(() => seriesApi.get(seriesId!), [seriesId])
+  const { data: seasons, reload: reloadSeasons, silentReload: silentReloadSeasons } = useAsync(() => seriesApi.listSeasons(seriesId!), [seriesId])
+  useSmartPolling(() => {
+    silentReload()
+    silentReloadSeasons()
+  }, 15000)
   const { data: club } = useAsync(() => (series ? clubsApi.get(series.clubId) : Promise.resolve(null)), [
     series?.clubId,
   ])

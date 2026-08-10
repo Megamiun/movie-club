@@ -1,0 +1,120 @@
+name: Terraform
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/terraform.yml"
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/terraform.yml"
+  workflow_dispatch: {}
+
+jobs:
+  # Syntax/formatting/internal-reference checks only, no AWS credentials -- runs on PRs from anyone, including
+  # forks. The plan/apply jobs below deliberately do NOT trust pull_request at all (see
+  # infra/github_oidc_terraform.tf's trust policy comment): this repo is public, and a pull_request-trusted OIDC
+  # role is a known risk (the workflow file for that event is sourced from the PR's own branch). This job is the
+  # PR-time feedback that doesn't require extending that trust.
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+      - name: Terraform fmt
+        working-directory: infra
+        run: terraform fmt -check -diff
+      - name: Terraform init (no backend)
+        working-directory: infra
+        run: terraform init -backend=false
+      - name: Terraform validate
+        working-directory: infra
+        run: terraform validate
+
+  # Real plan (needs AWS credentials + backend state) -- only from a push to main, i.e. only after the repo
+  # owner has actually merged something. Uploads the plan file as a build artifact so `apply` (below) applies
+  # exactly what was planned here, rather than re-planning and risking drift between the two.
+  plan:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required to assume the AWS role via OIDC (no stored AWS keys)
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Terraform init
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform plan
+        working-directory: infra
+        env:
+          TF_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
+          TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
+          TF_VAR_ssh_allowed_cidr: ${{ vars.SSH_ALLOWED_CIDR }}
+          TF_VAR_github_repository: ${{ github.repository }}
+          TF_VAR_jwt_secret: ${{ secrets.TF_VAR_JWT_SECRET }}
+          TF_VAR_database_password: ${{ secrets.TF_VAR_DATABASE_PASSWORD }}
+          TF_VAR_tmdb_access_token: ${{ secrets.TF_VAR_TMDB_ACCESS_TOKEN }}
+          TF_VAR_omdb_api_key: ${{ secrets.TF_VAR_OMDB_API_KEY }}
+        run: terraform plan -input=false -out=tfplan
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: infra/tfplan
+          retention-days: 1
+
+  # Gated behind the "production" GitHub Environment's required reviewers (configured in repo Settings →
+  # Environments, not in this file) -- the job pauses here until a human approves, so a bad plan gets a checkpoint
+  # before it touches real infrastructure. The reviewer can read `plan`'s own job log (already finished by the
+  # time this pauses) before approving.
+  apply:
+    needs: plan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write # required to assume the AWS role via OIDC (no stored AWS keys)
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Terraform init
+        working-directory: infra
+        run: terraform init
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: infra
+
+      # Applies the exact plan artifact from the `plan` job -- no re-planning, no TF_VAR_* needed again (they're
+      # already baked into the saved plan).
+      - name: Terraform apply
+        working-directory: infra
+        run: terraform apply -input=false tfplan

@@ -22,12 +22,14 @@ import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
 import { TmdbSearchAutocomplete } from '../components/TmdbSearchAutocomplete'
 import { useAsync } from '../hooks/useAsync'
+import { useSmartPolling } from '../hooks/useSmartPolling'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { resolveTitle } from '../utils/title'
 
 export function SeriesListPage() {
   const { club } = useOutletContext<ClubOutletContext>()
-  const { data: series, loading, error, reload } = useAsync(() => seriesApi.list(club.id), [club.id])
+  const { data: series, loading, error, reload, silentReload } = useAsync(() => seriesApi.list(club.id), [club.id])
+  useSmartPolling(silentReload, 15000)
   const [addMode, setAddMode] = useState<'search' | 'imdb'>('search')
   const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
   const [imdbUrlOrId, setImdbUrlOrId] = useState('')

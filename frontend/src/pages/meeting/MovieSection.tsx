@@ -31,6 +31,7 @@ import { RatingForm } from '../../components/RatingForm'
 import { ReviewsList } from '../../components/ReviewsList'
 import { TmdbSearchAutocomplete } from '../../components/TmdbSearchAutocomplete'
 import { useAsync } from '../../hooks/useAsync'
+import { useSmartPolling } from '../../hooks/useSmartPolling'
 import { memberName } from '../../utils/members'
 import { ratingLabel } from '../../utils/rating'
 import { resolveTitle, type LanguagePreferences } from '../../utils/title'
@@ -48,7 +49,8 @@ export function MovieSection({
   members: ClubMember[]
   languagePrefs: LanguagePreferences
 }) {
-  const { data: movies, loading, error, reload } = useAsync(() => moviesApi.list(meetingId), [meetingId])
+  const { data: movies, loading, error, reload, silentReload } = useAsync(() => moviesApi.list(meetingId), [meetingId])
+  useSmartPolling(silentReload, 15000)
   const [addMode, setAddMode] = useState<'search' | 'imdb'>('search')
   const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
   const [imdbUrlOrId, setImdbUrlOrId] = useState('')
@@ -162,7 +164,8 @@ function MovieItem({
   languagePrefs: LanguagePreferences
   onChange: () => void
 }) {
-  const { data: reviews, reload: reloadReviews } = useAsync(() => moviesApi.listReviews(movie.id), [movie.id])
+  const { data: reviews, reload: reloadReviews, silentReload: silentReloadReviews } = useAsync(() => moviesApi.listReviews(movie.id), [movie.id])
+  useSmartPolling(silentReloadReviews, 15000)
   const [customTitle, setCustomTitle] = useState(movie.customTitle ?? '')
   const [preference, setPreference] = useState<'ORIGINAL' | 'CUSTOM'>(
     movie.displayTitlePreference === 'CUSTOM' ? 'CUSTOM' : 'ORIGINAL',
