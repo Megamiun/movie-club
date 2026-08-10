@@ -72,9 +72,13 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
 
+      - name: Resolve frontend bucket name
+        id: bucket
+        run: echo "name=movie-club-frontend-$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
+
       - name: Sync to S3
         run: |
-          aws s3 sync frontend/dist "s3://${{ vars.S3_FRONTEND_BUCKET }}" --delete
+          aws s3 sync frontend/dist "s3://${{ steps.bucket.outputs.name }}" --delete
 
       - name: Invalidate CloudFront cache
         run: |
