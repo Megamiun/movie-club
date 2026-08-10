@@ -5,9 +5,13 @@ import br.com.gabryel.movieclub.db.repositories.dto.TmdbMovieMetadata
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
 import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.BadRequestException
+import br.com.gabryel.movieclub.exception.UpstreamServiceException
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpResponseValidator
+import io.ktor.client.plugins.ResponseException
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
@@ -251,10 +255,27 @@ data class TmdbSeasonDetails(
 
 private const val BASE_URL = "https://api.themoviedb.org/3"
 
-class TmdbClient(private val accessToken: String) {
-    private val http = HttpClient(CIO) {
+/** [engine] defaults to a real CIO engine but is overridable so tests can substitute a `MockEngine` -- this is the
+ * only reason it's a constructor parameter rather than hardcoded, production callers never pass it. */
+class TmdbClient(private val accessToken: String, engine: HttpClientEngine = CIO.create()) {
+    private val http = HttpClient(engine) {
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true })
+        }
+        // Without this, a non-2xx TMDB response (bad/expired API key, rate limit, outage) still gets decoded as if
+        // it succeeded -- most of this file's response DTOs default their fields to empty/null for legitimate
+        // "TMDB found nothing" cases, so an error body silently decodes into an empty result instead of a
+        // deserialization failure, and callers report a confusing "not found" for what was actually e.g. an
+        // Unauthorized. expectSuccess=true makes ktor throw on non-2xx instead of decoding the body at all; the
+        // validator below turns that into a message that actually names the HTTP status.
+        expectSuccess = true
+        HttpResponseValidator {
+            handleResponseExceptionWithRequest { cause, _ ->
+                if (cause is ResponseException) {
+                    val status = cause.response.status
+                    throw UpstreamServiceException("TMDB request failed: ${status.value} ${status.description}")
+                }
+            }
         }
     }
 

@@ -2,6 +2,13 @@ package br.com.gabryel.movieclub.service.tmdb
 
 import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.exception.BadRequestException
+import br.com.gabryel.movieclub.exception.UpstreamServiceException
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
@@ -10,6 +17,33 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class TmdbClientTest {
+    @Test
+    fun `a non-2xx TMDB response throws UpstreamServiceException naming the status, instead of silently decoding as empty`() {
+        val engine = MockEngine { respond("Invalid API key", HttpStatusCode.Unauthorized) }
+        val client = TmdbClient(accessToken = "bad-token", engine = engine)
+
+        val exception = assertFailsWith<UpstreamServiceException> {
+            runBlocking { client.getMovieDetails(438631) }
+        }
+        assertEquals("TMDB request failed: 401 Unauthorized", exception.message)
+    }
+
+    @Test
+    fun `findByImdbId still resolves normally on a 2xx response`() {
+        val engine = MockEngine {
+            respond(
+                """{"movie_results":[{"id":438631}],"tv_results":[]}""",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val client = TmdbClient(accessToken = "token", engine = engine)
+
+        val result = runBlocking { client.findByImdbId("tt1160419") }
+
+        assertEquals(438631, result?.id)
+    }
+
     @Test
     fun `parseImdbId accepts a bare id or a full url, rejects anything else`() {
         assertEquals("tt0180093", parseImdbId("tt0180093"))
