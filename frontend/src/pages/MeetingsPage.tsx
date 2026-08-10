@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add'
 import LiveTvIcon from '@mui/icons-material/LiveTv'
 import MovieIcon from '@mui/icons-material/Movie'
+import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import TuneIcon from '@mui/icons-material/Tune'
 import {
   Alert,
@@ -17,6 +18,7 @@ import {
   TableBody,
   TableCell,
   TableContainer,
+  TableHead,
   TableRow,
   Tabs,
   TextField,
@@ -25,7 +27,22 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import { Fragment, useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react'
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  pointerWithin,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
+import { useForkRef } from '@mui/material/utils'
+import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link as RouterLink, useOutletContext } from 'react-router-dom'
 import { clubsApi } from '../api/clubs'
 import { episodesApi } from '../api/series'
@@ -41,6 +58,7 @@ import { MemberBadge } from '../components/MemberBadge'
 import { TruncatedList } from '../components/TruncatedList'
 import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
+import { useSmartPolling } from '../hooks/useSmartPolling'
 import { useSeasonNumbers, type SeasonCodeInfo } from '../hooks/useSeasonNumbers'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { useRatingDisplay, type RatingFillWith } from '../settings/RatingDisplayContext'
@@ -51,20 +69,19 @@ import { memberName } from '../utils/members'
 import { ratingLabel } from '../utils/rating'
 import { resolveTitle } from '../utils/title'
 
-/** Custom MIME type for dragging a movie/episode row between meeting groups in the table below -- namespaced so it
- * never collides with a browser's own drag types (e.g. dragging text/a link). */
-const PICK_DRAG_TYPE = 'application/x-movieclub-pick'
-
-interface PickDragPayload {
+/** Data every draggable pick row carries -- [label] is precomputed at render time (the row already resolves its
+ * own display title/code) so `DragOverlay` doesn't need a second lookup by id at the page level. */
+interface PickDragData {
   kind: 'movie' | 'episode'
-  id: string
   fromMeetingId: string
+  label: string
 }
 
-interface PickDropProps {
-  onDragOver: (event: DragEvent) => void
-  onDragLeave: () => void
-  onDrop: (event: DragEvent) => void
+/** Every row within a meeting's block (the header row and each of its picks) registers as its own droppable, all
+ * sharing the same [meetingId] -- reproduces the old native-DnD behavior of "drop anywhere within this meeting's
+ * rows", not just its header. */
+interface MeetingDropData {
+  meetingId: string
 }
 
 /** Which pick types show in the meetings table -- a personal display preference like `RatingDisplayContext`
@@ -98,15 +115,55 @@ export function MeetingsPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [selectedYear, setSelectedYear] = useState<string | null>(null)
   const [typeFilters, setTypeFilters] = useState(loadMeetingTypeFilters)
+  const [moveError, setMoveError] = useState<string | null>(null)
+  const [activeDrag, setActiveDrag] = useState<PickDragData | null>(null)
+  const [hoveredMeetingId, setHoveredMeetingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    const interval = setInterval(silentReload, 5000)
-    return () => clearInterval(interval)
-  }, [silentReload])
+  useSmartPolling(silentReload, 10_000)
 
   useEffect(() => {
     localStorage.setItem(MEETING_TYPE_FILTERS_KEY, JSON.stringify(typeFilters))
   }, [typeFilters])
+
+  // PointerSensor (mouse/trackpad) needs some movement before a drag starts, so a plain click on a rating cell,
+  // link, or button inside the row still passes through untouched. TouchSensor uses a short press-and-hold delay
+  // instead of a distance threshold -- on touch, distance alone can't tell a drag apart from a scroll gesture in
+  // time, but a delay can (a real drag holds still first; a scroll swipes immediately).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  )
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDrag((event.active.data.current as PickDragData | undefined) ?? null)
+  }
+
+  const handleDragOver = (event: DragOverEvent) => {
+    setHoveredMeetingId((event.over?.data.current as MeetingDropData | undefined)?.meetingId ?? null)
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveDrag(null)
+    setHoveredMeetingId(null)
+    const { active, over } = event
+    if (!over) return
+    const data = active.data.current as PickDragData | undefined
+    const targetMeetingId = (over.data.current as MeetingDropData | undefined)?.meetingId
+    if (!data || !targetMeetingId || targetMeetingId === data.fromMeetingId) return
+
+    setMoveError(null)
+    try {
+      if (data.kind === 'movie') {
+        await moviesApi.move(String(active.id), targetMeetingId)
+      } else {
+        await episodesApi.unassignFromMeeting(String(active.id), data.fromMeetingId)
+        await episodesApi.assignToMeeting(String(active.id), targetMeetingId)
+      }
+      silentReload()
+    } catch (err) {
+      setMoveError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault()
@@ -123,7 +180,7 @@ export function MeetingsPage() {
   }
 
   const sorted = [...(meetings ?? [])].sort((a, b) => a.date.localeCompare(b.date))
-  const columnCount = 8 + club.members.length
+  const columnCount = 9 + club.members.length
   const seasonNumbers = useSeasonNumbers(sorted.flatMap((meeting) => meeting.episodes.map((pick) => pick.episode.seasonId)))
 
   const years = [...new Set(sorted.map((meeting) => meeting.date.slice(0, 4)))].sort((a, b) => b.localeCompare(a))
@@ -157,6 +214,12 @@ export function MeetingsPage() {
         <MeetingTypeFilterButtons filters={typeFilters} onChange={setTypeFilters} />
       </Stack>
 
+      {moveError && (
+        <Alert severity="error" sx={{ mb: 1 }} onClose={() => setMoveError(null)}>
+          {moveError}
+        </Alert>
+      )}
+
       <AsyncState loading={loading} error={error}>
         {sorted.length === 0 ? (
           <Typography color="text.secondary">No meetings yet.</Typography>
@@ -171,29 +234,67 @@ export function MeetingsPage() {
                 <Tab key={year} value={year} label={year} />
               ))}
             </Tabs>
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small" sx={{ '& .MuiTableCell-root': { px: 1.25 } }}>
-                <TableBody>
-                  {meetingsForYear.map((meeting) => (
-                    <MeetingRows
-                      key={meeting.id}
-                      meeting={meeting}
-                      club={club}
-                      scales={scales ?? []}
-                      myMemberId={member?.id ?? null}
-                      columnCount={columnCount}
-                      seasonNumbers={seasonNumbers}
-                      typeFilters={typeFilters}
-                      onChange={silentReload}
-                      registerRow={(el) => {
-                        if (el) rowRefs.current.set(meeting.id, el)
-                        else rowRefs.current.delete(meeting.id)
-                      }}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={pointerWithin}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+            >
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small" sx={{ '& .MuiTableCell-root': { py: 0.35, px: 1, fontSize: '0.8125rem' } }}>
+                  <TableHead>
+                    <TableRow sx={{ '& .MuiTableCell-root': { py: 0.5, fontWeight: 600, fontSize: '0.75rem', color: 'text.secondary', bgcolor: 'action.hover' } }}>
+                      <TableCell width={36}>By</TableCell>
+                      <TableCell>Title</TableCell>
+                      {club.members.map((m) => (
+                        <TableCell key={m.memberId} align="center" sx={{ px: 0.5 }}>
+                          <Tooltip title={`Ratings by ${m.name}`}>
+                            <Box sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <MemberBadge member={m} />
+                            </Box>
+                          </Tooltip>
+                        </TableCell>
+                      ))}
+                      <TableCell>Year</TableCell>
+                      <TableCell>Director / Creator</TableCell>
+                      <TableCell align="right">Runtime</TableCell>
+                      <TableCell>Genre</TableCell>
+                      <TableCell>Country</TableCell>
+                      <TableCell>IMDb</TableCell>
+                      <TableCell width={36} />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {meetingsForYear.map((meeting) => (
+                      <MeetingRows
+                        key={meeting.id}
+                        meeting={meeting}
+                        club={club}
+                        scales={scales ?? []}
+                        myMemberId={member?.id ?? null}
+                        columnCount={columnCount}
+                        seasonNumbers={seasonNumbers}
+                        typeFilters={typeFilters}
+                        isHovered={hoveredMeetingId === meeting.id}
+                        onChange={silentReload}
+                        registerRow={(el) => {
+                          if (el) rowRefs.current.set(meeting.id, el)
+                          else rowRefs.current.delete(meeting.id)
+                        }}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <DragOverlay>
+                {activeDrag && (
+                  <Paper elevation={3} sx={{ px: 1.5, py: 0.75, fontSize: '0.8125rem', fontWeight: 600 }}>
+                    {activeDrag.label}
+                  </Paper>
+                )}
+              </DragOverlay>
+            </DndContext>
           </>
         )}
       </AsyncState>
@@ -309,6 +410,49 @@ function MeetingTypeFilterButtons({ filters, onChange }: { filters: MeetingTypeF
   )
 }
 
+/** A meeting's header row is always a drop target (even for an empty meeting with no pick rows of its own to
+ * double as one) -- registers its own [useDroppable] rather than relying on a pick row being present. */
+function MeetingDropRow({
+  meeting,
+  columnCount,
+  isHovered,
+  hasAnyPicks,
+  hasVisiblePicks,
+  club,
+  registerRow,
+}: {
+  meeting: MeetingWithPicks
+  columnCount: number
+  isHovered: boolean
+  hasAnyPicks: boolean
+  hasVisiblePicks: boolean
+  club: ClubOutletContext['club']
+  registerRow: (el: HTMLTableRowElement | null) => void
+}) {
+  const { setNodeRef } = useDroppable({ id: `drop-${meeting.id}-header`, data: { meetingId: meeting.id } satisfies MeetingDropData })
+  const rowRef = useForkRef(setNodeRef, registerRow)
+
+  return (
+    <TableRow
+      ref={rowRef}
+      sx={{ '& td': { bgcolor: isHovered ? 'action.selected' : 'action.hover', fontWeight: 600 } }}
+    >
+      <TableCell colSpan={columnCount}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
+          <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover">
+            {meeting.date}
+          </Link>
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 400 }}>
+            {meeting.assignedMemberId ? memberName(club.members, meeting.assignedMemberId) : 'Shared / merged'}
+            {!hasAnyPicks && ' · Nothing picked yet'}
+            {hasAnyPicks && !hasVisiblePicks && ' · Hidden by filters'}
+          </Typography>
+        </Stack>
+      </TableCell>
+    </TableRow>
+  )
+}
+
 function MeetingRows({
   meeting,
   club,
@@ -317,6 +461,7 @@ function MeetingRows({
   columnCount,
   seasonNumbers,
   typeFilters,
+  isHovered,
   onChange,
   registerRow,
 }: {
@@ -327,6 +472,7 @@ function MeetingRows({
   columnCount: number
   seasonNumbers: Map<string, SeasonCodeInfo> | null
   typeFilters: MeetingTypeFilters
+  isHovered: boolean
   onChange: () => void
   registerRow: (el: HTMLTableRowElement | null) => void
 }) {
@@ -334,66 +480,18 @@ function MeetingRows({
   const visibleMovies = typeFilters.showMovies ? meeting.movies : []
   const visibleEpisodeGroups = typeFilters.showEpisodes ? groupEpisodesBySeries(meeting.episodes) : []
   const hasVisiblePicks = visibleMovies.length > 0 || visibleEpisodeGroups.length > 0
-  const [isDragOver, setIsDragOver] = useState(false)
-  const [moveError, setMoveError] = useState<string | null>(null)
-
-  const handleDragOver = (event: DragEvent) => {
-    if (!event.dataTransfer.types.includes(PICK_DRAG_TYPE)) return
-    event.preventDefault()
-    setIsDragOver(true)
-  }
-
-  const handleDragLeave = () => setIsDragOver(false)
-
-  const handleDrop = async (event: DragEvent) => {
-    event.preventDefault()
-    setIsDragOver(false)
-    const raw = event.dataTransfer.getData(PICK_DRAG_TYPE)
-    if (!raw) return
-    const payload = JSON.parse(raw) as PickDragPayload
-    if (payload.fromMeetingId === meeting.id) return
-
-    setMoveError(null)
-    try {
-      if (payload.kind === 'movie') {
-        await moviesApi.move(payload.id, meeting.id)
-      } else {
-        await episodesApi.unassignFromMeeting(payload.id, payload.fromMeetingId)
-        await episodesApi.assignToMeeting(payload.id, meeting.id)
-      }
-      onChange()
-    } catch (err) {
-      setMoveError(err instanceof ApiError ? err.message : 'Something went wrong')
-    }
-  }
-
-  const dropProps = { onDragOver: handleDragOver, onDragLeave: handleDragLeave, onDrop: handleDrop }
 
   return (
     <Fragment>
-      <TableRow
-        ref={registerRow}
-        {...dropProps}
-        sx={{ '& td': { bgcolor: isDragOver ? 'action.selected' : 'action.hover', fontWeight: 600 } }}
-      >
-        <TableCell colSpan={columnCount}>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
-            <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover">
-              {meeting.date}
-            </Link>
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 400 }}>
-              {meeting.assignedMemberId ? memberName(club.members, meeting.assignedMemberId) : 'Shared / merged'}
-              {!hasAnyPicks && ' · Nothing picked yet'}
-              {hasAnyPicks && !hasVisiblePicks && ' · Hidden by filters'}
-            </Typography>
-            {moveError && (
-              <Typography variant="caption" color="error">
-                {moveError}
-              </Typography>
-            )}
-          </Stack>
-        </TableCell>
-      </TableRow>
+      <MeetingDropRow
+        meeting={meeting}
+        columnCount={columnCount}
+        isHovered={isHovered}
+        hasAnyPicks={hasAnyPicks}
+        hasVisiblePicks={hasVisiblePicks}
+        club={club}
+        registerRow={registerRow}
+      />
       {visibleMovies.map((pick) => (
         <MovieRow
           key={pick.movie.id}
@@ -402,14 +500,13 @@ function MeetingRows({
           scales={scales}
           myMemberId={myMemberId}
           meetingId={meeting.id}
-          dropProps={dropProps}
           onChange={onChange}
         />
       ))}
       {visibleEpisodeGroups.map((group) => (
         <Fragment key={group.series?.id ?? group.picks[0].episode.id}>
           {group.series && (
-            <TableRow {...dropProps}>
+            <TableRow>
               <TableCell colSpan={columnCount} sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
                 {resolveTitle(group.series, club)}
               </TableCell>
@@ -423,7 +520,6 @@ function MeetingRows({
               scales={scales}
               myMemberId={myMemberId}
               meetingId={meeting.id}
-              dropProps={dropProps}
               seasonCode={seasonNumbers?.get(pick.episode.seasonId)}
               onChange={onChange}
             />
@@ -454,7 +550,6 @@ function MovieRow({
   scales,
   myMemberId,
   meetingId,
-  dropProps,
   onChange,
 }: {
   pick: MeetingMoviePick
@@ -462,11 +557,14 @@ function MovieRow({
   scales: RatingScale[]
   myMemberId: string | null
   meetingId: string
-  dropProps: PickDropProps
   onChange: () => void
 }) {
   const { movie } = pick
   const [error, setError] = useState<string | null>(null)
+  const dragData: PickDragData = { kind: 'movie', fromMeetingId: meetingId, label: resolveTitle(movie, club) }
+  const { attributes, listeners, setNodeRef: setDraggableRef, isDragging } = useDraggable({ id: movie.id, data: dragData })
+  const { setNodeRef: setDroppableRef } = useDroppable({ id: `drop-${meetingId}-movie-${movie.id}`, data: { meetingId } satisfies MeetingDropData })
+  const rowRef = useForkRef(setDraggableRef, setDroppableRef)
 
   const handleSaveRating = async (qualityOptionId?: string, sentimentOptionId?: string) => {
     setError(null)
@@ -478,14 +576,13 @@ function MovieRow({
     }
   }
 
-  const handleDragStart = (event: DragEvent) => {
-    const payload: PickDragPayload = { kind: 'movie', id: movie.id, fromMeetingId: meetingId }
-    event.dataTransfer.setData(PICK_DRAG_TYPE, JSON.stringify(payload))
-    event.dataTransfer.effectAllowed = 'move'
-  }
-
   return (
-    <TableRow draggable onDragStart={handleDragStart} {...dropProps} sx={{ cursor: 'grab' }}>
+    <TableRow
+      ref={rowRef}
+      {...attributes}
+      {...listeners}
+      sx={{ cursor: 'grab', opacity: isDragging ? 0.4 : 1, touchAction: 'none' }}
+    >
       <TableCell>
         <MemberBadge member={club.members.find((m) => m.memberId === movie.chosenById)} />
       </TableCell>
@@ -522,21 +619,14 @@ function MovieRow({
             <ImdbLink imdbId={movie.directorImdbId} kind="name" variant="text">
               {movie.director}
             </ImdbLink>
-          ) : (
-            movie.director
-          )
-        ) : (
-          '—'
-        )}
+          ) : movie.director
+        ) : '—' }
       </TableCell>
       <TableCell align="right">{movie.runtimeMinutes ? formatDuration(movie.runtimeMinutes) : '—'}</TableCell>
-      <TableCell>
-        <TruncatedList items={movie.genre ?? []} maxChars={20} />
-      </TableCell>
-      <TableCell>
-        <CountryFlags codes={movie.originCountry} />
-      </TableCell>
+      <TableCell><TruncatedList items={movie.genre ?? []} maxChars={20} /></TableCell>
+      <TableCell><CountryFlags codes={movie.originCountry} /></TableCell>
       <TableCell>{ratingLabel(movie) ?? '—'}</TableCell>
+      <TableCell align="center"><WatchLinkCell href={movie.watchLink} /></TableCell>
     </TableRow>
   )
 }
@@ -547,7 +637,6 @@ function EpisodeRow({
   scales,
   myMemberId,
   meetingId,
-  dropProps,
   seasonCode,
   onChange,
 }: {
@@ -556,12 +645,16 @@ function EpisodeRow({
   scales: RatingScale[]
   myMemberId: string | null
   meetingId: string
-  dropProps: PickDropProps
   seasonCode: SeasonCodeInfo | undefined
   onChange: () => void
 }) {
   const { episode, series } = pick
   const [error, setError] = useState<string | null>(null)
+  const label = `${episodeCode(seasonCode?.number, episode.number, seasonCode?.seasonDigits, seasonCode?.episodeDigits)}${episode.title ? ` - ${episode.title}` : ''}`
+  const dragData: PickDragData = { kind: 'episode', fromMeetingId: meetingId, label }
+  const { attributes, listeners, setNodeRef: setDraggableRef, isDragging } = useDraggable({ id: episode.id, data: dragData })
+  const { setNodeRef: setDroppableRef } = useDroppable({ id: `drop-${meetingId}-episode-${episode.id}`, data: { meetingId } satisfies MeetingDropData })
+  const rowRef = useForkRef(setDraggableRef, setDroppableRef)
 
   const handleSaveRating = async (qualityOptionId?: string, sentimentOptionId?: string) => {
     setError(null)
@@ -573,31 +666,26 @@ function EpisodeRow({
     }
   }
 
-  const handleDragStart = (event: DragEvent) => {
-    const payload: PickDragPayload = { kind: 'episode', id: episode.id, fromMeetingId: meetingId }
-    event.dataTransfer.setData(PICK_DRAG_TYPE, JSON.stringify(payload))
-    event.dataTransfer.effectAllowed = 'move'
-  }
-
-  const rating = ratingLabel(episode) ?? (series ? ratingLabel(series) : null)
+  const rating = ratingLabel(episode)
   const displayYear = episode.airDate ? episode.airDate.slice(0, 4) : (series?.year ?? null)
 
   return (
-    <TableRow draggable onDragStart={handleDragStart} {...dropProps} sx={{ cursor: 'grab' }}>
+    <TableRow
+      ref={rowRef}
+      {...attributes}
+      {...listeners}
+      sx={{ cursor: 'grab', opacity: isDragging ? 0.4 : 1, touchAction: 'none' }}
+    >
       <TableCell>
         {series ? <MemberBadge member={club.members.find((m) => m.memberId === series.chosenById)} /> : '—'}
       </TableCell>
       <TableCell>
-        {episode.imdbId || series ? (
-          <ImdbLink imdbId={episode.imdbId ?? series!.imdbId} variant="text">
-            {episodeCode(seasonCode?.number, episode.number, seasonCode?.seasonDigits, seasonCode?.episodeDigits)}
-            {episode.title ? ` - ${episode.title}` : ''}
+        {episode.imdbId ? (
+          <ImdbLink imdbId={episode.imdbId} variant="text">
+            {label}
           </ImdbLink>
         ) : (
-          <span>
-            {episodeCode(seasonCode?.number, episode.number, seasonCode?.seasonDigits, seasonCode?.episodeDigits)}
-            {episode.title ? ` - ${episode.title}` : ''}
-          </span>
+          <span>{label}</span>
         )}
         {error && (
           <Typography variant="caption" color="error" sx={{ display: 'block' }}>
@@ -647,7 +735,22 @@ function EpisodeRow({
         <CountryFlags codes={series?.originCountry} />
       </TableCell>
       <TableCell>{rating ?? '—'}</TableCell>
+      <TableCell align="center">—</TableCell>
     </TableRow>
+  )
+}
+
+/** A plain icon-only link to a movie pick's optional "where to watch" URL (HBO/Netflix/magnet link/etc., see
+ * `MovieSection`) -- episodes have no equivalent field, so `EpisodeRow` always renders the blank "—" fallback
+ * directly rather than calling this. */
+function WatchLinkCell({ href }: { href: string | null }) {
+  if (!href) return <>—</>
+  return (
+    <Tooltip title={href}>
+      <IconButton size="small" component="a" href={href} target="_blank" rel="noopener noreferrer">
+        <OpenInNewIcon fontSize="inherit" />
+      </IconButton>
+    </Tooltip>
   )
 }
 
