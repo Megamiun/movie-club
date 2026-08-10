@@ -13,13 +13,14 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  # Syntax/formatting/internal-reference checks only, no AWS credentials -- runs on PRs from anyone, including
-  # forks. The plan/apply jobs below deliberately do NOT trust pull_request at all (see
-  # infra/github_oidc_terraform.tf's trust policy comment): this repo is public, and a pull_request-trusted OIDC
-  # role is a known risk (the workflow file for that event is sourced from the PR's own branch). This job is the
-  # PR-time feedback that doesn't require extending that trust.
+  # Syntax/formatting/internal-reference checks only, no AWS credentials -- runs automatically on every push and
+  # PR (including from forks), plus manual dispatch. No `if:` needed -- it runs on whichever of this workflow's
+  # three `on:` triggers actually fired. The plan/apply jobs below deliberately do NOT trust pull_request at all
+  # (see infra/github_oidc_terraform.tf's trust policy comment): this repo is public, and a pull_request-trusted
+  # OIDC role is a known risk (the workflow file for that event is sourced from the PR's own branch). This job is
+  # the free automatic feedback that doesn't require extending that trust -- actually touching real infra (plan/
+  # apply, below) stays manual-only.
   validate:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -38,11 +39,14 @@ jobs:
         working-directory: infra
         run: terraform validate
 
-  # Real plan (needs AWS credentials + backend state) -- only from a push to main, i.e. only after the repo
-  # owner has actually merged something. Uploads the plan file as a build artifact so `apply` (below) applies
-  # exactly what was planned here, rather than re-planning and risking drift between the two.
+  # Real plan (needs AWS credentials + backend state) -- manual dispatch only, deliberately not triggered by a
+  # push to main. validate (above) already gives automatic fast feedback on every push/PR; actually touching real
+  # infra state requires someone to click "Run workflow". workflow_dispatch can technically target any branch,
+  # hence the ref check -- without it, dispatching from a feature branch would still try to plan/apply real infra
+  # off that branch's state. Uploads the plan file as a build artifact so `apply` (below) applies exactly what
+  # was planned here, rather than re-planning and risking drift between the two.
   plan:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       id-token: write # required to assume the AWS role via OIDC (no stored AWS keys)
@@ -87,7 +91,7 @@ jobs:
   # time this pauses) before approving.
   apply:
     needs: plan
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     permissions:

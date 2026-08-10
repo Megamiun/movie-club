@@ -100,11 +100,13 @@ allows the role to be assumed from a push to *this exact repo's* `main` branch, 
 
 ## Applying via CI/CD instead of locally
 
-After the one-time local bootstrap above, `.github/workflows/terraform.yml` can take over: `plan` runs on every
-push to main that touches `infra/**`, `apply` runs after, gated behind the repo's `production` GitHub Environment
--- create that environment in Settings → Environments with at least one required reviewer, so a human has to
-approve before `apply` actually runs (the plan output is already sitting in the `plan` job's own log by then, for
-the approver to check against what's about to happen). Set these in Settings → Secrets and variables → Actions:
+After the one-time local bootstrap above, `.github/workflows/terraform.yml` can take over. `validate` (fmt +
+`terraform validate`, no AWS credentials) runs automatically on every push and PR touching `infra/**`. `plan` and
+`apply` are manual-only -- triggered by running the workflow by hand (Actions tab → "Run workflow", against
+`main`), not automatically on push -- so real infra state is never touched without someone deliberately asking
+for it. `apply` also still needs the repo's `production` GitHub Environment approval on top of that (create it in
+Settings → Environments with at least one required reviewer), so a human confirms the actual plan output before
+it applies, even after triggering the run. Set these in Settings → Secrets and variables → Actions:
 
 **Variables**:
 

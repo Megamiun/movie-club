@@ -4,12 +4,14 @@
 # DNS, ACM certs, and more. That's a meaningfully larger blast radius, kept in its own role rather than folded into
 # the app-deploy role, so a compromise of one doesn't automatically hand over the other.
 #
-# Trusted from push to main ONLY, not pull_request -- this repo is public, and a `pull_request` trust condition is
-# a known GitHub Actions OIDC risk for public repos: the workflow file for a `pull_request` run is sourced from the
+# Trusted from main only, not pull_request -- this repo is public, and a `pull_request` trust condition is a
+# known GitHub Actions OIDC risk for public repos: the workflow file for a `pull_request` run is sourced from the
 # PR's own branch (potentially a fork), so anyone who can open a PR could rewrite the workflow to abuse a role
-# trusted at that trigger. Only a push to main (which here means: only the repo owner, who has merge rights) can
-# ever assume this role. PRs still get *some* automated feedback -- .github/workflows/terraform.yml's `validate`
-# job runs `terraform fmt`/`validate` without any AWS credentials at all, so it needs no trust here.
+# trusted at that trigger. Only a push to main, or a manual workflow_dispatch targeting main (both produce the
+# same ref-based `sub` claim below), can ever assume this role -- in practice that means only the repo owner, who
+# has merge rights and can trigger a dispatch against main. PRs still get *some* automated feedback --
+# .github/workflows/terraform.yml's `validate` job runs `terraform fmt`/`validate` without any AWS credentials at
+# all, so it needs no trust here.
 data "aws_iam_policy_document" "github_actions_terraform_assume_role" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -24,10 +26,17 @@ data "aws_iam_policy_document" "github_actions_terraform_assume_role" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # Two acceptable values, not one: `apply` sets `environment: production` (the approval gate), which gives it
+    # a *different* `sub` claim entirely -- repo:<repo>:environment:production instead of the usual ref-based one,
+    # not an addition to it. `plan`/`validate` have no environment, so they still present the ref-based subject.
+    # Without both listed here, `apply` specifically could never assume this role no matter how it's triggered.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:ref:refs/heads/main"]
+      values = [
+        "repo:${var.github_repository}:ref:refs/heads/main",
+        "repo:${var.github_repository}:environment:production",
+      ]
     }
   }
 }
