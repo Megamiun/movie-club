@@ -69,7 +69,7 @@ data "aws_iam_policy_document" "github_actions_terraform" {
     actions = ["s3:*"]
     resources = [
       aws_s3_bucket.frontend.arn, "${aws_s3_bucket.frontend.arn}/*",
-      "arn:aws:s3:::movie-club-terraform-state", "arn:aws:s3:::movie-club-terraform-state/*",
+      "arn:aws:s3:::${var.tf_state_bucket_name}", "arn:aws:s3:::${var.tf_state_bucket_name}/*",
     ]
   }
 
@@ -97,16 +97,16 @@ data "aws_iam_policy_document" "github_actions_terraform" {
     resources = [aws_ecr_repository.backend.arn]
   }
 
+  # Read-only, and only GetParameter -- ssm.tf's four secrets are `data` sources, not `resource`s (Terraform never
+  # creates/deletes/modifies an SSM parameter in this config, see ssm.tf's own comment), and with_decryption =
+  # false means it doesn't even need KMS access to read them. GetParameter is the only API a data source of this
+  # kind calls (not the plural GetParameters -- each block fetches one exact name, not a batch); no Describe*
+  # needed either. Deliberately excludes ssm:DeleteParameter and friends -- there's no legitimate reason for this
+  # role to ever be able to delete these.
   statement {
-    sid       = "ManageOwnSsmParameters"
-    actions   = ["ssm:*"]
+    sid       = "ReadOwnSsmParameters"
+    actions   = ["ssm:GetParameter"]
     resources = ["arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.ssm_parameter_prefix}/*"]
-  }
-
-  statement {
-    sid       = "ReadSsmKmsKey"
-    actions   = ["kms:Decrypt", "kms:DescribeKey"]
-    resources = [data.aws_kms_alias.ssm.target_key_arn]
   }
 }
 

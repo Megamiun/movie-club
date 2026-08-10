@@ -1,11 +1,11 @@
-# Copy to terraform.tfvars (gitignored) and fill in real values. Never commit the real file -- it holds secrets.
+# Copy to terraform.tfvars (gitignored) and fill in real values. Never commit the real file.
+#
+# No secrets here -- jwt_secret/database_password/tmdb_access_token/omdb_api_key are set directly in SSM
+# Parameter Store by hand (see infra/README.md's bootstrap step), not through Terraform, so their plaintext never
+# passes through a .tfvars file, a GitHub secret, or Terraform state.
 
-domain_name       = "example.com"      # must already be an existing Route53 hosted zone
-ssh_public_key    = "ssh-ed25519 AAAA..." # contents of e.g. ~/.ssh/id_ed25519.pub
-ssh_allowed_cidr  = "1.2.3.4/32"       # your own IP -- never 0.0.0.0/0
-github_repository = "your-org/movie-club" # scopes which repo/branch can assume the GitHub Actions deploy role
-
-jwt_secret         = "generate-a-long-random-value-here"
-database_password  = "generate-a-long-random-value-here"
-tmdb_access_token  = "your-tmdb-api-read-access-token"
-omdb_api_key       = ""              # optional -- IMDB ratings are best-effort and no-op without one
+domain_name          = "example.com"      # must already be an existing Route53 hosted zone
+ssh_public_key       = "ssh-ed25519 AAAA..." # contents of e.g. ~/.ssh/id_ed25519.pub
+ssh_allowed_cidr     = "1.2.3.4/32"       # your own IP -- never 0.0.0.0/0
+github_repository    = "your-org/movie-club" # scopes which repo/branch can assume the GitHub Actions deploy role
+tf_state_bucket_name = "movie-club-terraform-state" # must match backend.hcl's own bucket -- see versions.tf

@@ -5,14 +5,8 @@ variable "aws_region" {
 }
 
 variable "domain_name" {
-  description = "Root domain already managed by an existing Route53 hosted zone (e.g. \"example.com\"). Not created by this configuration -- looked up via data source."
+  description = "Root domain already managed by an existing Route53 hosted zone (e.g. \"example.com\"). Not created by this configuration -- looked up via data source. The frontend is served from this apex domain directly (no subdomain) -- only the backend gets one, see api_subdomain."
   type        = string
-}
-
-variable "frontend_subdomain" {
-  description = "Subdomain the frontend (S3 + CloudFront) is served from, e.g. \"app\" for app.example.com."
-  type        = string
-  default     = "app"
 }
 
 variable "api_subdomain" {
@@ -34,9 +28,9 @@ variable "instance_type" {
 }
 
 variable "root_volume_size_gb" {
-  description = "Root EBS volume size -- OS + Docker images only now (Postgres' own data lives on the separate volume below, not here). ~3-4GB OS+Docker, ~1.5GB images, under 1GB logs -- 10GB gives comfortable headroom over that without paying gp3's $0.08/GB-month for space this volume will never actually use. Destroyed if the instance itself is ever replaced/terminated (e.g. `terraform destroy`), same as any root volume -- fine here since nothing on it is unique data, unlike data_volume_size_gb below."
+  description = "Root EBS volume size -- OS + Docker images only now (Postgres' own data lives on the separate volume below, not here). AWS refuses to launch with a root volume smaller than the AMI's own root snapshot (data.aws_ami.al2023_arm64, main.tf) regardless of how little of it this app actually uses -- 30 is that AMI's current floor (RunInstances fails with InvalidBlockDeviceMapping below it); bump this if a future AMI ever raises that floor further. Destroyed if the instance itself is ever replaced/terminated (e.g. `terraform destroy`), same as any root volume -- fine here since nothing on it is unique data, unlike data_volume_size_gb below."
   type        = number
-  default     = 10
+  default     = 30
 }
 
 variable "data_volume_size_gb" {
@@ -55,33 +49,13 @@ variable "ssh_allowed_cidr" {
   type        = string
 }
 
-variable "tmdb_access_token" {
-  description = "TMDB API read access token -- see backend's TmdbClient. Sensitive; pass via a .tfvars file that's gitignored, or TF_VAR_tmdb_access_token."
-  type        = string
-  sensitive   = true
-}
-
-variable "omdb_api_key" {
-  description = "OMDb API key (optional -- OmdbClient no-ops without one, see CLAUDE.md). Sensitive."
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "jwt_secret" {
-  description = "Secret used to sign auth JWTs -- must be a real random value in production, not the dev default."
-  type        = string
-  sensitive   = true
-}
-
-variable "database_password" {
-  description = "Password for the Postgres superuser the backend connects as."
-  type        = string
-  sensitive   = true
-}
-
 variable "github_repository" {
   description = "GitHub repo GitHub Actions deploys from, as \"owner/repo\" -- scopes the OIDC trust policy so only workflow runs from this exact repo (on main) can assume the deploy role."
+  type        = string
+}
+
+variable "tf_state_bucket_name" {
+  description = "Same bucket name as backend.hcl's `bucket` (see versions.tf) -- backend blocks can't reference variables, so the name has to be duplicated here too, purely to scope github_actions_terraform's own S3 permissions (github_oidc_terraform.tf) to the actual state bucket instead of a guess."
   type        = string
 }
 

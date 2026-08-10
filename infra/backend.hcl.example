@@ -1,0 +1,8 @@
+# Copy to backend.hcl (gitignored) and fill in your own state bucket name/region, then run:
+#   terraform init -backend-config=backend.hcl
+#
+# This bucket must already exist before the first init -- it can't be created by the same configuration that
+# depends on it to store its own state. See infra/README.md's bootstrap step. Its region has nothing to do with
+# aws_region (where the actual infrastructure gets provisioned) -- it can live in whichever region you created it.
+bucket = "garm-tf-state"
+region = "eu-west-1"

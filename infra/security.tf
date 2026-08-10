@@ -1,7 +1,7 @@
 resource "aws_security_group" "app" {
   name        = "movie-club-app"
   description = "movie-club EC2 instance (db+backend containers behind Caddy)"
-  vpc_id      = data.aws_vpc.default.id
+  vpc_id      = aws_vpc.main.id
 
   # 80 is needed for Caddy's ACME HTTP-01 challenge, not just redirect-to-443 -- Let's Encrypt has to reach it.
   ingress {

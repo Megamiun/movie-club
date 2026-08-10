@@ -1,19 +1,23 @@
 terraform {
-  required_version = ">= 1.10.0" # native S3 state locking (use_lockfile) needs 1.10+, no DynamoDB table required
+  required_version = ">= 1.15.0"
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.58"
     }
   }
 
-  # The bucket below must already exist before `terraform init` -- see infra/README.md's bootstrap step. Can't be
-  # created by this same configuration (a backend can't provision the bucket it depends on to store its own state).
+  # bucket/region are deliberately not set here -- backend blocks can't reference variables at all (they're
+  # resolved before the rest of the config even exists), so making the state bucket's location dynamic means
+  # supplying both via partial backend configuration at `terraform init` time instead
+  # (-backend-config=backend.hcl locally, or -backend-config="bucket=..."/-backend-config="region=..." in CI --
+  # see infra/README.md). The state bucket's own region has nothing to do with var.aws_region (where the actual
+  # infrastructure gets provisioned) -- it can live anywhere, wherever you created it. That bucket must already
+  # exist before the first init either way -- a backend can't provision the bucket it depends on to store its own
+  # state.
   backend "s3" {
-    bucket       = "movie-club-terraform-state"
     key          = "movie-club/terraform.tfstate"
-    region       = "us-east-1"
     use_lockfile = true
   }
 }

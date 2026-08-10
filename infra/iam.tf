@@ -30,10 +30,10 @@ data "aws_iam_policy_document" "ssm_read_secrets" {
   statement {
     actions = ["ssm:GetParameter", "ssm:GetParameters"]
     resources = [
-      aws_ssm_parameter.jwt_secret.arn,
-      aws_ssm_parameter.database_password.arn,
-      aws_ssm_parameter.tmdb_access_token.arn,
-      aws_ssm_parameter.omdb_api_key.arn,
+      data.aws_ssm_parameter.jwt_secret.arn,
+      data.aws_ssm_parameter.database_password.arn,
+      data.aws_ssm_parameter.tmdb_access_token.arn,
+      data.aws_ssm_parameter.omdb_api_key.arn,
     ]
   }
 

@@ -9,7 +9,7 @@ resource "aws_key_pair" "deploy" {
 # will refuse to delete this volume until that lifecycle block is removed by hand, so wiping the club's data is
 # never a side effect of an unrelated infra change.
 resource "aws_ebs_volume" "postgres_data" {
-  availability_zone = data.aws_subnet.selected.availability_zone
+  availability_zone = aws_subnet.public.availability_zone
   size              = var.data_volume_size_gb
   type              = "gp3"
   encrypted         = true
@@ -26,7 +26,7 @@ resource "aws_ebs_volume" "postgres_data" {
 resource "aws_instance" "app" {
   ami                    = data.aws_ami.al2023_arm64.id
   instance_type          = var.instance_type
-  subnet_id              = data.aws_subnet.selected.id
+  subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.app.id]
   key_name               = aws_key_pair.deploy.key_name
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
@@ -58,6 +58,16 @@ resource "aws_instance" "app" {
 
   tags = {
     Name = "movie-club-app"
+  }
+
+  # data.aws_ami.al2023_arm64 uses most_recent = true, so it can resolve to a different AMI id on any given plan
+  # purely because AWS published a new AL2023 build since the last apply -- without this, that alone would force
+  # an unplanned replacement (destroy + recreate, ~1-2 min of reinstalling Docker/Caddy/re-pulling the backend
+  # image) as a side effect of a completely unrelated change. Ignoring drift on `ami` means the instance still
+  # launches on whatever's most recent the *first* time, but never gets replaced again just because a newer AMI
+  # exists -- only a deliberate change elsewhere (subnet, instance_type, etc.) still triggers a real replacement.
+  lifecycle {
+    ignore_changes = [ami]
   }
 }
 
