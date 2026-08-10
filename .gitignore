@@ -15,8 +15,6 @@
 build/
 out/
 *.class
-*.jar
-!gradle/wrapper/gradle-jar.jar
 
 # Gradle
 .gradle/

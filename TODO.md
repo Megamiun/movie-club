@@ -63,6 +63,29 @@
   - [x] first available preferred language, or original if unavailable
   - [x] use original title, unless in ignored languages
   - Resolution (`resolveTitle` in `frontend/src/utils/title.ts`) runs client-side, not server-side — it's a pure display concern that only depends on data already in the API response (translations + club's language lists), so it didn't need threading through every read path in `MovieService`/`SeriesService`
+  - [x] Is not working everywhere, apply this in every place we use titles
+    - Two real gaps found, both server-side -- `ExposedEpisodeRepository.searchByClub` (episode search autocomplete)
+      and `EpisodeService.listNextSuggestions` ("Up next" chips) each independently pre-computed a series' label
+      server-side as `customTitle ?: originalTitle`, a hand-rolled reimplementation that skipped LANGUAGE-preference
+      and preferred/ignored-language resolution entirely -- the two places in the app that show a series name
+      without opening its own detail page were silently bypassing every other title-display setting. New
+      `EpisodeSearchSeriesTitle`/`EpisodeSearchSeriesTitleResponse` DTOs (replacing the old flat `seriesTitle:
+      String`) carry the same title-resolution-capable fields as `SeriesRow` itself (not the full row -- these two
+      call sites only ever need a label, not the series' whole catalog data), so `EpisodeSearchAutocomplete` and
+      the meeting detail page's "Up next" chips can call the shared client-side `resolveTitle` like everywhere else
+      now. Both gained a `languagePrefs` prop threaded down from `MeetingDetailPage`, which didn't reach
+      `EpisodeSection` at all before this
+    - Every other place that receives a full `Movie`/`Series` object already called `resolveTitle` correctly (audited
+      across the whole frontend) -- `Watchlist`/`AdminPage`'s flat title fields are a separate, legitimate
+      architectural gap (`WatchlistEntry`/`AdminMediaItem` reference a `MediaItem`, which never carried
+      translations/customTitle in the first place -- see Domain Model), not a "forgot to call it" bug, and out of
+      scope here
+    - Also found and fixed a real, independent bug while investigating this: an uncommitted local edit to
+      `resolveTitle` itself had reordered its checks (original-title-if-not-ignored moved before the LANGUAGE/
+      preferred-language checks instead of after), which would have broken every one of the call sites above the
+      same way regardless of the coverage fix. Restored the correct order: LANGUAGE/preferred-language overrides
+      only ever apply once the original title's own language is itself ignored -- if it isn't ignored, and the pick
+      isn't CUSTOM, the original always wins outright
 - [x] Allow Clubs to change the exhibition language for a certain media
   - [x] do that by clicking an language icon in the details page, where you will open a dialog, where you may select any translation
   - `DisplayTitlePreference` is now `ORIGINAL | CUSTOM | LANGUAGE` (dropped `ENGLISH`, which was never actually resolved anywhere — `LANGUAGE` + a per-pick `displayLanguageCode` is a strict superset); `LanguagePickerDialog` component reused by both `MovieSection` and `SeriesDetailPage`
@@ -95,6 +118,12 @@
     - New optional `maxChars` prop -- caps the joined shown-items length, folding anything that'd exceed it into
       the "+N" count instead of wrapping the row. Meetings list genre columns pass `maxChars={20}`. First item is
       always shown in full even alone over budget, so there's never nothing to show
+    - [x] Scenarios like 'Animation, Comedy + 1' break a line, should consider the + x when calculating max chars
+      - `maxChars` was only ever budgeting the joined shown-items text, not the " +N" suffix appended afterward --
+        `TruncatedList` now reserves room for that suffix (`2 + digits(hiddenCount)`) while deciding how many items
+        fit, so the total rendered text (items + suffix) never exceeds `maxChars`, not just the items alone.
+        Verified: `["Sci-Fi","Adventure","Drama","Horror"]` at `maxChars=17` previously rendered "Sci-Fi, Adventure
+        +2" (20 chars, over budget by 3); now renders "Sci-Fi +3" (9 chars, within budget)
 - [x] Convert duration to format like '1h25m' or '45m'
   - `frontend/src/utils/duration.ts`, meetings list only for now
   - [x] Align to the right
@@ -164,6 +193,10 @@
       `importSeasonsAndEpisodes` only ever ran once (wrapped in `runCatching` on initial add) with no way to retry
       it, so a transient TMDB failure partway through left the catalog stuck incomplete forever. Fixed with a
       manual re-import endpoint (see Domain Model, Series → Season → Episode)
+  - [ ] Still failing, I get when trying to upload Twin Peaks third season:
+    - Row 36: TMDB refresh failed: Could not find TMDB metadata for tt4093826
+    - Row 36: Could not import full series from TMDB: Series has not been matched to TMDB yet
+    - Row 37: TMDB refresh failed: Series has not been matched to TMDB yet
 - [x] Use S#E# format for episode prefixes
   - `Episode` only ever carried its own `seasonId`, not the parent season's `number`, so every "Ep. #" spot needed a
     season lookup added: new `GET /seasons/{seasonId}` (`SeasonService.getById`, same club-membership-derived
@@ -233,8 +266,165 @@
     this page needs it. A meeting with real picks that are all currently filtered out still shows its date/
     assigned-member header row (with "Hidden by filters" instead of "Nothing picked yet"), rather than vanishing
     outright -- keeps the list from jumping around as filters are toggled
+- [x] If TMDB responds unexpectedly, it should be an error(for example, Unauthorized)
+  - `TmdbClient`'s ktor `HttpClient` never set `expectSuccess` (defaults to `false`), so a non-2xx TMDB response was
+    decoded as if it succeeded rather than throwing -- and most of this file's response DTOs default their fields
+    to empty/null for legitimate "TMDB found nothing" cases (e.g. `TmdbFindResponse.movieResults/tvResults`), so an
+    error body (bad API key, rate limit) silently decoded into an *empty* result instead of failing loudly. That's
+    almost certainly why a real Unauthorized/rate-limit response was being reported as "Could not find TMDB
+    metadata" -- indistinguishable from an actual not-found
+  - Fixed with `expectSuccess = true` plus an `HttpResponseValidator` that turns the resulting `ResponseException`
+    into a new `UpstreamServiceException` naming the real status (e.g. "TMDB request failed: 401 Unauthorized").
+    Mapped to `502 Bad Gateway`, not the upstream's own status code -- deliberately kept distinct from the existing
+    `UnauthorizedException` (401), since a TMDB-side 401 means *our* server's API key is misconfigured, not that the
+    member calling our API needs to log in; reusing `UnauthorizedException` would've told the frontend the wrong
+    thing to do about it
+  - `TmdbClient` gained an injectable `engine: HttpClientEngine` constructor param (defaults to real CIO, only ever
+    overridden in tests) so this could be verified with `ktor-client-mock` against a real non-2xx response instead
+    of only unit-testing the DTOs' parsing logic like the existing tests did
+  - `OmdbClient` deliberately left alone -- it already wraps every call in `runCatching { }.getOrNull()` by design
+    (IMDB rating is optional and must never block a movie/series add), so silently treating a non-2xx as "no
+    rating" is the intended behavior there, not a bug
+- [x] Remove notes from media_items
+  - No `notes` column ever existed on `media_items` -- verified against every migration and the live DB schema. Only `WatchlistEntry` has a `notes` field (personal commentary, see Domain Model), which is correct as-is. Nothing to remove
+- [x] Watch list should have one column per member, always with yours first
+  - `WatchlistPage` reshaped into a Trello-style board per section (Movies, Series): one column per club member,
+    the viewer's own column always leftmost, others following in the club's usual rotation order. `WatchlistColumn`
+    filters+sorts entries by `memberId` client-side; `WatchlistCard` replaces the old flat-list `WatchlistEntryCard`
+  - `position` was previously scoped to `(clubId, type)` across *every* member combined (one shared ordered list per
+    type) -- rescoped to `(clubId, type, memberId)` so each member's column reorders independently
+    (`ExposedWatchlistRepository.create`'s next-position query, `WatchlistService.moveEntry`'s sibling filter). No
+    migration needed -- `position` was never DB-unique, so old rows just keep whatever value they already had;
+    sorting only ever happens within one member's own filtered subset now
+  - Drag-and-drop reordering is still allowed by any club member, not just the entry's owner -- preserved from
+    before per-member columns existed (see `WatchlistService.moveEntry`'s doc comment) rather than silently
+    tightening it to owner-only, even though it now means reordering someone else's own column
+  - Each column gets its own `DndContext` (not one shared context for the whole board), so a card can never be
+    dropped into a different member's column in the first place -- entries are personal, ownership isn't
+    reassignable via any existing endpoint
+  - Removed the `notes` field entirely (backend + frontend) while doing this rework -- V27 migration drops
+    `watchlist_entries.notes`, along with `WatchlistService.updateEntry` and `PATCH /watchlist/{entryId}` (notes was
+    its only purpose). Per-card free text didn't fit the board layout, and it was the last remaining editable field
+    besides position/deletion
+- [x] When editing rating, show rating options also colored on the dropdown, displaying text include a colored box
+  - New `OptionLabel` (`InlineRatingEditor.tsx`) -- a small circular dot in the option's own `color` next to its
+    label, same swatch style already used for rating-option color editing in `ClubOverviewPage`. Used both for
+    each dropdown `MenuItem` and, via `Select`'s `renderValue`, the closed select's own display -- so the picked
+    color is visible without reopening the dropdown, not just while it's open
+- [x] If the screen is too small, default to using only the first letter of the rating inside the meetings table
+  - `InlineRatingEditor` now checks `useMediaQuery(theme.breakpoints.down('sm'))` -- only affects the
+    `fillWith: 'description'` display mode (the one with a full written label like "Excepcional!", the mode wide
+    enough to overflow a small viewport's one-column-per-member layout); `'number'`/`'none'` are already
+    single-character/empty and unaffected. On a small screen, `contentFor` shows just `option.label.charAt(0)`
+    instead of the full label, and the box itself shrinks back to the compact 34px width (down from 136px) since
+    it no longer needs room for a full word
+- [x] Write terraform that can set up the infra on AWS
+  - `infra/` -- single EC2 instance (t4g.small, arm64) running `db`+`backend` via docker-compose, Caddy on-box
+    for automatic HTTPS on `api.<domain>` (Let's Encrypt); frontend build published to a private S3 bucket served
+    through CloudFront (`app.<domain>`, ACM cert in us-east-1 via a dedicated provider alias regardless of the
+    main `aws_region`). This provisions infra only -- it doesn't build or deploy the app itself, see the GitHub
+    Actions item below
+  - Backend/frontend split as discussed live: no frontend container at all (it's a static Vite build, no reason
+    to run nginx for it) -- only `db`+`backend` run on EC2. `app.<domain>` and `api.<domain>` are separate
+    subdomains (not one CloudFront distribution path-routing to both) since a real cert + Caddy on the box gives
+    proper end-to-end HTTPS to the backend, not just CloudFront-to-origin-over-HTTP
+  - Secrets (JWT secret, DB password, TMDB/OMDb keys) live in SSM Parameter Store (`SecureString`, AWS-managed
+    KMS key) rather than baked into EC2 `user_data` -- `user_data` stays visible indefinitely via
+    `ec2:DescribeInstanceAttribute` and is cached in plaintext on the instance's own disk, neither of which is
+    appropriate for real secrets. The deploy step (GitHub Actions, over SSH) fetches them fresh via
+    `fetch-secrets.sh` before every `docker compose up -d`, so nothing sensitive sits at rest in `user_data`
+  - Backend image ships through a new ECR repo (10-image lifecycle policy) rather than Docker Hub, so the EC2
+    instance only needs a narrowly-scoped IAM role (`AmazonEC2ContainerRegistryReadOnly` + `ssm:GetParameter` on
+    exactly its four secrets, nothing broader)
+  - Terraform state: S3 bucket with Terraform's native `use_lockfile` locking (needs Terraform >= 1.10) -- no
+    DynamoDB table, since that's no longer required for locking on recent Terraform versions. The state bucket
+    itself has to be created by hand once before the first `terraform init` (documented in `infra/README.md`),
+    since a backend can't provision the bucket it depends on to store its own state
+  - Default VPC/subnet, not a dedicated one -- standing up a real VPC (NAT gateway, route tables) is pure added
+    cost/complexity for a single EC2 instance
+  - Postgres data lives on the EC2 instance's own root EBS volume via docker-compose (not RDS) -- persists across
+    stop/start/reboot, but is lost if the instance is ever replaced or the stack is `terraform destroy`'d;
+    documented as a known tradeoff in `infra/README.md` rather than adding a second attached volume's complexity
+    for a small club's data
+  - Follow-up after you asked "is the data secure in EBS?": it wasn't, fully -- the root volume (where Postgres'
+    own data lives) had no `encrypted = true`, an oversight, not a deliberate tradeoff. Fixed, using the default
+    AWS-managed EBS key (no extra cost/performance cost). Also added IMDSv2 hardening (`metadata_options.http_tokens
+    = "required"`) at the same time -- without it, an SSRF-style bug in anything running on the box could fetch the
+    instance's IAM credentials from the metadata endpoint with a single unauthenticated GET
+  - Validated with `terraform fmt`/`terraform validate` (not applied -- no AWS credentials in this session, and
+    provisioning real infrastructure needs your explicit go-ahead regardless)
+- [x] Write GH Actions to package and publish to AWS all artifacts, and any actions needed
+  - `.github/workflows/deploy-backend.yml` / `deploy-frontend.yml` -- path-filtered on their own half of the repo,
+    each with a `test` job (backend: ktlint + `gradlew test`; frontend: `tsc --noEmit` + oxlint) that `deploy`
+    `needs:`, so a broken build never reaches production. Both triggers include `pull_request` too (test-only --
+    `deploy` is skipped outright on a PR via `if: github.event_name != 'pull_request'`, since the OIDC trust
+    policy only allows assuming the role from a push to main anyway) for PR-time feedback, not just push-to-main
+  - Backend: builds via `docker/build-push-action` targeting `linux/arm64` under QEMU emulation (`docker/setup-qemu-action`)
+    -- caught during this pass: the runner is amd64 but infra's EC2 instance is arm64/Graviton, so a naive build
+    would've produced an image that couldn't even run on the box it was deployed to. Pushes to the ECR repo
+    Terraform created, then SSHes to EC2 to run the instance's own `fetch-secrets.sh` (refreshes `.env` from SSM
+    at deploy time, see Terraform entry above) before `docker compose pull && up -d`
+  - Frontend: `npm run build` (bakes `VITE_API_BASE_URL` in at build time, since Vite env vars aren't a runtime
+    config), `aws s3 sync --delete` to the frontend bucket, then a CloudFront invalidation so the new build is
+    actually visible immediately rather than waiting out the cache TTL
+  - Auth is OIDC federation (`infra/github_oidc.tf`), not stored AWS access keys -- the trust policy's `sub`
+    condition restricts it to `repo:<owner>/<repo>:ref:refs/heads/main` specifically, so only a push to this
+    exact repo's main branch can ever assume the deploy role, not other repos or arbitrary branches/PRs
+  - Required repo Variables map directly to `terraform output` values -- documented in `infra/README.md` rather
+    than duplicated here, since that's already the natural home for "what to do after `terraform apply`"
+  - Follow-up after a code review caught it: the backend deploy step originally used raw SSH, which would never
+    have worked -- a GitHub-hosted runner's IP is dynamic per run and could never satisfy the security group's
+    fixed `ssh_allowed_cidr` (deliberately scoped to the operator's own IP for interactive admin access only).
+    Switched to **SSM Run Command** instead -- authenticates through the same OIDC-assumed role, no inbound port
+    needed at all, no SSH key to store as a GitHub secret either
+  - Also added `.github/workflows/terraform.yml` (per follow-up ask) so `terraform apply` itself can run via
+    CI, not just locally: `plan` runs on every push to main touching `infra/**`, `apply` runs after but is gated
+    behind the repo's `production` GitHub Environment (a human has to click approve, having already seen the
+    `plan` job's own log). Uses a **separate** IAM role from the app-deploy one (`github_actions_terraform`,
+    `infra/github_oidc_terraform.tf`) since running Terraform itself needs much broader permissions (create/modify
+    IAM roles, security groups, DNS, ACM certs) -- keeping it a separate role means a compromise of one doesn't
+    hand over the other. That role's OIDC trust is also narrower in a different way: only a push to main, *never*
+    `pull_request` at all, since this repo is public and a `pull_request`-trusted role is a known OIDC risk there
+    (the workflow file for that event is sourced from the PR's own branch, so anyone opening a PR could rewrite it
+    to abuse a role trusted at that trigger). A separate `validate` job (`terraform fmt`/`validate`, no AWS
+    credentials needed at all) still gives PR-time feedback without extending that trust
+  - Validated with `terraform fmt`/`validate` and a plain YAML parse (not run -- no GitHub repo/secrets configured
+    to actually trigger these in this session)
+- [x] Create a last column that is just a clickable link
+  - Meetings table, rightmost column -- an icon-only link to the movie pick's existing optional `watchLink` field
+    (HBO/Netflix/magnet link/etc., see `MovieSection`), blank otherwise. Episodes have no equivalent field, so
+    `EpisodeRow` always shows the blank fallback rather than a real link -- see Domain Model's Movie section for
+    why `watchLink` is movie-pick-only
+- [x] Use Episode Link in imdb link, do not inherit from the series
+  - Meetings table's `EpisodeRow` was the one remaining place falling back to `series.imdbId` when the episode's
+    own `imdbId` wasn't set yet (not refreshed since import) -- `EpisodeSection`/`SeasonDetailPage` already only
+    ever used the episode's own id. Now consistent everywhere: no episode imdb id means no link, not a link to the
+    wrong (series) page
+- [x] Use Episode Rating, duration in meetings page, do not inherit from the series
+  - Meetings table's `EpisodeRow` was falling back to `ratingLabel(series)` when the episode had no rating of its
+    own yet -- removed, now only ever shows the episode's own rating (blank otherwise), consistent with the IMDb
+    link fix above. This reverses what CLAUDE.md previously documented as intentional ("prefers the episode's own
+    rating and falls back to the parent series' rating") -- per this explicit ask, that fallback was actually
+    misleading (looks like the episode has a rating when it's really the series' aggregate). Duration never
+    inherited from series in the first place (Series has no `runtime` field at all -- runtime is per-episode only,
+    see Domain Model), so nothing to change there. Year/director/genre/country fallbacks are untouched -- not
+    covered by this ask, still documented as intentional
+- [ ] Episodes are loaded in wrong order for Cowboy Bebop
+  - Example: Even though we have Gateway Shuffle as epi 4, it is imported as Episode 14.
+  - Use naming proximity and episode numbers to ensure it is correctly imported
 
 # Stretch goals (only start after asked)
+- [ ] Ensure drag and drop work on phones too?
+  - Meetings table's drag-and-drop was rewritten from native HTML5 DnD to `@dnd-kit` (`useDraggable`/`useDroppable`
+    spanning a `DndContext` at the `MeetingsPage` level, `DragOverlay` for the drag preview, one droppable per row
+    within a meeting's block sharing that meeting's id -- same "drop anywhere in this meeting's rows" UX as
+    before). Confirmed working with mouse drag on desktop. Confirmed *not* working with touch -- tested via
+    Firefox's responsive-design-mode device emulation (Galaxy), where a touch-drag only registers as a page
+      scroll, `TouchSensor` never activates. Native HTML5 DnD (the prior implementation) had zero touch support at
+    all, so this is still forward progress, just not the full fix -- left as a stretch goal rather than iterating
+    further blind (no way to test real touch behavior, or even accurately emulated touch behavior, in this
+    session). Watchlist's own drag-and-drop (`@dnd-kit`, a separate simpler non-table implementation) was never
+    touch-tested or touched this pass -- still just `PointerSensor`, no `TouchSensor` added
 - [ ] Use rectangular (flat) country flags instead of the wavy emoji ones
     - Currently `countryFlag()` (`frontend/src/utils/country.ts`) renders Unicode regional-indicator-symbol emoji --
       the wavy/ribbon look isn't something the app controls, it's just how the OS's emoji font draws that character.
@@ -242,4 +432,14 @@
       addressed by ISO code) swapped in for `CountryFlags` in `MeetingsPage.tsx` + the `countryFlag()` util
 - [ ] Make import async, show loading when looking at meeting list
   - [ ] Prioritize loading movies and series, then episodes and then at last directors
- 
+- [ ] Make rating size dynamic
+- [ ] Spot-first, on-demand-second EC2 -- run `aws_instance.app` on Spot (cheaper, but AWS can reclaim it with ~2
+  minutes' notice), automatically falling back to an on-demand instance whenever Spot capacity isn't available,
+  then switching back once it is. Deliberately not the simple `instance_market_options { market_type = "spot" }`
+  flag -- that has no built-in on-demand fallback for a single instance (an ASG's `on_demand_base_capacity` either
+  means "never Spot" at 1, or "no fallback, just don't launch" at 0). A real fallback needs an EventBridge rule on
+  the Spot interruption warning, a Lambda that launches a replacement on-demand instance and repoints the Elastic
+  IP, and logic to notice when Spot's available again and switch back -- real infrastructure, disproportionate to
+  the ~$4-8/month this instance costs today. Staying on-demand for now (postgres_data's own persistence, see
+  Domain/infra notes above, means the *data* survives a Spot interruption fine either way -- this stretch goal is
+  purely about minimizing downtime/cost on the compute side, not data safety)
