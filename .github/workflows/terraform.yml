@@ -80,6 +80,11 @@ jobs:
           TF_VAR_ssh_allowed_cidr: ${{ vars.SSH_ALLOWED_CIDR }}
           TF_VAR_github_repository: ${{ github.repository }}
           TF_VAR_tf_state_bucket_name: ${{ vars.TF_STATE_BUCKET }}
+          # Public, non-sensitive, and immutable by design (see variables.tf's comment) -- hardcoded rather than
+          # yet another repo Variable to set up. Find these again via `gh api users/<owner> --jq .id` / `gh api
+          # repos/<owner>/<repo> --jq .id` if this repo is ever forked/renamed to a new owner.
+          TF_VAR_github_owner_id: "7376453"
+          TF_VAR_github_repo_id: "1325939621"
         run: terraform plan -input=false -out=tfplan
 
       - uses: actions/upload-artifact@v7
