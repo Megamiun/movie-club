@@ -1,9 +1,7 @@
 package br.com.gabryel.movieclub.service.csvimport
 
-import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class ReserveCsvParserTest {
     @Test
