@@ -26,16 +26,18 @@ data "aws_iam_policy_document" "github_actions_terraform_assume_role" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Two acceptable values, not one: `apply` sets `environment: production` (the approval gate), which gives it
-    # a *different* `sub` claim entirely -- repo:<repo>:environment:production instead of the usual ref-based one,
-    # not an addition to it. `plan`/`validate` have no environment, so they still present the ref-based subject.
-    # Without both listed here, `apply` specifically could never assume this role no matter how it's triggered.
+    # Two acceptable values, not one: `plan`/`apply` both set `environment: production` (the approval gate), which
+    # gives them a *different* `sub` claim entirely -- <prefix>:environment:production instead of the usual
+    # ref-based one, not an addition to it. `validate` has no environment, so it still presents the ref-based
+    # subject. local.github_oidc_subject_prefix embeds the repo's immutable owner/repo ids, not just their
+    # (mutable) names -- see variables.tf's github_owner_id/github_repo_id comment for why that's mandatory, not
+    # optional, for this repo.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
       values = [
-        "repo:${var.github_repository}:ref:refs/heads/main",
-        "repo:${var.github_repository}:environment:production",
+        "${local.github_oidc_subject_prefix}:ref:refs/heads/main",
+        "${local.github_oidc_subject_prefix}:environment:production",
       ]
     }
   }
@@ -116,6 +118,19 @@ data "aws_iam_policy_document" "github_actions_terraform" {
     sid       = "ReadOwnSsmParameters"
     actions   = ["ssm:GetParameter"]
     resources = ["arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.ssm_parameter_prefix}/*"]
+  }
+
+  # A different, unrelated need for KMS than the one removed above: iam.tf's own `data "aws_kms_alias" "ssm"`
+  # (used to build the *EC2 role's* policy, not this one) has to be resolved at plan time regardless of who's
+  # running Terraform -- the aws_kms_alias data source calls kms:ListAliases (find the alias by name, no narrower
+  # "get one alias" API exists) and kms:DescribeKey (resolve the alias's target key details). Doesn't grant
+  # Decrypt -- this role never reads a secret's actual value, only the key's ARN, to write it into someone else's
+  # policy document.
+  statement {
+    sid       = "ResolveSsmKmsAlias"
+    actions   = ["kms:ListAliases", "kms:DescribeKey"]
+    resources = ["*"] # ListAliases doesn't support resource-level scoping at all; DescribeKey does, but scoping
+    # it to a specific key ARN isn't possible here since that ARN is exactly what this lookup exists to resolve
   }
 }
 

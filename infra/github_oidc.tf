@@ -26,14 +26,17 @@ data "aws_iam_policy_document" "github_actions_assume_role" {
     # Only workflow runs triggered from a push to main on this exact repo -- not PRs, not other branches, not
     # other repos that might reference this same OIDC provider. Two acceptable values, not one: a job that sets
     # `environment: production` (deploy-backend.yml/deploy-frontend.yml's `deploy` jobs) gets a *different* `sub`
-    # claim from GitHub entirely -- repo:<repo>:environment:production instead of the usual ref-based one, not an
+    # claim from GitHub entirely -- <prefix>:environment:production instead of the usual ref-based one, not an
     # addition to it -- so the ref-only condition alone would always reject exactly the jobs this role exists for.
+    # local.github_oidc_subject_prefix embeds the repo's immutable owner/repo ids, not just their (mutable) names
+    # -- see variables.tf's github_owner_id/github_repo_id comment for why that's mandatory, not optional, for
+    # this repo.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
       values = [
-        "repo:${var.github_repository}:ref:refs/heads/main",
-        "repo:${var.github_repository}:environment:production",
+        "${local.github_oidc_subject_prefix}:ref:refs/heads/main",
+        "${local.github_oidc_subject_prefix}:environment:production",
       ]
     }
   }

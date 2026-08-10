@@ -54,6 +54,22 @@ variable "github_repository" {
   type        = string
 }
 
+# GitHub's OIDC token `sub` claim for repos created after 2026-07-15 is immutable by design and always embeds
+# both numeric ids (`repo:OWNER@OWNER_ID/REPO@REPO_ID:...`) -- there's no way to opt out of this format for a
+# qualifying repo, so the trust policies (github_oidc.tf, github_oidc_terraform.tf) have to match it exactly, not
+# just the plain "owner/repo" name. See https://github.blog/changelog/2026-04-23-immutable-subject-claims-for-github-actions-oidc-tokens/
+# Find these via `gh api users/<owner> --jq .id` and `gh api repos/<owner>/<repo> --jq .id`, or read them straight
+# out of a failed AssumeRoleWithWebIdentity CloudTrail event's userIdentity.principalId.
+variable "github_owner_id" {
+  description = "Numeric GitHub user/org id for the owner in github_repository -- see the comment above."
+  type        = string
+}
+
+variable "github_repo_id" {
+  description = "Numeric GitHub repository id for github_repository -- see the comment above."
+  type        = string
+}
+
 variable "tf_state_bucket_name" {
   description = "Same bucket name as backend.hcl's `bucket` (see versions.tf) -- backend blocks can't reference variables, so the name has to be duplicated here too, purely to scope github_actions_terraform's own S3 permissions (github_oidc_terraform.tf) to the actual state bucket instead of a guess."
   type        = string
