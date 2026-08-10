@@ -6,14 +6,14 @@ import { strongPastelHex } from '../utils/pastelColor'
 
 const FALLBACK_COLOR = '#9E9E9E'
 
-export function MemberBadge({ member }: { member: ClubMember | undefined }) {
+export function MemberBadge({ member, size = 20 }: { member: ClubMember | undefined; size?: number }) {
   if (!member) return <>—</>
   const color = member.color ?? FALLBACK_COLOR
   const textColor = member.color ? strongPastelHex(member.color) : contrastTextColor(FALLBACK_COLOR)
 
   return (
     <Tooltip title={member.name}>
-      <Avatar sx={{ width: 28, height: 28, bgcolor: color, color: textColor, fontSize: '0.75rem' }}>
+      <Avatar sx={{ width: size, height: size, bgcolor: color, color: textColor, fontSize: size < 26 ? '0.6rem' : '0.75rem' }}>
         {initials(member.name)}
       </Avatar>
     </Tooltip>

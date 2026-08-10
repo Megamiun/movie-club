@@ -22,8 +22,7 @@ function loadSettings(): RatingDisplaySettings {
     const parsed = JSON.parse(raw)
     return {
       gradientPercent: typeof parsed.gradientPercent === 'number' ? parsed.gradientPercent : DEFAULTS.gradientPercent,
-      fillWith:
-        parsed.fillWith === 'description' || parsed.fillWith === 'none' ? parsed.fillWith : 'number',
+      fillWith: parsed.fillWith === 'description' || parsed.fillWith === 'none' ? parsed.fillWith : 'number',
     }
   } catch {
     return DEFAULTS

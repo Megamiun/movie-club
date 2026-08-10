@@ -63,7 +63,7 @@ export function AppLayout() {
           )}
         </Toolbar>
       </AppBar>
-      <Container component="main" maxWidth="lg" sx={{ py: 3, flexGrow: 1 }}>
+      <Container component="main" maxWidth="xl" sx={{ py: 3, flexGrow: 1 }}>
         <Outlet />
       </Container>
       <Box component="footer" sx={{ py: 2, textAlign: 'center' }}>
