@@ -121,9 +121,9 @@ class SeriesService(
      * episodes the club never watched. Idempotent: re-running only inserts what's missing (e.g. newly released
      * episodes), never duplicates -- deliberately including a mis-numbered episode already sitting in the DB from
      * before OMDb-sourced numbering existed: this never renumbers an existing row (a stale number needs a manual
-     * fix), but it also never creates a second row for the same story under the corrected number either, since the
-     * existing row's own title is checked against every candidate before creating one -- see the by-title fallback
-     * below. Returns the number of Season/Episode rows newly created. */
+     * fix), but it also never creates a second row for the same story under the corrected number either, since
+     * title identity is checked *before* number for every candidate -- see the per-episode logic below. Returns
+     * the number of Season/Episode rows newly created. */
     suspend fun importSeasonsAndEpisodes(seriesId: Uuid, actingMemberId: Uuid): Int {
         val series = requireSeriesAccess(seriesId, actingMemberId)
         val tmdbId = series.tmdbId?.toIntOrNull()
@@ -144,32 +144,37 @@ class SeriesService(
             val omdbEpisodes = omdbClient.getSeasonEpisodes(series.imdbId, seasonSummary.seasonNumber).orEmpty()
             val omdbMatches = matchOmdbEpisodes(tmdbEpisodes, omdbEpisodes)
 
-            tmdbEpisodes.forEach { episodeEntry ->
-                val omdbMatch = omdbMatches[episodeEntry.episodeNumber]
-                val number = omdbMatch?.number ?: episodeEntry.episodeNumber
-
+            tmdbEpisodes.forEach episodeEntry@{ episodeEntry ->
                 val episodesInSeason = episodeRepository.listBySeason(season.id)
-                // Falls back to a title match (not just the corrected number) so a legacy row already sitting
-                // under TMDB's old, wrong number -- from before OMDb-sourced numbering existed -- doesn't get a
-                // second, correctly-numbered row created alongside it once this fix corrects the number going
-                // forward. The stale row itself is still never touched/renumbered (see the doc comment above).
-                val existingEpisode = episodesInSeason.find { it.number == number }
-                    ?: episodesInSeason.find { existing ->
-                        existing.title != null && episodeTitleSimilarity(existing.title, episodeEntry.name) >= TITLE_MATCH_THRESHOLD
-                    }
-                if (existingEpisode == null) {
-                    val inserted = episodeRepository.create(season.id, number, episodeEntry.name)
-                    val directorPersonId = episodeEntry.director?.let {
-                        personRepository.findOrCreate(it, episodeEntry.directorTmdbId?.toString()).id
-                    }
-                    val metadata = episodeEntry.toMetadata().copy(
-                        directorPersonId = directorPersonId,
-                        imdbId = omdbMatch?.imdbId,
-                        imdbRating = omdbMatch?.imdbRating?.toBigDecimalOrNull(),
-                    )
-                    episodeRepository.updateTmdbMetadata(inserted.id, metadata)
-                    created++
+
+                // Title identity always wins over any number: an already-existing row (under whatever number it
+                // has -- possibly stale, possibly this episode's own corrected number, possibly neither) is never
+                // treated as a different, new episode just because the number computed below doesn't match it.
+                val alreadyExists = episodesInSeason.any { existing ->
+                    existing.title != null && episodeTitleSimilarity(existing.title, episodeEntry.name) >= TITLE_MATCH_THRESHOLD
                 }
+                if (alreadyExists) return@episodeEntry
+
+                val omdbMatch = omdbMatches[episodeEntry.episodeNumber]
+                val correctedNumber = omdbMatch?.number ?: episodeEntry.episodeNumber
+                // The corrected number can coincide with a *different*, already-existing episode in this season
+                // (e.g. one OMDb had no match for, still sitting under its own TMDB number) -- (season, number) is
+                // a real DB uniqueness constraint, so this episode falls back to its own TMDB number rather than
+                // failing the whole import on a collision that belongs to an unrelated episode.
+                val number = if (episodesInSeason.any { it.number == correctedNumber }) episodeEntry.episodeNumber else correctedNumber
+                if (episodesInSeason.any { it.number == number }) return@episodeEntry
+
+                val inserted = episodeRepository.create(season.id, number, episodeEntry.name)
+                val directorPersonId = episodeEntry.director?.let {
+                    personRepository.findOrCreate(it, episodeEntry.directorTmdbId?.toString()).id
+                }
+                val metadata = episodeEntry.toMetadata().copy(
+                    directorPersonId = directorPersonId,
+                    imdbId = omdbMatch?.imdbId,
+                    imdbRating = omdbMatch?.imdbRating?.toBigDecimalOrNull(),
+                )
+                episodeRepository.updateTmdbMetadata(inserted.id, metadata)
+                created++
             }
         }
         return created
@@ -229,8 +234,9 @@ class SeriesService(
 /** Below [TITLE_MATCH_THRESHOLD], two titles are treated as unrelated rather than the same episode described
  * slightly differently -- picked so small formatting drift (e.g. TMDB's "Jupiter Jazz (1)" vs OMDb's "Jupiter
  * Jazz: Part 1", still 0.75 -- see [episodeTitleSimilarity]) matches, while a two-parter's other half (0.4) or a
- * genuinely different episode doesn't. */
-private const val TITLE_MATCH_THRESHOLD = 0.5
+ * genuinely different episode doesn't. Not private: [br.com.gabryel.movieclub.service.csvimport.ImportService]
+ * reuses it for the same by-title fallback against a legacy mis-numbered episode, see there. */
+const val TITLE_MATCH_THRESHOLD = 0.5
 
 /** Token-set (Jaccard) similarity in `[0,1]` between two episode titles, insensitive to case/punctuation. Chosen
  * over a character-level distance (e.g. Levenshtein) because the drift actually observed between TMDB and OMDb

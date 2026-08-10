@@ -23,6 +23,7 @@ import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbCrewMember
 import br.com.gabryel.movieclub.service.tmdb.TmdbEpisodeDetails
+import br.com.gabryel.movieclub.service.tmdb.TmdbEpisodeSummary
 import br.com.gabryel.movieclub.service.tmdb.TmdbExternalIds
 import io.mockk.Runs
 import io.mockk.coEvery
@@ -265,6 +266,36 @@ class EpisodeServiceTest {
         episodeService.refreshMetadata(episodeId, memberId)
 
         coVerify(exactly = 0) { omdbClient.getImdbRating(any()) }
+    }
+
+    @Test
+    fun `refreshMetadata resolves TMDB's own season and episode number via imdb_id when the stored number is OMDb-corrected`() =
+        runBlocking {
+            // Stored under OMDb's corrected number (4), but TMDB itself still calls this episode 14 -- refreshing
+            // must hit TMDB's real 14, not season.number/episode.number=(1,4), which would fetch a different episode.
+            val episodeId = Uuid.random()
+            every { episodeRepository.findById(episodeId) } returns episode(episodeId).copy(number = 4, imdbId = "tt0618968")
+            every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+            every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+            coEvery { tmdbClient.findEpisodeByImdbId("tt0618968") } returns TmdbEpisodeSummary(seasonNumber = 1, episodeNumber = 14)
+            coEvery { tmdbClient.getEpisodeDetails(1396, 1, 14) } returns TmdbEpisodeDetails(name = "Gateway Shuffle", episodeNumber = 14)
+
+            val updated = episode(episodeId)
+            every { episodeRepository.updateTmdbMetadata(episodeId, any()) } returns updated
+
+            assertEquals(updated, episodeService.refreshMetadata(episodeId, memberId))
+            coVerify(exactly = 0) { tmdbClient.getEpisodeDetails(1396, 1, 4) }
+        }
+
+    @Test
+    fun `refreshMetadata throws when the episode's own imdb_id doesn't resolve via TMDB`(): Unit = runBlocking {
+        val episodeId = Uuid.random()
+        every { episodeRepository.findById(episodeId) } returns episode(episodeId).copy(imdbId = "tt0618968")
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        coEvery { tmdbClient.findEpisodeByImdbId("tt0618968") } returns null
+
+        assertFailsWith<BadRequestException> { episodeService.refreshMetadata(episodeId, memberId) }
     }
 
     @Test

@@ -18,7 +18,9 @@ import br.com.gabryel.movieclub.service.ClubService
 import br.com.gabryel.movieclub.service.EpisodeService
 import br.com.gabryel.movieclub.service.MovieService
 import br.com.gabryel.movieclub.service.SeriesService
+import br.com.gabryel.movieclub.service.TITLE_MATCH_THRESHOLD
 import br.com.gabryel.movieclub.service.WatchlistService
+import br.com.gabryel.movieclub.service.episodeTitleSimilarity
 import java.io.InputStream
 import kotlin.uuid.Uuid
 
@@ -244,8 +246,18 @@ class ImportService(
                 }
 
                 seasonBlock.episodes.forEach episodeRow@{ episodeRow ->
-                    val existingEpisode =
-                        episodeRepository.listBySeason(season.id).find { it.number == episodeRow.number }
+                    val episodesInSeason = episodeRepository.listBySeason(season.id)
+                    // Falls back to a title match when the number lookup misses -- covers a series bulk-imported
+                    // before OMDb-sourced numbering existed (SeriesService.importSeasonsAndEpisodes), where the
+                    // episode this CSV row describes may still be sitting under a stale, different number (that
+                    // bulk import never renumbers an existing row). Only attempted when the CSV row has a title to
+                    // compare against; a title-less row falls through to the "not found" warning below as before.
+                    val existingEpisode = episodesInSeason.find { it.number == episodeRow.number }
+                        ?: episodeRow.title?.let { csvTitle ->
+                            episodesInSeason.find { existing ->
+                                existing.title != null && episodeTitleSimilarity(existing.title, csvTitle) >= TITLE_MATCH_THRESHOLD
+                            }
+                        }
 
                     val meetingId = episodeRow.date?.let { date ->
                         (meetingRepository.findByClubAndDate(clubId, date) ?: meetingRepository.create(clubId, date))

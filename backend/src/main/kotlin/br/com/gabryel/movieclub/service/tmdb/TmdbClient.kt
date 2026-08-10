@@ -39,6 +39,7 @@ fun String.toTmdbPosterUrl(): String = "https://image.tmdb.org/t/p/w154$this"
 data class TmdbFindResponse(
     @SerialName("movie_results") val movieResults: List<TmdbMovieSummary> = emptyList(),
     @SerialName("tv_results") val tvResults: List<TmdbTvSummary> = emptyList(),
+    @SerialName("tv_episode_results") val tvEpisodeResults: List<TmdbEpisodeSummary> = emptyList(),
 )
 
 @Serializable
@@ -49,6 +50,15 @@ data class TmdbMovieSummary(
 @Serializable
 data class TmdbTvSummary(
     val id: Int,
+)
+
+/** TMDB's own (season, episode) location for an episode resolved by imdb id -- see
+ * [TmdbClient.findEpisodeByImdbId]. Deliberately not reused as a stand-in for [TmdbEpisodeDetails]: this only
+ * carries enough to address the episode by its true TMDB path, not its full metadata. */
+@Serializable
+data class TmdbEpisodeSummary(
+    @SerialName("season_number") val seasonNumber: Int,
+    @SerialName("episode_number") val episodeNumber: Int,
 )
 
 @Serializable
@@ -282,6 +292,13 @@ class TmdbClient(private val accessToken: String, engine: HttpClientEngine = CIO
     suspend fun findByImdbId(imdbId: String): TmdbMovieSummary? = find(imdbId).movieResults.firstOrNull()
 
     suspend fun findTvByImdbId(imdbId: String): TmdbTvSummary? = find(imdbId).tvResults.firstOrNull()
+
+    /** Resolves an episode's own imdb id back to TMDB's *own* (season, episode) numbering -- needed because an
+     * episode's stored [br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow.number] can be OMDb's corrected
+     * number rather than TMDB's own for shows where the two disagree (see
+     * [br.com.gabryel.movieclub.service.SeriesService.importSeasonsAndEpisodes]), so it can't always be trusted
+     * as a `/tv/{id}/season/{n}/episode/{m}` path segment directly. */
+    suspend fun findEpisodeByImdbId(imdbId: String): TmdbEpisodeSummary? = find(imdbId).tvEpisodeResults.firstOrNull()
 
     suspend fun getMovieDetails(tmdbId: Int): TmdbMovieDetails =
         http.get("$BASE_URL/movie/$tmdbId") {

@@ -61,7 +61,19 @@ class EpisodeService(
         val tmdbId = series.tmdbId?.toIntOrNull()
             ?: throw BadRequestException("Series has not been matched to TMDB yet")
 
-        val details = tmdbClient.getEpisodeDetails(tmdbId, season.number, episode.number)
+        // episode.number can be OMDb's corrected number rather than TMDB's own (see
+        // SeriesService.importSeasonsAndEpisodes) -- once the episode's own imdb_id is known, resolve TMDB's own
+        // (season, episode) location for it directly instead of trusting the stored number as a TMDB path segment,
+        // since the two numbering schemes can disagree for the same episode. Before the imdb_id is known yet (a
+        // fresh episode OMDb had no data for), season.number/episode.number is still the only thing to go on --
+        // same as before this existed, and correct for the common case where TMDB's own numbering was used as-is.
+        val (tmdbSeasonNumber, tmdbEpisodeNumber) = episode.imdbId?.let { imdbId ->
+            val found = tmdbClient.findEpisodeByImdbId(imdbId)
+                ?: throw BadRequestException("Could not find TMDB metadata for $imdbId")
+            found.seasonNumber to found.episodeNumber
+        } ?: (season.number to episode.number)
+
+        val details = tmdbClient.getEpisodeDetails(tmdbId, tmdbSeasonNumber, tmdbEpisodeNumber)
         val directorPersonId = resolveDirectorPersonId(details.director, details.directorTmdbId)
         val imdbRating = details.imdbId?.let { omdbClient.getImdbRating(it) }
         val metadata = details.toMetadata().copy(directorPersonId = directorPersonId, imdbRating = imdbRating)

@@ -279,6 +279,42 @@ class ImportServiceTest {
         }
 
     @Test
+    fun `importSeries finds a legacy mis-numbered episode by title instead of warning it's not found`(): Unit =
+        runBlocking {
+            // The CSV's own canonical number for "Gateway Shuffle" is 4, but this series was bulk-imported before
+            // OMDb-sourced numbering existed (SeriesService.importSeasonsAndEpisodes never renumbers an existing
+            // row), so it's still sitting in the DB under TMDB's old number (14). A number-only lookup would
+            // report this row as missing even though the episode is right there under a different number.
+            val csv = "Choice,Movie,When?,Person A's Rating,Person A - Liked?,Person B's Rating,Person B - Liked?,IMDB Id\n" +
+                "A,Cowboy Bebop,,,,,,tt0213338\n" +
+                ",Season 1,,,,,,\n" +
+                "4,Gateway Shuffle,06/06/2026,,,,,"
+            val seriesId = Uuid.random()
+            val seasonId = Uuid.random()
+            val episodeId = Uuid.random()
+            val meetingId = Uuid.random()
+            val date = LocalDate(2026, 6, 6)
+
+            stubRatingScales()
+
+            every { seriesRepository.findByClubAndImdbId(clubId, "tt0213338") } returns series(seriesId)
+            coEvery { seriesService.importSeasonsAndEpisodes(seriesId, actingMemberId) } returns 0
+            every { seasonRepository.listBySeries(seriesId) } returns listOf(SeasonRow(seasonId, seriesId, 1))
+            every {
+                episodeRepository.listBySeason(seasonId)
+            } returns listOf(EpisodeRow(episodeId, seasonId, 14, title = "Gateway Shuffle"))
+            every { meetingRepository.findByClubAndDate(clubId, date) } returns null
+            every { meetingRepository.create(clubId, date) } returns MeetingRow(meetingId, clubId, date)
+            every { episodeRepository.assignToMeeting(episodeId, meetingId) } just Runs
+
+            val result = importService.importSeries(clubId, actingMemberId, csv.byteInputStream(), mappings)
+
+            assertTrue(result.warnings.none { it.reason.contains("not found") })
+            verify(exactly = 0) { episodeRepository.create(seasonId, 4, any()) }
+            verify { episodeRepository.assignToMeeting(episodeId, meetingId) }
+        }
+
+    @Test
     fun `importSeries warns and skips a whole season block when TMDB doesn't have that season number`(): Unit =
         runBlocking {
             val csv = "Choice,Movie,When?,Person A's Rating,Person A - Liked?,Person B's Rating,Person B - Liked?,IMDB Id\n" +

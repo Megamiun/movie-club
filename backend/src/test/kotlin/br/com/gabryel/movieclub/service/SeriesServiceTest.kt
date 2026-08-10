@@ -434,6 +434,52 @@ class SeriesServiceTest {
         }
 
     @Test
+    fun `importSeasonsAndEpisodes falls back to TMDB's own number when the OMDb-corrected one collides with an unrelated episode`(): Unit =
+        runBlocking {
+            // TMDB ep5 "Bonus Recap" has no OMDb match and already sits at its own TMDB number (5). TMDB ep14
+            // "Real Episode" gets OMDb-corrected to that same number (5) -- an unrelated coincidence, not the same
+            // story. (season, number) is a real DB uniqueness constraint, so "Real Episode" must fall back to its
+            // own TMDB number (14) rather than being silently dropped because 5 is already taken.
+            val seriesId = Uuid.random()
+            val globalSeriesId = Uuid.random()
+            val seasonId = Uuid.random()
+            every {
+                seriesRepository.findById(seriesId)
+            } returns series(id = seriesId, globalSeriesId = globalSeriesId)
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+            coEvery { tmdbClient.getTvDetails(1396) } returns TmdbTvDetails(
+                originalName = "Cowboy Bebop",
+                name = "Cowboy Bebop",
+                seasons = listOf(TmdbSeasonSummary(1)),
+            )
+            every { seasonRepository.listBySeries(globalSeriesId) } returns listOf(SeasonRow(seasonId, globalSeriesId, 1))
+
+            coEvery { tmdbClient.getSeasonDetails(1396, 1) } returns TmdbSeasonDetails(
+                seasonNumber = 1,
+                episodes = listOf(
+                    TmdbEpisodeDetails(name = "Bonus Recap", episodeNumber = 5),
+                    TmdbEpisodeDetails(name = "Real Episode", episodeNumber = 14),
+                ),
+            )
+            coEvery { omdbClient.getSeasonEpisodes("tt0903747", 1) } returns listOf(
+                OmdbSeasonEpisode(title = "Real Episode", episode = "5", imdbId = "tt0000001"),
+            )
+            every {
+                episodeRepository.listBySeason(seasonId)
+            } returns listOf(EpisodeRow(Uuid.random(), seasonId, 5, title = "Bonus Recap"))
+            every {
+                episodeRepository.create(seasonId, 14, "Real Episode")
+            } returns EpisodeRow(Uuid.random(), seasonId, 14, title = "Real Episode")
+            every { episodeRepository.updateTmdbMetadata(any(), any()) } answers { EpisodeRow(firstArg(), seasonId, 14) }
+
+            seriesService.importSeasonsAndEpisodes(seriesId, memberId)
+
+            verify { episodeRepository.create(seasonId, 14, "Real Episode") }
+            verify(exactly = 0) { episodeRepository.create(seasonId, 5, any()) }
+        }
+
+    @Test
     fun `importSeasonsAndEpisodes does not create a duplicate for a legacy episode already sitting under TMDB's old wrong number`(): Unit =
         runBlocking {
             // A prior (pre-fix) import already created this episode under TMDB's own wrong number (14). Re-running
