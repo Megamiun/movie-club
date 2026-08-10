@@ -234,7 +234,14 @@ private fun TmdbTvSearchItem.toResponse() = SeriesSearchResultResponse(
 private fun EpisodeSearchRow.toResponse() = EpisodeSearchResultResponse(
     episodeId = episode.id.toString(),
     seasonId = episode.seasonId.toString(),
-    seriesTitle = seriesTitle,
+    series = EpisodeSearchSeriesTitleResponse(
+        originalTitle = series.originalTitle,
+        originalLanguage = series.originalLanguage,
+        translations = series.translations.map { it.toResponse() },
+        customTitle = series.customTitle,
+        displayTitlePreference = series.displayTitlePreference.name,
+        displayLanguageCode = series.displayLanguageCode,
+    ),
     seasonNumber = seasonNumber,
     episodeNumber = episode.number,
     episodeTitle = episode.title,

@@ -207,12 +207,14 @@ enforces those automatically. This section is for conventions ktlint can't check
   opens a dialog listing that item's `translations` to pick from). Resolving ORIGINAL/CUSTOM/LANGUAGE into an actual
   display string is a pure client-side function (`resolveTitle` in `frontend/src/utils/title.ts`), not done
   server-side — it only needs data already in the API response (the pick's own fields + the club's language lists),
-  so there was no reason to thread it through every read path in `MovieService`/`SeriesService`. Algorithm: LANGUAGE
-  wins if set and a matching translation exists; else try the club's `preferred_languages` in rank order (skipping any
-  that are also `ignored_languages`), first match wins; else fall back to the original title, unless the original's
-  own language is itself ignored, in which case fall back to any non-ignored translation before finally giving up and
-  showing the original title anyway. (ENGLISH used to be a third preference value but was dropped — it was never
-  actually resolved anywhere server-side or client-side; LANGUAGE + `display_language_code` is a strict superset)
+  so there was no reason to thread it through every read path in `MovieService`/`SeriesService`. Algorithm: CUSTOM
+  wins outright when set. Otherwise, if the original title's own language is *not* on the club's `ignored_languages`,
+  the original always wins outright too — LANGUAGE/`preferred_languages` overrides only ever come into play once the
+  original itself is something the club doesn't want to see. Once the original is ignored: LANGUAGE wins if set and
+  a matching translation exists; else try `preferred_languages` in rank order, first match wins; else fall back to
+  any non-ignored translation, or the original title anyway if there's truly nothing better. (ENGLISH used to be a
+  third preference value but was dropped — it was never actually resolved anywhere server-side or client-side;
+  LANGUAGE + `display_language_code` is a strict superset)
 - Metadata can be manually refreshed (for unreleased films with missing fields) — refreshing from any one pick updates
   the shared catalog row for every other pick of the same movie
 - Separate "where to watch" link (e.g. HBO, Netflix, magnet link) — per-meeting-pick, not global
@@ -270,8 +272,9 @@ enforces those automatically. This section is for conventions ktlint can't check
   `director_imdb_id` which needs its own separate `/person/{id}/external_ids` round trip), `metadata_fetched_at`, and
   now also its own `imdb_rating` — fetched from OMDb (see MediaItem above) using the episode's own `imdb_id` the
   moment `refreshMetadata` resolves it, same best-effort/never-blocks pattern as Movie/Series. Null until a refresh
-  has run (same as `imdb_id` itself); the meetings table prefers the episode's own rating and falls back to the
-  parent series' rating only when the episode doesn't have one yet. No title split (the CSV/user-entered `title` is
+  has run (same as `imdb_id` itself); the meetings table only ever shows the episode's own rating, blank if it
+  doesn't have one yet — no longer falls back to the parent series' rating (dropped: looked like the episode had a
+  rating when it was really the series' aggregate). No title split (the CSV/user-entered `title` is
   the only one) and no
   genre/country/creator (those live at the series level). `imdb_id` is null until something actually calls
   `EpisodeService.refreshMetadata` on that episode — the bulk `/tv/{id}/season/{n}` catalog import

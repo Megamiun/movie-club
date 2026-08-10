@@ -283,7 +283,7 @@ class EpisodeServiceTest {
         val result = episodeService.listNextSuggestions(clubId, memberId)
 
         assertEquals(1, result.size)
-        assertEquals("Breaking Bad", result.single().seriesTitle)
+        assertEquals("Breaking Bad", result.single().series.originalTitle)
         assertEquals(1, result.single().seasonNumber)
     }
 

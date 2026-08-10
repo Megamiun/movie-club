@@ -23,20 +23,28 @@ import { EpisodeSearchAutocomplete } from '../../components/EpisodeSearchAutocom
 import { ImdbLink } from '../../components/ImdbLink'
 import { RatingForm } from '../../components/RatingForm'
 import { useAsync } from '../../hooks/useAsync'
+import { useSmartPolling } from '../../hooks/useSmartPolling'
 import { useSeasonNumbers, type SeasonCodeInfo } from '../../hooks/useSeasonNumbers'
 import { episodeCode } from '../../utils/episode'
+import { resolveTitle, type LanguagePreferences } from '../../utils/title'
 
 export function EpisodeSection({
   meetingId,
   clubId,
   scales,
+  languagePrefs,
 }: {
   meetingId: string
   clubId: string
   scales: RatingScale[]
+  languagePrefs: LanguagePreferences
 }) {
-  const { data: episodes, loading, error, reload } = useAsync(() => episodesApi.listForMeeting(meetingId), [meetingId])
-  const { data: suggestions, reload: reloadSuggestions } = useAsync(() => episodesApi.nextSuggestions(clubId), [clubId])
+  const { data: episodes, loading, error, reload, silentReload } = useAsync(() => episodesApi.listForMeeting(meetingId), [meetingId])
+  const { data: suggestions, reload: reloadSuggestions, silentReload: silentReloadSuggestions } = useAsync(() => episodesApi.nextSuggestions(clubId), [clubId])
+  useSmartPolling(() => {
+    silentReload()
+    silentReloadSuggestions()
+  }, 15000)
   const seasonNumbers = useSeasonNumbers((episodes ?? []).map((episode) => episode.seasonId))
   const [selectedEpisode, setSelectedEpisode] = useState<EpisodeSearchResult | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -98,7 +106,7 @@ export function EpisodeSection({
               key={suggestion.episodeId}
               size="small"
               icon={<PlaylistAddIcon fontSize="small" />}
-              label={`${suggestion.seriesTitle} ${episodeCode(suggestion.seasonNumber, suggestion.episodeNumber)}${suggestion.episodeTitle ? ` — ${suggestion.episodeTitle}` : ''}`}
+              label={`${resolveTitle(suggestion.series, languagePrefs)} ${episodeCode(suggestion.seasonNumber, suggestion.episodeNumber)}${suggestion.episodeTitle ? ` — ${suggestion.episodeTitle}` : ''}`}
               onClick={() => handleQuickAssign(suggestion.episodeId)}
             />
           ))}
@@ -112,7 +120,12 @@ export function EpisodeSection({
           </Alert>
         )}
         <Stack direction="row" spacing={1}>
-          <EpisodeSearchAutocomplete clubId={clubId} value={selectedEpisode} onChange={setSelectedEpisode} />
+          <EpisodeSearchAutocomplete
+            clubId={clubId}
+            value={selectedEpisode}
+            onChange={setSelectedEpisode}
+            languagePrefs={languagePrefs}
+          />
           <Button type="submit" variant="contained">
             Assign to this meeting
           </Button>

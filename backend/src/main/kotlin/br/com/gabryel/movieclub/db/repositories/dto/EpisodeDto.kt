@@ -1,5 +1,6 @@
 package br.com.gabryel.movieclub.db.repositories.dto
 
+import br.com.gabryel.movieclub.db.DisplayTitlePreference
 import kotlinx.datetime.LocalDate
 import java.math.BigDecimal
 import kotlin.time.Instant
@@ -22,12 +23,27 @@ data class EpisodeRow(
     val metadataFetchedAt: Instant? = null,
 )
 
-/** One [EpisodeRow] plus the series/season context needed to label it in a search result -- the club-scoped
- * series title (custom, if the club set one, else TMDB's original) and the season's number. */
+/** Just the fields a client needs to resolve the *display* title of [EpisodeSearchRow]'s series (mirrors the
+ * frontend's `resolveTitle`/`TitledMedia`) -- deliberately not the full [SeriesRow], since this DTO only ever
+ * needs to label a search result/suggestion, not carry the series' whole catalog data. Resolution stays
+ * client-side for the same reason [SeriesRow]'s own title fields do (see [SeriesRow] doc) -- this used to be
+ * pre-resolved server-side as `customTitle ?: originalTitle`, which silently skipped the club's
+ * language-preference/ignored-language resolution that every other title display already goes through. */
+data class EpisodeSearchSeriesTitle(
+    val originalTitle: String,
+    val originalLanguage: String? = null,
+    val translations: List<Translation>,
+    val customTitle: String? = null,
+    val displayTitlePreference: DisplayTitlePreference,
+    val displayLanguageCode: String? = null,
+)
+
+/** One [EpisodeRow] plus the series/season context needed to label it in a search result -- the season's number
+ * and enough of the series to resolve its display title client-side. */
 data class EpisodeSearchRow(
     val episode: EpisodeRow,
     val seasonNumber: Int,
-    val seriesTitle: String,
+    val series: EpisodeSearchSeriesTitle,
 )
 
 data class EpisodeReviewRow(

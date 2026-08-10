@@ -2,23 +2,26 @@ import { Autocomplete, TextField } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { episodesApi } from '../api/series'
 import type { EpisodeSearchResult } from '../api/types'
+import { resolveTitle, type LanguagePreferences } from '../utils/title'
 
 const MIN_QUERY_LENGTH = 2
 
-function episodeLabel(item: EpisodeSearchResult): string {
+function episodeLabel(item: EpisodeSearchResult, languagePrefs: LanguagePreferences): string {
   const title = item.episodeTitle ? ` — ${item.episodeTitle}` : ''
-  return `${item.seriesTitle} — S${item.seasonNumber}E${item.episodeNumber}${title}`
+  return `${resolveTitle(item.series, languagePrefs)} — S${item.seasonNumber}E${item.episodeNumber}${title}`
 }
 
 export function EpisodeSearchAutocomplete({
   clubId,
   value,
   onChange,
+  languagePrefs,
   label = 'Search by episode or series title',
 }: {
   clubId: string
   value: EpisodeSearchResult | null
   onChange: (item: EpisodeSearchResult | null) => void
+  languagePrefs: LanguagePreferences
   label?: string
 }) {
   const [inputValue, setInputValue] = useState('')
@@ -48,7 +51,7 @@ export function EpisodeSearchAutocomplete({
       fullWidth
       options={options}
       filterOptions={(x) => x}
-      getOptionLabel={episodeLabel}
+      getOptionLabel={(item) => episodeLabel(item, languagePrefs)}
       isOptionEqualToValue={(a, b) => a.episodeId === b.episodeId}
       value={value}
       onChange={(_, option) => onChange(option)}

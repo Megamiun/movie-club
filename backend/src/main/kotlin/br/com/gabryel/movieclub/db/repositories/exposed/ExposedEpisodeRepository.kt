@@ -4,6 +4,7 @@ import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeSearchRow
+import br.com.gabryel.movieclub.db.repositories.dto.EpisodeSearchSeriesTitle
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbEpisodeMetadata
 import br.com.gabryel.movieclub.db.tables.ClubSeries
 import br.com.gabryel.movieclub.db.tables.Episodes
@@ -94,7 +95,14 @@ class ExposedEpisodeRepository : EpisodeRepository {
                 EpisodeSearchRow(
                     episode = toRow(row),
                     seasonNumber = row[Seasons.number],
-                    seriesTitle = row[ClubSeries.customTitle] ?: row[Series.originalTitle],
+                    series = EpisodeSearchSeriesTitle(
+                        originalTitle = row[Series.originalTitle],
+                        originalLanguage = row[Series.originalLanguage],
+                        translations = row[Series.translations],
+                        customTitle = row[ClubSeries.customTitle],
+                        displayTitlePreference = row[ClubSeries.displayTitlePreference],
+                        displayLanguageCode = row[ClubSeries.displayLanguageCode],
+                    ),
                 )
             }
     }

@@ -19,10 +19,20 @@ internal data class SeriesSearchResultResponse(
 )
 
 @Serializable
+internal data class EpisodeSearchSeriesTitleResponse(
+    val originalTitle: String,
+    val originalLanguage: String?,
+    val translations: List<TranslationResponse>,
+    val customTitle: String?,
+    val displayTitlePreference: String,
+    val displayLanguageCode: String?,
+)
+
+@Serializable
 internal data class EpisodeSearchResultResponse(
     val episodeId: String,
     val seasonId: String,
-    val seriesTitle: String,
+    val series: EpisodeSearchSeriesTitleResponse,
     val seasonNumber: Int,
     val episodeNumber: Int,
     val episodeTitle: String?,

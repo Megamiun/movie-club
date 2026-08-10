@@ -57,10 +57,19 @@ export interface TmdbSearchResult {
   posterUrl: string | null
 }
 
+export interface EpisodeSearchSeriesTitle {
+  originalTitle: string
+  originalLanguage: string | null
+  translations: Translation[]
+  customTitle: string | null
+  displayTitlePreference: DisplayTitlePreference
+  displayLanguageCode: string | null
+}
+
 export interface EpisodeSearchResult {
   episodeId: string
   seasonId: string
-  seriesTitle: string
+  series: EpisodeSearchSeriesTitle
   seasonNumber: number
   episodeNumber: number
   episodeTitle: string | null
@@ -228,7 +237,6 @@ export interface WatchlistEntry {
   year: number | null
   posterUrl: string | null
   imdbRating: string | null
-  notes: string | null
   position: number
 }
 

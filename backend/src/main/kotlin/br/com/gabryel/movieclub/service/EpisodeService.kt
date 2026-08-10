@@ -11,6 +11,7 @@ import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeSearchRow
+import br.com.gabryel.movieclub.db.repositories.dto.EpisodeSearchSeriesTitle
 import br.com.gabryel.movieclub.db.repositories.dto.SeasonRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.exception.BadRequestException
@@ -127,7 +128,18 @@ class EpisodeService(
 
             val next = episodeRepository.findNextUnscheduled(clubId, series.globalSeriesId) ?: return@mapNotNull null
             val season = seasonRepository.findById(next.seasonId) ?: return@mapNotNull null
-            EpisodeSearchRow(episode = next, seasonNumber = season.number, seriesTitle = series.customTitle ?: series.originalTitle)
+            EpisodeSearchRow(
+                episode = next,
+                seasonNumber = season.number,
+                series = EpisodeSearchSeriesTitle(
+                    originalTitle = series.originalTitle,
+                    originalLanguage = series.originalLanguage,
+                    translations = series.translations,
+                    customTitle = series.customTitle,
+                    displayTitlePreference = series.displayTitlePreference,
+                    displayLanguageCode = series.displayLanguageCode,
+                ),
+            )
         }
     }
 
