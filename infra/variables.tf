@@ -34,9 +34,15 @@ variable "instance_type" {
 }
 
 variable "root_volume_size_gb" {
-  description = "Root EBS volume size -- holds the Postgres data volume via docker-compose. Persists across instance stop/start and reboot, but is destroyed if the instance itself is ever replaced/terminated (e.g. `terraform destroy`, or changing an argument that forces replacement) -- acceptable for a small club's data given the tradeoff against a second attached volume's added complexity, but worth knowing before you `destroy`."
+  description = "Root EBS volume size -- OS + Docker images only now (Postgres' own data lives on the separate volume below, not here). ~3-4GB OS+Docker, ~1.5GB images, under 1GB logs -- 10GB gives comfortable headroom over that without paying gp3's $0.08/GB-month for space this volume will never actually use. Destroyed if the instance itself is ever replaced/terminated (e.g. `terraform destroy`), same as any root volume -- fine here since nothing on it is unique data, unlike data_volume_size_gb below."
   type        = number
-  default     = 30
+  default     = 10
+}
+
+variable "data_volume_size_gb" {
+  description = "Size of the separate EBS volume holding just Postgres' own data (see ec2.tf's aws_ebs_volume.postgres_data and templates/user_data.sh.tpl's mount logic) -- kept apart from the root volume specifically so the data survives independently of the instance itself (a root-volume replacement, or swapping instance types, no longer risks it). 10GB is generous for a small club's actual data volume (genuinely tiny -- a few hundred/thousand rows across all tables), resizable later via `aws ec2 modify-volume` without needing to recreate anything."
+  type        = number
+  default     = 10
 }
 
 variable "ssh_public_key" {

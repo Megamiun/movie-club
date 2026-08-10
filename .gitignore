@@ -35,5 +35,14 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!infra/terraform.tfvars.example
+crash.log
+crash.*.log
+
 # Specific
 /samples

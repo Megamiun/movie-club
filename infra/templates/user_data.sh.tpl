@@ -1,8 +1,8 @@
 #!/bin/bash
 # Provisions the box: Docker, the Compose CLI plugin, Caddy (automatic HTTPS reverse proxy in front of the
-# backend container), and a starter docker-compose.yml under /opt/movie-club. Deploys themselves (pulling a new
-# backend image, refreshing the .env from SSM, `docker compose up -d`) are GitHub Actions' job over SSH -- this
-# script only needs to run once, at first boot.
+# backend container), the Postgres data volume mount, and a starter docker-compose.yml under /opt/movie-club.
+# Deploys themselves (pulling a new backend image, refreshing the .env from SSM, `docker compose up -d`) are
+# GitHub Actions' job over SSM Run Command -- this script only needs to run once, at first boot.
 set -euo pipefail
 
 dnf install -y docker
@@ -50,6 +50,36 @@ UNIT
 systemctl daemon-reload
 systemctl enable --now caddy
 
+# Mounts the separate EBS volume Postgres' own data lives on (ec2.tf's aws_ebs_volume.postgres_data) -- kept apart
+# from the root volume specifically so the data survives independently of it. Nitro instances (the t4g family)
+# expose EBS volumes as NVMe devices whose /dev/nvmeXn1 enumeration order isn't guaranteed to match attachment
+# order, so the reliable way to find this specific volume is its own stable by-id symlink, not a guessed device
+# name.
+DATA_DEVICE="/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${data_volume_device_id}"
+MOUNT_POINT="/mnt/postgres-data"
+
+# The attachment can lag slightly behind the instance's own boot -- wait for the symlink rather than failing
+# immediately if it isn't there yet.
+for _ in $(seq 1 30); do
+  [ -e "$DATA_DEVICE" ] && break
+  sleep 2
+done
+
+mkdir -p "$MOUNT_POINT"
+
+# Format only if the volume is genuinely blank -- this script re-runs on every boot (cloud-init only guarantees
+# user_data itself runs once, but this makes the mount logic idempotent regardless), and a volume that already
+# has Postgres' data on it must never be reformatted.
+if ! blkid "$DATA_DEVICE" > /dev/null 2>&1; then
+  mkfs -t ext4 "$DATA_DEVICE"
+fi
+
+if ! grep -q "$DATA_DEVICE" /etc/fstab; then
+  echo "$DATA_DEVICE $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
+fi
+
+mount -a
+
 mkdir -p /opt/movie-club
 cat > /opt/movie-club/docker-compose.yml <<'COMPOSE'
 services:
@@ -60,7 +90,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: $${DATABASE_PASSWORD}
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - /mnt/postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d movieclub"]
       interval: 5s
@@ -82,9 +112,6 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
-
-volumes:
-  db_data:
 COMPOSE
 
 # Regenerates .env from SSM Parameter Store -- run by the GitHub Actions deploy step before every
