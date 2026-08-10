@@ -39,15 +39,18 @@ jobs:
         working-directory: infra
         run: terraform validate
 
-  # Real plan (needs AWS credentials + backend state) -- manual dispatch only, deliberately not triggered by a
-  # push to main. validate (above) already gives automatic fast feedback on every push/PR; actually touching real
-  # infra state requires someone to click "Run workflow". workflow_dispatch can technically target any branch,
-  # hence the ref check -- without it, dispatching from a feature branch would still try to plan/apply real infra
-  # off that branch's state. Uploads the plan file as a build artifact so `apply` (below) applies exactly what
-  # was planned here, rather than re-planning and risking drift between the two.
+  # Real plan (needs AWS credentials + backend state) -- the job itself queues automatically on a push to main
+  # (or a manual dispatch against main), same as before, but then *waits* for the "production" GitHub
+  # Environment's required-reviewer approval (Settings -> Environments, not in this file) before actually
+  # running any steps -- same gate as `apply` below, just one step earlier, so a human reviews the workflow even
+  # started before committing to running `terraform plan` against real state. workflow_dispatch can technically
+  # target any branch, hence the ref check -- without it, dispatching from a feature branch would still queue a
+  # plan against real infra off that branch's state. Uploads the plan file as a build artifact so `apply` (below)
+  # applies exactly what was planned here, rather than re-planning and risking drift between the two.
   plan:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: production
     permissions:
       id-token: write # required to assume the AWS role via OIDC (no stored AWS keys)
       contents: read
@@ -55,7 +58,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "~1.10"
+          terraform_version: "~1.15"
 
       - uses: aws-actions/configure-aws-credentials@v6
         with:
@@ -85,13 +88,13 @@ jobs:
           path: infra/tfplan
           retention-days: 1
 
-  # Gated behind the "production" GitHub Environment's required reviewers (configured in repo Settings →
-  # Environments, not in this file) -- the job pauses here until a human approves, so a bad plan gets a checkpoint
-  # before it touches real infrastructure. The reviewer can read `plan`'s own job log (already finished by the
-  # time this pauses) before approving.
+  # A *second*, separate approval on the same "production" Environment -- plan (above) already paused once before
+  # running `terraform plan` at all; this pauses again before `terraform apply`, so the reviewer can read plan's
+  # own job log/output (already finished by the time this pauses) and confirm it's actually what they expect
+  # before real infrastructure changes.
   apply:
     needs: plan
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -101,7 +104,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: "~1.10"
+          terraform_version: "~1.15"
 
       - uses: aws-actions/configure-aws-credentials@v6
         with:
