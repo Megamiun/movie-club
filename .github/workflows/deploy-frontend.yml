@@ -20,8 +20,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -42,10 +42,14 @@ jobs:
     # infra/github_oidc.tf), so a PR run would just fail at the credentials step; skip it outright instead.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    # Gated behind the "production" GitHub Environment's required reviewers (configured in repo Settings ->
+    # Environments, not in this file) -- same manual-approval pattern already used by terraform.yml's apply job,
+    # so a push to main runs test/build automatically but a human has to approve before anything actually deploys.
+    environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -63,7 +67,7 @@ jobs:
           VITE_API_BASE_URL: ${{ vars.API_BASE_URL }}
         run: npm run build
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
