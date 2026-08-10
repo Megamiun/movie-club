@@ -6,12 +6,6 @@ import kotlinx.serialization.Serializable
 internal data class AddWatchlistEntryRequest(
     val type: String,
     val tmdbId: String,
-    val notes: String? = null,
-)
-
-@Serializable
-internal data class UpdateWatchlistEntryRequest(
-    val notes: String? = null,
 )
 
 @Serializable
@@ -31,6 +25,5 @@ internal data class WatchlistEntryResponse(
     val year: Int?,
     val posterUrl: String?,
     val imdbRating: String?,
-    val notes: String?,
     val position: Int,
 )

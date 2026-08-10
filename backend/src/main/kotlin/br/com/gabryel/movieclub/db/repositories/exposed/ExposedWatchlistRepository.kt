@@ -7,7 +7,6 @@ import br.com.gabryel.movieclub.db.tables.WatchlistEntries
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.innerJoin
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -17,20 +16,22 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 class ExposedWatchlistRepository : WatchlistRepository {
-    override fun create(clubId: Uuid, memberId: Uuid, mediaItemId: Uuid, notes: String?): WatchlistEntryRow = transaction {
+    override fun create(clubId: Uuid, memberId: Uuid, mediaItemId: Uuid): WatchlistEntryRow = transaction {
         val type = MediaItems.selectAll().where { MediaItems.id eq mediaItemId }.map { it[MediaItems.type] }.single()
+        // Scoped to this member's own entries of this type, not every member's -- the UI shows one column per
+        // member (see WatchlistPage), each with its own independently ordered list.
         val nextPosition = (
-            joined()
-                .selectAll()
-                .where { (WatchlistEntries.clubId eq clubId) and (MediaItems.type eq type) }
-                .maxOfOrNull { it[WatchlistEntries.position] } ?: -1
+            joined().selectAll().where {
+                (WatchlistEntries.clubId eq clubId) and
+                    (WatchlistEntries.memberId eq memberId) and
+                    (MediaItems.type eq type)
+            }.maxOfOrNull { it[WatchlistEntries.position] } ?: -1
         ) + 1
 
         val id = WatchlistEntries.insert {
             it[WatchlistEntries.clubId] = clubId
             it[WatchlistEntries.memberId] = memberId
             it[WatchlistEntries.mediaItemId] = mediaItemId
-            it[WatchlistEntries.notes] = notes
             it[WatchlistEntries.position] = nextPosition
             it[WatchlistEntries.createdAt] = Clock.System.now()
         }[WatchlistEntries.id].value
@@ -64,13 +65,6 @@ class ExposedWatchlistRepository : WatchlistRepository {
             .selectAll()
             .where { WatchlistEntries.clubId eq clubId }
             .map(::toRow)
-    }
-
-    override fun update(id: Uuid, notes: String?): WatchlistEntryRow = transaction {
-        WatchlistEntries.update({ WatchlistEntries.id eq id }) {
-            if (notes != null) it[WatchlistEntries.notes] = notes
-        }
-        findById(id)!!
     }
 
     override fun updatePosition(id: Uuid, position: Int): WatchlistEntryRow = transaction {
@@ -107,7 +101,6 @@ class ExposedWatchlistRepository : WatchlistRepository {
         year = row[MediaItems.year],
         posterUrl = row[MediaItems.posterUrl],
         imdbRating = row[MediaItems.imdbRating],
-        notes = row[WatchlistEntries.notes],
         position = row[WatchlistEntries.position],
         createdAt = row[WatchlistEntries.createdAt],
     )

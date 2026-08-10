@@ -32,7 +32,6 @@ class WatchlistService(
         actingMemberId: Uuid,
         type: MediaItemType,
         tmdbId: String,
-        notes: String? = null,
     ): WatchlistEntryRow {
         clubService.requireMembership(clubId, actingMemberId)
         val id = tmdbId.toIntOrNull() ?: throw BadRequestException("Invalid tmdbId")
@@ -46,7 +45,7 @@ class WatchlistService(
         if (watchlistRepository.findByClubMemberAndMediaItem(clubId, actingMemberId, mediaItem.id) != null)
             throw BadRequestException("This is already in your watchlist")
 
-        return watchlistRepository.create(clubId, actingMemberId, mediaItem.id, notes)
+        return watchlistRepository.create(clubId, actingMemberId, mediaItem.id)
     }
 
     /** Best-effort variant for CSV import, which only ever has a bare title (the Reserve CSV has no id column at
@@ -58,7 +57,6 @@ class WatchlistService(
         actingMemberId: Uuid,
         type: MediaItemType,
         title: String,
-        notes: String? = null,
     ): WatchlistEntryRow? {
         clubService.requireMembership(clubId, actingMemberId)
 
@@ -68,7 +66,7 @@ class WatchlistService(
             EPISODE -> throw BadRequestException("Episodes cannot be added to the watchlist yet")
         } ?: return null
 
-        return watchlistRepository.create(clubId, actingMemberId, mediaItem.id, notes)
+        return watchlistRepository.create(clubId, actingMemberId, mediaItem.id)
     }
 
     private suspend fun fetchMovieMediaItem(tmdbId: Int): MediaItemRow {
@@ -108,21 +106,18 @@ class WatchlistService(
         return watchlistRepository.listByClub(clubId)
     }
 
-    fun updateEntry(entryId: Uuid, actingMemberId: Uuid, notes: String? = null): WatchlistEntryRow {
-        val entry = requireOwnedEntry(entryId, actingMemberId)
-        return watchlistRepository.update(entry.id, notes)
-    }
-
-    /** Swaps [entryId] with whichever entry is immediately adjacent to it -- among entries of the *same*
-     * [WatchlistEntryRow.type] only, since the UI shows movies and series as separate ordered lists. A no-op at
-     * either edge of that list. Unlike [updateEntry]/[deleteEntry], any club member may reorder -- the watchlist is
-     * a shared, collaboratively prioritized list, not something only its adder controls. */
+    /** Swaps [entryId] with whichever entry is immediately adjacent to it within its own owner's column -- among
+     * entries of the *same* [WatchlistEntryRow.type] *and* the same [WatchlistEntryRow.memberId] only, since the UI
+     * shows one column per member (movies and series as separate boards, see `WatchlistPage`). A no-op at either
+     * edge of that column. Unlike [deleteEntry], any club member may reorder -- reordering was already documented
+     * as not owner-restricted before per-member columns existed (a shared, collaboratively prioritized list), and
+     * that's preserved here even though it now means reordering someone else's own column. */
     fun moveEntry(entryId: Uuid, actingMemberId: Uuid, direction: MoveDirection): WatchlistEntryRow {
         val entry = watchlistRepository.findById(entryId) ?: throw NotFoundException("Watchlist entry not found")
         clubService.requireMembership(entry.clubId, actingMemberId)
 
         val siblings = watchlistRepository.listByClub(entry.clubId)
-            .filter { it.type == entry.type }
+            .filter { it.type == entry.type && it.memberId == entry.memberId }
             .sortedBy { it.position }
         val index = siblings.indexOfFirst { it.id == entryId }
         val targetIndex = if (direction == MoveDirection.UP) index - 1 else index + 1

@@ -65,7 +65,7 @@ class WatchlistServiceTest {
             } returns item
 
             val expected = entry(mediaItemId = item.id)
-            every { watchlistRepository.create(clubId, memberId, item.id, null) } returns expected
+            every { watchlistRepository.create(clubId, memberId, item.id) } returns expected
 
             assertEquals(expected, watchlistService.addEntry(clubId, memberId, MOVIE, "438631"))
         }
@@ -89,35 +89,24 @@ class WatchlistServiceTest {
         }
 
     @Test
-    fun `updateEntry throws ForbiddenException when acting member is not the owner`() {
+    fun `deleteEntry throws ForbiddenException when acting member is not the owner`() {
         val entryId = Uuid.random()
         val ownerId = Uuid.random()
 
         every { watchlistRepository.findById(entryId) } returns entry(id = entryId, memberId = ownerId)
         every { clubService.requireMembership(clubId, memberId) } returns membership()
 
-        assertFailsWith<ForbiddenException> { watchlistService.updateEntry(entryId, memberId, notes = "watch soon") }
-        verify(exactly = 0) { watchlistRepository.update(any(), any()) }
+        assertFailsWith<ForbiddenException> { watchlistService.deleteEntry(entryId, memberId) }
+        verify(exactly = 0) { watchlistRepository.delete(any()) }
     }
 
     @Test
-    fun `updateEntry succeeds for the owner`() {
-        val entryId = Uuid.random()
-        every { watchlistRepository.findById(entryId) } returns entry(id = entryId, memberId = memberId)
-        every { clubService.requireMembership(clubId, memberId) } returns membership()
-
-        val updated = entry(id = entryId, memberId = memberId, notes = "watch soon")
-        every { watchlistRepository.update(entryId, "watch soon") } returns updated
-
-        assertEquals(updated, watchlistService.updateEntry(entryId, memberId, notes = "watch soon"))
-    }
-
-    @Test
-    fun `moveEntry swaps positions with the adjacent entry of the same type, even for a non-owner`() {
+    fun `moveEntry swaps positions with the adjacent entry in the same owner's column, even when acting member isn't the owner`() {
         val entryId = Uuid.random()
         val otherId = Uuid.random()
-        val current = entry(id = entryId, position = 1)
-        val other = entry(id = otherId, position = 0)
+        val ownerId = Uuid.random()
+        val current = entry(id = entryId, memberId = ownerId, position = 1)
+        val other = entry(id = otherId, memberId = ownerId, position = 0)
 
         every { watchlistRepository.findById(entryId) } returns current
         every { clubService.requireMembership(clubId, memberId) } returns membership()
@@ -129,6 +118,22 @@ class WatchlistServiceTest {
 
         verify { watchlistRepository.updatePosition(entryId, 0) }
         verify { watchlistRepository.updatePosition(otherId, 1) }
+    }
+
+    @Test
+    fun `moveEntry never swaps across a different member's column, even with an adjacent position`() {
+        val entryId = Uuid.random()
+        val otherMembersEntryId = Uuid.random()
+        val current = entry(id = entryId, position = 1)
+        val otherMembersEntry = entry(id = otherMembersEntryId, memberId = Uuid.random(), position = 0)
+
+        every { watchlistRepository.findById(entryId) } returns current
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { watchlistRepository.listByClub(clubId) } returns listOf(otherMembersEntry, current)
+
+        watchlistService.moveEntry(entryId, memberId, MoveDirection.UP)
+
+        verify(exactly = 0) { watchlistRepository.updatePosition(any(), any()) }
     }
 
     @Test
@@ -177,7 +182,6 @@ class WatchlistServiceTest {
         id: Uuid = Uuid.random(),
         memberId: Uuid = this.memberId,
         mediaItemId: Uuid = Uuid.random(),
-        notes: String? = null,
         position: Int = 0,
     ) = WatchlistEntryRow(
         id = id,
@@ -187,7 +191,6 @@ class WatchlistServiceTest {
         type = SERIES,
         title = "Dune",
         imdbId = "tt1160419",
-        notes = notes,
         position = position,
         createdAt = Clock.System.now(),
     )

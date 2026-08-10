@@ -14,7 +14,6 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
-import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 
 fun Route.watchlistRoutes(watchlistService: WatchlistService) {
@@ -26,7 +25,6 @@ fun Route.watchlistRoutes(watchlistService: WatchlistService) {
                 call.actingMemberId(),
                 body.type.toMediaItemTypeOrBadRequest(),
                 body.tmdbId,
-                body.notes,
             )
             call.respond(Created, entry.toResponse())
         }
@@ -34,12 +32,6 @@ fun Route.watchlistRoutes(watchlistService: WatchlistService) {
         get("/clubs/{clubId}/watchlist") {
             val entries = watchlistService.listEntries(call.uuidPathParam("clubId"), call.actingMemberId())
             call.respond(entries.map { it.toResponse() })
-        }
-
-        patch("/watchlist/{entryId}") {
-            val body = call.receive<UpdateWatchlistEntryRequest>()
-            val entry = watchlistService.updateEntry(call.uuidPathParam("entryId"), call.actingMemberId(), body.notes)
-            call.respond(entry.toResponse())
         }
 
         post("/watchlist/{entryId}/move") {
@@ -70,6 +62,5 @@ private fun WatchlistEntryRow.toResponse() = WatchlistEntryResponse(
     year = year,
     posterUrl = posterUrl,
     imdbRating = imdbRating?.toPlainString(),
-    notes = notes,
     position = position,
 )

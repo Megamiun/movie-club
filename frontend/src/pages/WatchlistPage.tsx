@@ -4,7 +4,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import EventIcon from '@mui/icons-material/Event'
-import { Alert, Box, Button, Chip, IconButton, MenuItem, Paper, Select, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, Chip, IconButton, MenuItem, Paper, Select, Stack, Typography } from '@mui/material'
 import {
   DndContext,
   PointerSensor,
@@ -25,19 +25,29 @@ import { ApiError } from '../api/client'
 import type { ClubMember, Meeting, TmdbSearchResult, WatchlistEntry } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
+import { MemberBadge } from '../components/MemberBadge'
 import { TmdbSearchAutocomplete } from '../components/TmdbSearchAutocomplete'
 import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
+import { useSmartPolling } from '../hooks/useSmartPolling'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
-import { memberName } from '../utils/members'
 import { ratingLabel } from '../utils/rating'
 
 export function WatchlistPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { member } = useAuth()
-  const { data: entries, loading, error, reload } = useAsync(() => watchlistApi.list(club.id), [club.id])
+  const { data: entries, loading, error, reload, silentReload } = useAsync(() => watchlistApi.list(club.id), [club.id])
   const { data: meetings } = useAsync(() => meetingsApi.list(club.id), [club.id])
+
+  useSmartPolling(silentReload, 15000)
   const sortedMeetings = [...(meetings ?? [])].sort((a, b) => a.date.localeCompare(b.date))
+
+  // Acting member's own column always leftmost, everyone else afterwards in the club's usual member order.
+  const orderedMembers = [...club.members].sort((a, b) => {
+    if (a.memberId === member?.id) return -1
+    if (b.memberId === member?.id) return 1
+    return a.rotationOrder - b.rotationOrder
+  })
 
   return (
     <Box>
@@ -47,23 +57,23 @@ export function WatchlistPage() {
 
       <AsyncState loading={loading} error={error}>
         <Stack spacing={4}>
-          <WatchlistSection
+          <WatchlistBoard
             type="MOVIE"
             title="Movies"
             search={moviesApi.search}
             entries={entries?.filter((entry) => entry.type === 'MOVIE') ?? []}
-            members={club.members}
+            members={orderedMembers}
             clubId={club.id}
             meetings={sortedMeetings}
             myMemberId={member?.id ?? null}
             onChange={reload}
           />
-          <WatchlistSection
+          <WatchlistBoard
             type="SERIES"
             title="Series"
             search={seriesApi.search}
             entries={entries?.filter((entry) => entry.type === 'SERIES') ?? []}
-            members={club.members}
+            members={orderedMembers}
             clubId={club.id}
             meetings={[]}
             myMemberId={member?.id ?? null}
@@ -75,7 +85,7 @@ export function WatchlistPage() {
   )
 }
 
-function WatchlistSection({
+function WatchlistBoard({
   type,
   title,
   search,
@@ -97,34 +107,90 @@ function WatchlistSection({
   onChange: () => void
 }) {
   const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
-  const [notes, setNotes] = useState('')
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const [dragError, setDragError] = useState<string | null>(null)
-  const sorted = [...entries].sort((a, b) => a.position - b.position)
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const handleAdd = async (event: FormEvent) => {
     event.preventDefault()
     if (!selectedResult) return
     setSubmitError(null)
     try {
-      await watchlistApi.add(clubId, type, selectedResult.tmdbId, notes || undefined)
+      await watchlistApi.add(clubId, type, selectedResult.tmdbId)
       setSelectedResult(null)
-      setNotes('')
       onChange()
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
   }
 
-  /** The backend only supports swapping with an *adjacent* sibling (see `WatchlistService.moveEntry`) -- dropping
-   * further away just replays that same swap one step at a time until the dragged entry reaches where it was
-   * dropped, reusing the up/down buttons' own primitive instead of adding a "set exact position" endpoint. */
+  return (
+    <Box>
+      <Typography variant="h6" gutterBottom>
+        {title}
+      </Typography>
+
+      <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 1 }}>
+        {members.map((columnMember) => (
+          <WatchlistColumn
+            key={columnMember.memberId}
+            member={columnMember}
+            entries={entries.filter((entry) => entry.memberId === columnMember.memberId).sort((a, b) => a.position - b.position)}
+            isOwnColumn={columnMember.memberId === myMemberId}
+            meetings={meetings}
+            onChange={onChange}
+          />
+        ))}
+      </Box>
+
+      {submitError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {submitError}
+        </Alert>
+      )}
+      <Box component="form" onSubmit={handleAdd} sx={{ mt: 2 }}>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <TmdbSearchAutocomplete
+            search={search}
+            value={selectedResult}
+            onChange={setSelectedResult}
+            label={`Search ${title.toLowerCase()}`}
+          />
+          <Button type="submit" variant="contained" startIcon={<AddIcon />}>
+            Add to my list
+          </Button>
+        </Stack>
+      </Box>
+    </Box>
+  )
+}
+
+const COLUMN_WIDTH = 260
+
+function WatchlistColumn({
+  member,
+  entries,
+  isOwnColumn,
+  meetings,
+  onChange,
+}: {
+  member: ClubMember
+  entries: WatchlistEntry[]
+  isOwnColumn: boolean
+  meetings: Meeting[]
+  onChange: () => void
+}) {
+  const [dragError, setDragError] = useState<string | null>(null)
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
+  /** The backend only supports swapping with an *adjacent* sibling within this member's own column (see
+   * `WatchlistService.moveEntry`) -- dropping further away just replays that same swap one step at a time until
+   * the dragged entry reaches where it was dropped, reusing the up/down buttons' own primitive instead of adding a
+   * "set exact position" endpoint. Each column gets its own `DndContext`, so a card can never even be dropped into
+   * a different member's column in the first place -- entries are personal, ownership isn't reassignable. */
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    const oldIndex = sorted.findIndex((entry) => entry.id === active.id)
-    const newIndex = sorted.findIndex((entry) => entry.id === over.id)
+    const oldIndex = entries.findIndex((entry) => entry.id === active.id)
+    const newIndex = entries.findIndex((entry) => entry.id === over.id)
     if (oldIndex === -1 || newIndex === -1) return
 
     const direction = newIndex > oldIndex ? 'DOWN' : 'UP'
@@ -140,13 +206,16 @@ function WatchlistSection({
   }
 
   return (
-    <Box>
-      <Typography variant="h6" gutterBottom>
-        {title}
-      </Typography>
+    <Paper variant="outlined" sx={{ p: 1, width: COLUMN_WIDTH, flexShrink: 0 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1, px: 0.5 }}>
+        <MemberBadge member={member} />
+        <Typography variant="subtitle2" noWrap>
+          {member.name}
+        </Typography>
+      </Stack>
 
-      {sorted.length === 0 && (
-        <Typography color="text.secondary" sx={{ mb: 2 }}>
+      {entries.length === 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ px: 0.5 }}>
           Nothing here yet.
         </Typography>
       )}
@@ -158,50 +227,28 @@ function WatchlistSection({
       )}
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={sorted.map((entry) => entry.id)} strategy={verticalListSortingStrategy}>
-          <Stack spacing={1} sx={{ mb: 2 }}>
-            {sorted.map((entry, index) => (
-              <WatchlistEntryCard
+        <SortableContext items={entries.map((entry) => entry.id)} strategy={verticalListSortingStrategy}>
+          <Stack spacing={1}>
+            {entries.map((entry, index) => (
+              <WatchlistCard
                 key={entry.id}
                 entry={entry}
-                members={members}
                 canMoveUp={index > 0}
-                canMoveDown={index < sorted.length - 1}
+                canMoveDown={index < entries.length - 1}
                 meetings={meetings}
-                isOwner={entry.memberId === myMemberId}
+                isOwner={isOwnColumn}
                 onChange={onChange}
               />
             ))}
           </Stack>
         </SortableContext>
       </DndContext>
-
-      {submitError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {submitError}
-        </Alert>
-      )}
-      <Box component="form" onSubmit={handleAdd}>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-          <TmdbSearchAutocomplete
-            search={search}
-            value={selectedResult}
-            onChange={setSelectedResult}
-            label={`Search ${title.toLowerCase()}`}
-          />
-          <TextField label="Notes (optional)" size="small" value={notes} onChange={(e) => setNotes(e.target.value)} />
-          <Button type="submit" variant="contained" startIcon={<AddIcon />}>
-            Add
-          </Button>
-        </Stack>
-      </Box>
-    </Box>
+    </Paper>
   )
 }
 
-function WatchlistEntryCard({
+function WatchlistCard({
   entry,
-  members,
   canMoveUp,
   canMoveDown,
   meetings,
@@ -209,28 +256,15 @@ function WatchlistEntryCard({
   onChange,
 }: {
   entry: WatchlistEntry
-  members: ClubMember[]
   canMoveUp: boolean
   canMoveDown: boolean
   meetings: Meeting[]
   isOwner: boolean
   onChange: () => void
 }) {
-  const [notes, setNotes] = useState(entry.notes ?? '')
   const [targetMeetingId, setTargetMeetingId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: entry.id })
-
-  const handleBlurSave = async () => {
-    if (notes === (entry.notes ?? '')) return
-    setError(null)
-    try {
-      await watchlistApi.update(entry.id, notes || undefined)
-      onChange()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong')
-    }
-  }
 
   const handleMove = async (direction: 'UP' | 'DOWN') => {
     setError(null)
@@ -272,59 +306,61 @@ function WatchlistEntryCard({
       ref={setNodeRef}
       variant="outlined"
       sx={{
-        p: 1.5,
-        display: 'flex',
-        gap: 1.5,
-        alignItems: 'center',
+        p: 1,
         opacity: isDragging ? 0.5 : 1,
         transform: CSS.Transform.toString(transform),
         transition,
       }}
     >
-      <Box
-        {...attributes}
-        {...listeners}
-        sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.disabled', flexShrink: 0 }}
-        title="Drag to reorder"
-      >
-        <DragIndicatorIcon fontSize="small" />
-      </Box>
-      {entry.posterUrl && (
-        <Box component="img" src={entry.posterUrl} alt="" sx={{ width: 46, borderRadius: 0.5, flexShrink: 0 }} />
-      )}
-      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <Typography sx={{ fontWeight: 500 }}>{entry.title}</Typography>
-          {entry.year && <Chip size="small" label={entry.year} />}
-          {rating && <Chip size="small" label={rating} />}
-          <ImdbLink imdbId={entry.imdbId} />
-        </Stack>
-        <TextField
-          variant="standard"
-          placeholder="Notes"
-          fullWidth
-          size="small"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          onBlur={handleBlurSave}
-        />
-        <Typography variant="caption" color="text.secondary">
-          Added by {memberName(members, entry.memberId)}
-        </Typography>
-        {error && (
-          <Alert severity="error" sx={{ mt: 1 }}>
-            {error}
-          </Alert>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+        <Box
+          {...attributes}
+          {...listeners}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.disabled', flexShrink: 0, mt: 0.5 }}
+          title="Drag to reorder"
+        >
+          <DragIndicatorIcon fontSize="small" />
+        </Box>
+        {entry.posterUrl && (
+          <Box component="img" src={entry.posterUrl} alt="" sx={{ width: 36, borderRadius: 0.5, flexShrink: 0 }} />
         )}
-      </Box>
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {entry.title}
+          </Typography>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexWrap: 'wrap', mt: 0.25 }}>
+            {entry.year && <Chip size="small" label={entry.year} />}
+            {rating && <Chip size="small" label={rating} />}
+            <ImdbLink imdbId={entry.imdbId} />
+          </Stack>
+          {error && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {error}
+            </Alert>
+          )}
+        </Box>
+        <Stack sx={{ flexShrink: 0 }}>
+          <IconButton size="small" onClick={() => handleMove('UP')} disabled={!canMoveUp} title="Move up">
+            <ArrowUpwardIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={() => handleMove('DOWN')} disabled={!canMoveDown} title="Move down">
+            <ArrowDownwardIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+        {isOwner && (
+          <IconButton size="small" onClick={handleDelete} title="Remove" sx={{ flexShrink: 0 }}>
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        )}
+      </Stack>
       {canMoveToMeeting && (
-        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mt: 1 }}>
           <Select
             size="small"
             displayEmpty
             value={targetMeetingId}
             onChange={(e) => setTargetMeetingId(e.target.value)}
-            sx={{ minWidth: 120 }}
+            sx={{ minWidth: 0, flexGrow: 1 }}
           >
             <MenuItem value="">
               <em>Move to meeting…</em>
@@ -340,17 +376,6 @@ function WatchlistEntryCard({
           </IconButton>
         </Stack>
       )}
-      <Stack sx={{ flexShrink: 0 }}>
-        <IconButton size="small" onClick={() => handleMove('UP')} disabled={!canMoveUp} title="Move up">
-          <ArrowUpwardIcon fontSize="small" />
-        </IconButton>
-        <IconButton size="small" onClick={() => handleMove('DOWN')} disabled={!canMoveDown} title="Move down">
-          <ArrowDownwardIcon fontSize="small" />
-        </IconButton>
-      </Stack>
-      <IconButton size="small" onClick={handleDelete} title="Remove" sx={{ flexShrink: 0 }}>
-        <DeleteIcon fontSize="small" />
-      </IconButton>
     </Paper>
   )
 }

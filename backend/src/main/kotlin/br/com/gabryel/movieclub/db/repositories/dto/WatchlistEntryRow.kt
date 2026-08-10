@@ -5,7 +5,7 @@ import java.math.BigDecimal
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
-/** The externally-visible "watchlist entry" -- a flattened join of the `WatchlistEntries` pick row (`notes`,
+/** The externally-visible "watchlist entry" -- a flattened join of the `WatchlistEntries` pick row (just
  * `position`) and the [MediaItemRow] it references, same shape convention as [MovieRow]/[SeriesRow]. [id] is the
  * entry's own id; [mediaItemId] is the referenced [MediaItemRow]'s id, needed to check "is this already on the
  * watchlist" without a second lookup. */
@@ -20,7 +20,6 @@ data class WatchlistEntryRow(
     val year: Int? = null,
     val posterUrl: String? = null,
     val imdbRating: BigDecimal? = null,
-    val notes: String? = null,
     val position: Int,
     val createdAt: Instant,
 )
