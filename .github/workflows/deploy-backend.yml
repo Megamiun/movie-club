@@ -30,6 +30,16 @@ jobs:
         run: ./gradlew :backend:ktlintCheck
       - name: Test
         run: ./gradlew :backend:test
+      # Built once here (native amd64, already has a warm Gradle cache from ktlint/test above) and handed to
+      # `deploy` as an artifact -- deploy's own Docker build then never needs Gradle/Java at all, just a file
+      # copy, which needs no QEMU emulation even when targeting arm64 (see the Dockerfile and deploy job below).
+      - name: Build install distribution
+        run: ./gradlew :backend:installDist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: backend-install
+          path: backend/build/install/backend
+          retention-days: 1
 
   deploy:
     needs: test
@@ -44,6 +54,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: backend-install
+          path: backend/build/install/backend
+
       - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
@@ -52,9 +67,12 @@ jobs:
       - uses: aws-actions/amazon-ecr-login@v2
         id: ecr
 
-      # The EC2 instance is arm64 (Graviton, see infra/variables.tf's instance_type) but this runner is amd64 --
-      # QEMU emulation lets buildx cross-compile the image for the box it'll actually run on.
-      - uses: docker/setup-qemu-action@v4
+      # The EC2 instance is arm64 (Graviton, see infra/variables.tf's instance_type) but this runner is amd64.
+      # No QEMU needed despite that, unlike a typical cross-arch build: `target: from-artifact` (below) points at
+      # the Dockerfile stage with no RUN instructions at all (the actual Gradle build already happened natively
+      # above, in `test`) -- it only copies prebuilt, architecture-independent files into an arm64 base image,
+      # which buildx can do without emulating any target-architecture code execution. The Dockerfile's *default*
+      # target (used by docker-compose.yml/local dev) still builds from source inside the container as before.
       - uses: docker/setup-buildx-action@v4
 
       - name: Build and push backend image
@@ -62,6 +80,7 @@ jobs:
         with:
           context: .
           file: backend/Dockerfile
+          target: from-artifact
           platforms: linux/arm64
           push: true
           tags: |
