@@ -66,8 +66,17 @@ resource "aws_instance" "app" {
   # image) as a side effect of a completely unrelated change. Ignoring drift on `ami` means the instance still
   # launches on whatever's most recent the *first* time, but never gets replaced again just because a newer AMI
   # exists -- only a deliberate change elsewhere (subnet, instance_type, etc.) still triggers a real replacement.
+  #
+  # user_data is ignored for a different reason: it doesn't force a *replacement* like ami would, but AWS still
+  # requires stopping the instance to modify it in place, so every user_data.sh.tpl edit was cycling the live
+  # instance's power (stop -> modify -> start) on every apply -- confirmed live via CloudTrail after a routine
+  # template fix unexpectedly took the whole stack down (db has no restart policy at the time, so it stayed down
+  # after the reboot). That disruption bought nothing: user_data only ever runs once, at an instance's first boot
+  # (see the template's own comment), so re-applying it to an already-booted instance never actually executes the
+  # updated script anyway. A template change now only takes effect the next time the instance is genuinely
+  # replaced for some other reason, never by power-cycling the current one for its own sake.
   lifecycle {
-    ignore_changes = [ami]
+    ignore_changes = [ami, user_data]
   }
 }
 
