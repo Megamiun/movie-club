@@ -60,6 +60,14 @@ enforces those automatically. This section is for conventions ktlint can't check
   MediaItem). Cross-entity orchestration — creating a MediaItem alongside a Movie catalog row, then linking them —
   happens in the service layer, which already composes multiple repositories plus TmdbClient/OmdbClient. Keeps each
   repository a simple, independently testable mapping onto its own table(s).
+- `TmdbClient`'s ktor `HttpClient` sets `expectSuccess = true` plus an `HttpResponseValidator` that turns any non-2xx
+  response into `UpstreamServiceException` (mapped to `502 Bad Gateway`, kept distinct from the app's own
+  `UnauthorizedException` since a TMDB-side 401 means the server's own API key is misconfigured, not that the
+  calling member needs to log in) — without it, ktor decodes an error body as if it succeeded, and most TMDB response
+  DTOs default missing fields to null/empty for legitimate "found nothing" cases, so a real failure (bad key, rate
+  limit) would otherwise silently look identical to a not-found. `OmdbClient` deliberately does the opposite —
+  every call is wrapped in `runCatching { }.getOrNull()`, since an IMDB rating is optional and must never block a
+  movie/series add.
 
 ## Domain Model
 
@@ -183,7 +191,9 @@ enforces those automatically. This section is for conventions ktlint can't check
   club-specific facts about one meeting's choice). The pick's id is the externally-visible "movie id" everywhere (
   routes, reviews) — the catalog row is an internal implementation detail most code never sees directly.
 - Any member can add to any meeting; adding by `imdb_id` reuses the existing catalog row if another club (or an earlier
-  meeting) already picked it, refetching nothing
+  meeting) already picked it, refetching nothing. Adding the same movie to the same meeting twice is rejected (a DB
+  unique constraint on `(meeting, movie)`, not just an app-level check) — the same movie can still be picked again
+  at a *different* meeting, since rewatch-and-re-review is expected (see ratings below)
 - Added via IMDB URL → extract `tt` ID → TMDB API fetch, or via title search (`GET /movies/search`, picks by
   `tmdb_id`) — either path resolves through TMDB, so either way the catalog row also gets a linked MediaItem (see
   above)
@@ -240,7 +250,9 @@ enforces those automatically. This section is for conventions ktlint can't check
   global**, deduplicated by `imdb_id` (Series) / `(series, number)` (Season) / `(season, number)` (Episode) and shared
   by every club following that series. Only the top-level "my club is following this series" fact (`chosen_by`,
   `custom_title`, `display_title_preference`) is per-club — that pick's id is what routes address as the series id;
-  Season/Episode ids are the global ones directly, since they have no per-club fields of their own
+  Season/Episode ids are the global ones directly, since they have no per-club fields of their own. A club can only
+  pick a given series once (`(club, series)` unique constraint); assigning the same episode to the same meeting
+  twice is likewise rejected (`(meeting, episode)` unique constraint)
 - Because Episode is global but a meeting is inherently club-specific, episode-to-meeting scheduling is its own join (
   many clubs can each schedule the same global episode to their own different meeting) rather than a field on Episode.
   Moving an episode to a different meeting (drag-and-drop on the meetings table, same as Movie above) has no
@@ -265,6 +277,16 @@ enforces those automatically. This section is for conventions ktlint can't check
   is idempotent and re-runnable, but nothing called it again automatically. `POST /series/{seriesId}/import-seasons`
   exposes it directly (a "Refresh seasons/episodes" button on `SeriesDetailPage`) as the recovery path — re-running
   only fills in what's missing, never duplicates what's already there
+- `importSeasonsAndEpisodes` treats OMDb (IMDB) as the numbering source of truth, not TMDB — some shows' TMDB entries
+  number episodes by original broadcast order rather than the internationally-known release order (e.g. Cowboy
+  Bebop), which OMDb doesn't share. Each TMDB episode is matched to an OMDb one by title similarity
+  (`episodeTitleSimilarity`); a confident match's OMDb number wins, an unmatched one falls back to TMDB's own number.
+  "Already exists" is checked by title identity against episodes already in the DB *before this run started* (a
+  snapshot taken once, not re-queried per episode) — comparing against a sibling created earlier in the *same* run
+  was a real bug: a two-parter's two halves (e.g. "Jupiter Jazz (1)"/"(2)") can score above the match threshold
+  against each other, so the second half was silently treated as a duplicate of the first and never created.
+  `(season, number)` collisions are still tracked live across the whole run, separately from the identity check,
+  since that's a real DB constraint rather than a question of episode identity
 - Episode cached TMDB metadata: `air_date`, `overview`, `runtime`, director, `director_imdb_id` (a normalized
   `people` row via `director_person_id`, see Person above, resolved the same best-effort TMDB-person-id → IMDB-id
   way as Movie), `imdb_id` (the episode's own, from TMDB's per-episode
@@ -323,16 +345,20 @@ enforces those automatically. This section is for conventions ktlint can't check
 
 - Personal per member per Club; visible to all club members
 - References a **MediaItem** directly (movie or series) instead of storing its own title/year/rating — added by
-  search only, no freeform/manual entry (see MediaItem above)
-- Ordered (`position`) within its MediaItem's `type` — the UI shows and reorders Movies and Series as two separate
-  lists, so position only needs to be meaningful within one type at a time, not club-wide. Reordering swaps an entry
-  with whichever one is immediately adjacent in that type's list. Any club member may reorder it (a shared,
-  collaboratively prioritized list); editing an entry's `notes` or deleting it stays owner-only
-  (`WatchlistService.requireOwnedEntry`). The frontend offers both up/down icon buttons and drag-and-drop (`@dnd-kit`,
-  `WatchlistPage`'s `DndContext`/`SortableContext`) for reordering — dragging further than one slot just replays the
-  same adjacent-swap `POST /watchlist/{id}/move` call once per step to walk the entry to its dropped position,
-  reusing the existing primitive rather than adding a "set exact position" endpoint
-- `notes` is the only freeform field left on an entry — personal commentary, not media data
+  search only, no freeform/manual entry (see MediaItem above). A given (club, member, MediaItem) triple can only
+  appear once — a DB unique constraint, not just an app-level check
+- `WatchlistPage` is a Trello-style board per section (Movies, Series): one column per club member, the viewer's own
+  column always leftmost, others following the club's rotation order. `position` is scoped to `(club, MediaItem
+  type, member)`, so each member's column reorders independently; each column has its own `DndContext` so a card
+  can never be dragged into a different member's column. Reordering swaps an entry with whichever one is immediately
+  adjacent in that same column. Any club member may reorder any column (a shared, collaboratively prioritized list —
+  not owner-only, even though it's now someone else's column); deleting an entry stays owner-only
+  (`WatchlistService.requireOwnedEntry`). The frontend offers both up/down icon buttons and drag-and-drop (`@dnd-kit`)
+  for reordering — dragging further than one slot just replays the same adjacent-swap `POST /watchlist/{id}/move`
+  call once per step, reusing the existing primitive rather than adding a "set exact position" endpoint
+- No freeform field on an entry — `notes` existed briefly but was removed (V27 migration) once the board layout
+  shipped, since per-card free text didn't fit it and it was the last remaining editable field besides
+  position/deletion
 - Movies only (not Series) can be moved between a meeting pick and the watchlist, in either direction — there's no
   dedicated backend "move" endpoint; the frontend just composes the existing add + delete calls (e.g. add the movie
   to the meeting via its `imdb_id`, then delete the watchlist entry only once that succeeds, so a rejected add
@@ -391,13 +417,21 @@ enforces those automatically. This section is for conventions ktlint can't check
   `useAsync` exposes a `silentReload` alongside `reload` — same refetch, but never sets `loading`, so the
   `AsyncState` wrapper never unmounts the table for it (no spinner, no lost scroll position, no closed popovers).
   `MeetingsPage` uses it both as the `onChange` passed down into every pick row (so any mutation — a rating save,
-  a delete, a drag-and-drop move — patches state in place) and on a 5-second `setInterval`, so other members'
-  concurrent changes show up without a manual refresh. A failed background poll is silently dropped rather than
-  surfaced, since whatever's already on screen is still valid. `ClubOutletContext` (the club-detail fetch every
+  a delete, a drag-and-drop move — patches state in place) and via `useSmartPolling` (`frontend/src/hooks/
+  useSmartPolling.ts` — pauses while the tab is hidden, fires immediately on return) every 10 seconds, so other
+  members' concurrent changes show up without a manual refresh. A failed background poll is silently dropped rather
+  than surfaced, since whatever's already on screen is still valid. `ClubOutletContext` (the club-detail fetch every
   club-scoped page shares) exposes the same `silentReload` alongside `reload` — `ClubOverviewPage`'s member-color
   editor uses it specifically (a per-drag-commit save that shouldn't flash the entire Overview page — tabs, every
   other section — back to a spinner), while genuinely structural member changes (add/remove/role-change) still use
-  the full `reload`, since those actually add/remove table rows
+  the full `reload`, since those actually add/remove table rows. `ClubLayout` itself also `useSmartPolling`s its own
+  `club` fetch (15s) — the one piece of club-scoped state every nested page shares — so a language-preference edit
+  (`LanguagePreferencesSection` calls the outlet's `silentReload` on save, same pattern as member color) or a rating
+  scale's color/label edit propagates to any already-open Meetings/Series/Season/meeting-detail page too, not just
+  the tab it was made from. Rating scales aren't part of `club`, though (`RatingScalesSection` fetches them
+  separately) — every page that reads them (`MeetingsPage`, `MeetingDetailPage`, `SeriesDetailPage`,
+  `SeasonDetailPage`) folds their own scales fetch's `silentReload` into that same page's existing poll callback
+  rather than a fifth separate polling mechanism
 - Light/dark theme: `theme.ts` already declared `colorSchemes: { light: true, dark: true }` (MUI's CSS-vars mode)
   plus `defaultColorScheme: 'light'` so a fresh visitor always starts light rather than following OS preference. A
   sun/moon `IconButton` in `AppLayout`'s nav bar calls MUI's own `useColorScheme().setMode(...)`, toggling directly

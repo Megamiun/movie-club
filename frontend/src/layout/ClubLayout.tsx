@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { Link as RouterLink, Outlet, useLocation, useParams } from 'react-router-dom'
 import { AsyncState } from '../components/AsyncState'
 import { useAsync } from '../hooks/useAsync'
+import { useSmartPolling } from '../hooks/useSmartPolling'
 import { clubsApi } from '../api/clubs'
 
 const TABS = [
@@ -18,6 +19,7 @@ export function ClubLayout() {
   const { clubId } = useParams<{ clubId: string }>()
   const location = useLocation()
   const { data: club, loading, error, reload, silentReload } = useAsync(() => clubsApi.get(clubId!), [clubId])
+  useSmartPolling(silentReload, 15000)
 
   const activeTab = useMemo(() => {
     const suffix = location.pathname.split(`/clubs/${clubId}/`)[1] ?? ''

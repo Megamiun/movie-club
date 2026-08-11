@@ -19,17 +19,20 @@ export function SeriesDetailPage() {
   const { seriesId } = useParams<{ seriesId: string }>()
   const { data: series, loading, error, reload, silentReload } = useAsync(() => seriesApi.get(seriesId!), [seriesId])
   const { data: seasons, reload: reloadSeasons, silentReload: silentReloadSeasons } = useAsync(() => seriesApi.listSeasons(seriesId!), [seriesId])
-  useSmartPolling(() => {
-    silentReload()
-    silentReloadSeasons()
-  }, 15000)
-  const { data: club } = useAsync(() => (series ? clubsApi.get(series.clubId) : Promise.resolve(null)), [
-    series?.clubId,
-  ])
-  const { data: scales } = useAsync(
+  const { data: club, silentReload: silentReloadClub } = useAsync(
+    () => (series ? clubsApi.get(series.clubId) : Promise.resolve(null)),
+    [series?.clubId],
+  )
+  const { data: scales, silentReload: silentReloadScales } = useAsync(
     () => (series ? clubsApi.getRatingScales(series.clubId) : Promise.resolve([])),
     [series?.clubId],
   )
+  useSmartPolling(() => {
+    silentReload()
+    silentReloadSeasons()
+    silentReloadClub()
+    silentReloadScales()
+  }, 15000)
 
   const [customTitle, setCustomTitle] = useState('')
   const [preference, setPreference] = useState<'ORIGINAL' | 'CUSTOM'>('ORIGINAL')

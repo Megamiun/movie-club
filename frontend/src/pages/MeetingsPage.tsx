@@ -109,7 +109,7 @@ export function MeetingsPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { member } = useAuth()
   const { data: meetings, loading, error, reload, silentReload } = useAsync(() => meetingsApi.list(club.id), [club.id])
-  const { data: scales } = useAsync(() => clubsApi.getRatingScales(club.id), [club.id])
+  const { data: scales, silentReload: silentReloadScales } = useAsync(() => clubsApi.getRatingScales(club.id), [club.id])
   const [date, setDate] = useState('')
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -119,7 +119,10 @@ export function MeetingsPage() {
   const [activeDrag, setActiveDrag] = useState<PickDragData | null>(null)
   const [hoveredMeetingId, setHoveredMeetingId] = useState<string | null>(null)
 
-  useSmartPolling(silentReload, 10_000)
+  useSmartPolling(() => {
+    silentReload()
+    silentReloadScales()
+  }, 10_000)
 
   useEffect(() => {
     localStorage.setItem(MEETING_TYPE_FILTERS_KEY, JSON.stringify(typeFilters))

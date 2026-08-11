@@ -51,7 +51,7 @@ export function ClubOverviewPage() {
       <MembersSection club={club} refresh={reload} refreshColor={silentReload} />
       <RotationSection club={club} />
       <RatingScalesSection clubId={club.id} />
-      <LanguagePreferencesSection club={club} />
+      <LanguagePreferencesSection club={club} onChange={silentReload} />
     </Stack>
   )
 }
@@ -417,7 +417,7 @@ function RatingScaleCard({
   )
 }
 
-function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
+function LanguagePreferencesSection({ club, onChange }: { club: ClubDetail; onChange: () => void }) {
   const langKey = `${club.preferredLanguages.join(',')}|${club.ignoredLanguages.join(',')}`
   const [preferred, setPreferred] = useState(club.preferredLanguages)
   const [ignored, setIgnored] = useState(club.ignoredLanguages)
@@ -459,6 +459,7 @@ function LanguagePreferencesSection({ club }: { club: ClubDetail }) {
     setError(null)
     try {
       await clubsApi.updateLanguagePreferences(club.id, nextPreferred, nextIgnored)
+      onChange()
     } catch (err) {
       setPreferred(previousPreferred)
       setIgnored(previousIgnored)

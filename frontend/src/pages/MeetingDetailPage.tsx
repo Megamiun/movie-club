@@ -16,14 +16,20 @@ export function MeetingDetailPage() {
   const { meetingId } = useParams<{ meetingId: string }>()
   const navigate = useNavigate()
   const { data: meeting, loading, error, reload, silentReload } = useAsync(() => meetingsApi.get(meetingId!), [meetingId])
-  const { data: club } = useAsync(() => (meeting ? clubsApi.get(meeting.clubId) : Promise.resolve(null)), [
-    meeting?.clubId,
-  ])
-  const { data: scales } = useAsync(() => (meeting ? clubsApi.getRatingScales(meeting.clubId) : Promise.resolve([])), [
-    meeting?.clubId,
-  ])
+  const { data: club, silentReload: silentReloadClub } = useAsync(
+    () => (meeting ? clubsApi.get(meeting.clubId) : Promise.resolve(null)),
+    [meeting?.clubId],
+  )
+  const { data: scales, silentReload: silentReloadScales } = useAsync(
+    () => (meeting ? clubsApi.getRatingScales(meeting.clubId) : Promise.resolve([])),
+    [meeting?.clubId],
+  )
 
-  useSmartPolling(silentReload, 15000)
+  useSmartPolling(() => {
+    silentReload()
+    silentReloadClub()
+    silentReloadScales()
+  }, 15000)
 
   const languagePrefs = {
     preferredLanguages: club?.preferredLanguages ?? [],

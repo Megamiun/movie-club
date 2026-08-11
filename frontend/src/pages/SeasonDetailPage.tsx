@@ -35,19 +35,24 @@ export function SeasonDetailPage() {
   const seriesId = searchParams.get('seriesId')
 
   const { data: episodes, loading, error, reload, silentReload } = useAsync(() => seasonsApi.listEpisodes(seasonId!), [seasonId])
-  useSmartPolling(silentReload, 15000)
   const { data: siblingSeasons } = useAsync(() => seasonsApi.listSiblings(seasonId!), [seasonId])
   const season = siblingSeasons?.find((s) => s.id === seasonId)
   const seasonDigits = siblingSeasons?.length ? digitsOf(Math.max(...siblingSeasons.map((s) => s.number))) : undefined
   const episodeDigits = episodes?.length ? digitsOf(Math.max(...episodes.map((e) => e.number))) : undefined
   const { data: series } = useAsync(() => (seriesId ? seriesApi.get(seriesId) : Promise.resolve(null)), [seriesId])
-  const { data: club } = useAsync(() => (series ? clubsApi.get(series.clubId) : Promise.resolve(null)), [
-    series?.clubId,
-  ])
-  const { data: scales } = useAsync(
+  const { data: club, silentReload: silentReloadClub } = useAsync(
+    () => (series ? clubsApi.get(series.clubId) : Promise.resolve(null)),
+    [series?.clubId],
+  )
+  const { data: scales, silentReload: silentReloadScales } = useAsync(
     () => (series ? clubsApi.getRatingScales(series.clubId) : Promise.resolve([])),
     [series?.clubId],
   )
+  useSmartPolling(() => {
+    silentReload()
+    silentReloadClub()
+    silentReloadScales()
+  }, 15000)
 
   const [episodeNumber, setEpisodeNumber] = useState('')
   const [episodeTitle, setEpisodeTitle] = useState('')
