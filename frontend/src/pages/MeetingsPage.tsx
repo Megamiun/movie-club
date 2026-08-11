@@ -108,7 +108,7 @@ function loadMeetingTypeFilters(): MeetingTypeFilters {
 export function MeetingsPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { member } = useAuth()
-  const { data: meetings, loading, error, reload, silentReload } = useAsync(() => meetingsApi.list(club.id), [club.id])
+  const { data: meetings, loading, error, reload, silentReload, setData: updateMeetings } = useAsync(() => meetingsApi.list(club.id), [club.id])
   const { data: scales, silentReload: silentReloadScales } = useAsync(() => clubsApi.getRatingScales(club.id), [club.id])
   const [date, setDate] = useState('')
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(null)
@@ -127,6 +127,46 @@ export function MeetingsPage() {
   useEffect(() => {
     localStorage.setItem(MEETING_TYPE_FILTERS_KEY, JSON.stringify(typeFilters))
   }, [typeFilters])
+
+  // Optimistic rating saves -- patches the one review that changed directly in local state instead of waiting on
+  // a save-then-refetch round trip (which used to refetch the club's *entire* meeting history just to show one
+  // cell's new value). `handleSaveRating` in `MovieRow`/`EpisodeRow` calls these before awaiting the actual PUT,
+  // then calls them again with the previous values to roll back on failure.
+  const patchMovieReview = (meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string) => {
+    updateMeetings((prev) =>
+      prev?.map((m) =>
+        m.id !== meetingId ? m : {
+          ...m,
+          movies: m.movies.map((pick) =>
+            pick.movie.id !== movieId ? pick : {
+              ...pick,
+              reviews: upsertReview(pick.reviews, memberId, quality, sentiment, () => ({
+                movieId, memberId, qualityOptionId: null, sentimentOptionId: null, comment: null,
+              })),
+            },
+          ),
+        },
+      ) ?? prev,
+    )
+  }
+
+  const patchEpisodeReview = (meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string) => {
+    updateMeetings((prev) =>
+      prev?.map((m) =>
+        m.id !== meetingId ? m : {
+          ...m,
+          episodes: m.episodes.map((pick) =>
+            pick.episode.id !== episodeId ? pick : {
+              ...pick,
+              reviews: upsertReview(pick.reviews, memberId, quality, sentiment, () => ({
+                episodeId, memberId, qualityOptionId: null, sentimentOptionId: null, comment: null,
+              })),
+            },
+          ),
+        },
+      ) ?? prev,
+    )
+  }
 
   // PointerSensor (mouse/trackpad) needs some movement before a drag starts, so a plain click on a rating cell,
   // link, or button inside the row still passes through untouched. TouchSensor uses a short press-and-hold delay
@@ -280,7 +320,8 @@ export function MeetingsPage() {
                         seasonNumbers={seasonNumbers}
                         typeFilters={typeFilters}
                         isHovered={hoveredMeetingId === meeting.id}
-                        onChange={silentReload}
+                        onMovieRate={patchMovieReview}
+                        onEpisodeRate={patchEpisodeReview}
                         registerRow={(el) => {
                           if (el) rowRefs.current.set(meeting.id, el)
                           else rowRefs.current.delete(meeting.id)
@@ -465,7 +506,8 @@ function MeetingRows({
   seasonNumbers,
   typeFilters,
   isHovered,
-  onChange,
+  onMovieRate,
+  onEpisodeRate,
   registerRow,
 }: {
   meeting: MeetingWithPicks
@@ -476,7 +518,8 @@ function MeetingRows({
   seasonNumbers: Map<string, SeasonCodeInfo> | null
   typeFilters: MeetingTypeFilters
   isHovered: boolean
-  onChange: () => void
+  onMovieRate: (meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string) => void
+  onEpisodeRate: (meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string) => void
   registerRow: (el: HTMLTableRowElement | null) => void
 }) {
   const hasAnyPicks = meeting.movies.length > 0 || meeting.episodes.length > 0
@@ -503,7 +546,7 @@ function MeetingRows({
           scales={scales}
           myMemberId={myMemberId}
           meetingId={meeting.id}
-          onChange={onChange}
+          onRate={onMovieRate}
         />
       ))}
       {visibleEpisodeGroups.map((group) => (
@@ -524,13 +567,31 @@ function MeetingRows({
               myMemberId={myMemberId}
               meetingId={meeting.id}
               seasonCode={seasonNumbers?.get(pick.episode.seasonId)}
-              onChange={onChange}
+              onRate={onEpisodeRate}
             />
           ))}
         </Fragment>
       ))}
     </Fragment>
   )
+}
+
+/** Replaces [memberId]'s review in [reviews] (preserving its other fields, e.g. `comment`) if one already exists,
+ * otherwise appends a new one built from [createIfMissing] -- shared by `patchMovieReview`/`patchEpisodeReview`,
+ * generic over `MovieReview`/`EpisodeReview` since they're identical shapes apart from the foreign-key field name. */
+function upsertReview<R extends { memberId: string; qualityOptionId: string | null; sentimentOptionId: string | null }>(
+  reviews: R[],
+  memberId: string,
+  quality: string | undefined,
+  sentiment: string | undefined,
+  createIfMissing: () => R,
+): R[] {
+  const qualityOptionId = quality ?? null
+  const sentimentOptionId = sentiment ?? null
+  if (!reviews.some((r) => r.memberId === memberId)) {
+    return [...reviews, { ...createIfMissing(), qualityOptionId, sentimentOptionId }]
+  }
+  return reviews.map((r) => (r.memberId === memberId ? { ...r, qualityOptionId, sentimentOptionId } : r))
 }
 
 function groupEpisodesBySeries(episodes: MeetingEpisodePick[]) {
@@ -553,14 +614,14 @@ function MovieRow({
   scales,
   myMemberId,
   meetingId,
-  onChange,
+  onRate,
 }: {
   pick: MeetingMoviePick
   club: ClubOutletContext['club']
   scales: RatingScale[]
   myMemberId: string | null
   meetingId: string
-  onChange: () => void
+  onRate: (meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string) => void
 }) {
   const { movie } = pick
   const [error, setError] = useState<string | null>(null)
@@ -569,12 +630,18 @@ function MovieRow({
   const { setNodeRef: setDroppableRef } = useDroppable({ id: `drop-${meetingId}-movie-${movie.id}`, data: { meetingId } satisfies MeetingDropData })
   const rowRef = useForkRef(setDraggableRef, setDroppableRef)
 
+  // Optimistic: patches the review locally before the request even fires, so the box updates instantly instead of
+  // waiting on a save-then-refetch round trip. Only ever called for the viewer's own column (see `editable` below),
+  // so `myMemberId` is always set in practice here; the guard just covers the type, not a reachable UI state.
   const handleSaveRating = async (qualityOptionId?: string, sentimentOptionId?: string) => {
+    if (!myMemberId) return
+    const previous = pick.reviews.find((r) => r.memberId === myMemberId)
     setError(null)
+    onRate(meetingId, movie.id, myMemberId, qualityOptionId, sentimentOptionId)
     try {
       await moviesApi.rate(movie.id, qualityOptionId, sentimentOptionId)
-      onChange()
     } catch (err) {
+      onRate(meetingId, movie.id, myMemberId, previous?.qualityOptionId ?? undefined, previous?.sentimentOptionId ?? undefined)
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
   }
@@ -641,7 +708,7 @@ function EpisodeRow({
   myMemberId,
   meetingId,
   seasonCode,
-  onChange,
+  onRate,
 }: {
   pick: MeetingEpisodePick
   club: ClubOutletContext['club']
@@ -649,7 +716,7 @@ function EpisodeRow({
   myMemberId: string | null
   meetingId: string
   seasonCode: SeasonCodeInfo | undefined
-  onChange: () => void
+  onRate: (meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string) => void
 }) {
   const { episode, series } = pick
   const [error, setError] = useState<string | null>(null)
@@ -659,12 +726,16 @@ function EpisodeRow({
   const { setNodeRef: setDroppableRef } = useDroppable({ id: `drop-${meetingId}-episode-${episode.id}`, data: { meetingId } satisfies MeetingDropData })
   const rowRef = useForkRef(setDraggableRef, setDroppableRef)
 
+  // Optimistic -- see `MovieRow.handleSaveRating` above for the rationale; same shape.
   const handleSaveRating = async (qualityOptionId?: string, sentimentOptionId?: string) => {
+    if (!myMemberId) return
+    const previous = pick.reviews.find((r) => r.memberId === myMemberId)
     setError(null)
+    onRate(meetingId, episode.id, myMemberId, qualityOptionId, sentimentOptionId)
     try {
       await episodesApi.rate(episode.id, qualityOptionId, sentimentOptionId)
-      onChange()
     } catch (err) {
+      onRate(meetingId, episode.id, myMemberId, previous?.qualityOptionId ?? undefined, previous?.sentimentOptionId ?? undefined)
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
   }
