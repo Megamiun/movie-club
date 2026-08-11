@@ -2,6 +2,14 @@
 .gradle
 .idea
 backend/build
+# Except the prebuilt distribution deploy-backend.yml's `test` job downloads into backend/build/install/backend
+# before the `from-artifact` Dockerfile target (backend/Dockerfile) copies it in -- everything else generated
+# under backend/build (compiled classes, test reports, etc.) stays excluded. Docker's .dockerignore doesn't
+# re-include a path just because a deeper pattern negates it -- each level from the excluded parent down needs
+# its own `!` line.
+!backend/build/install
+!backend/build/install/backend
+!backend/build/install/backend/**
 frontend
 samples
 *.md
