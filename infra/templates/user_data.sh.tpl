@@ -111,6 +111,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    # Unlike backend below, this had no restart policy at all until this line -- if db is ever stopped for any
+    # reason (a signal from outside docker-compose, a host reboot without a full re-up, etc.), it just stayed
+    # stopped indefinitely, while backend kept crash-looping against a database that was never coming back on its
+    # own. Found live: db exited cleanly (received a fast shutdown request, no crash/OOM/disk issue) but simply
+    # never restarted, and backend's own restart count had climbed into the hundreds by the time this was noticed.
+    restart: unless-stopped
 
   backend:
     image: $${BACKEND_IMAGE}
