@@ -89,13 +89,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Resolved by tag (infra/ec2.tf's Name tag), not a stored EC2_INSTANCE_ID repo variable -- that id changes
+      # whenever the instance is ever replaced (a subnet/instance-type/AMI change, etc.), which would silently
+      # leave a stale value behind. Nothing to keep in sync this way.
+      - name: Resolve EC2 instance id
+        id: instance
+        run: |
+          echo "id=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=movie-club-app" "Name=instance-state-name,Values=running" \
+            --query "Reservations[].Instances[].InstanceId" --output text)" >> "$GITHUB_OUTPUT"
+
       # Not SSH: a GitHub-hosted runner's IP is dynamic per run, so it could never satisfy the security group's
       # ssh_allowed_cidr (that's deliberately scoped to the operator's own fixed IP, admin access only). SSM Run
       # Command authenticates through the same OIDC-assumed role instead -- no inbound port needed at all.
       # Commands run as root under SSM, so no `sudo` needed (unlike an SSH login as ec2-user would).
       - name: Deploy to EC2 via SSM Run Command
         env:
-          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          INSTANCE_ID: ${{ steps.instance.outputs.id }}
           IMAGE: ${{ steps.ecr.outputs.registry }}/movie-club-backend:${{ github.sha }}
         run: |
           set -euo pipefail

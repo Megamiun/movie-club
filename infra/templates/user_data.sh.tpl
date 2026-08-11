@@ -18,9 +18,14 @@ curl -fsSL "https://github.com/docker/compose/releases/download/$COMPOSE_VERSION
   -o /usr/local/lib/docker/cli-plugins/docker-compose
 chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
-# Caddy: no AL2023 package, install the official static binary directly.
+# Caddy: no AL2023 package, install the official static binary directly. Pinned explicitly (like COMPOSE_VERSION
+# above), not `releases/latest/download/` -- that path still needs the exact current version *in the filename
+# itself* (Caddy's own asset naming, not something this script controls), so combining "latest" with a
+# hardcoded filename silently 404s the moment a newer Caddy version ships. A pinned version in the URL *path*
+# only breaks if this exact release is ever removed, not on every new release upstream.
+CADDY_VERSION="2.11.4"
 CADDY_ARCH="$([ "$ARCH" = "aarch64" ] && echo arm64 || echo amd64)"
-curl -fsSL "https://github.com/caddyserver/caddy/releases/latest/download/caddy_2.9.1_linux_$${CADDY_ARCH}.tar.gz" \
+curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v$${CADDY_VERSION}/caddy_$${CADDY_VERSION}_linux_$${CADDY_ARCH}.tar.gz" \
   -o /tmp/caddy.tar.gz
 tar -xzf /tmp/caddy.tar.gz -C /usr/local/bin caddy
 rm /tmp/caddy.tar.gz

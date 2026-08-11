@@ -86,6 +86,15 @@ data "aws_iam_policy_document" "github_actions_deploy" {
     actions   = ["ssm:GetCommandInvocation"]
     resources = ["*"] # this action doesn't support resource-level scoping -- AWS requires "*" here
   }
+
+  # Lets deploy-backend.yml resolve the instance id by its Name tag at deploy time instead of storing it in a repo
+  # variable that would go stale the moment the instance is ever replaced (unlike DeployViaSsmRunCommand above,
+  # which references aws_instance.app.arn directly and so never goes stale on its own).
+  statement {
+    sid       = "ResolveInstanceIdByTag"
+    actions   = ["ec2:DescribeInstances"]
+    resources = ["*"] # this action doesn't support resource-level scoping -- AWS requires "*" here
+  }
 }
 
 resource "aws_iam_role_policy" "github_actions_deploy" {
