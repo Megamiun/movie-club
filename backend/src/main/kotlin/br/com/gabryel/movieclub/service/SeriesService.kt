@@ -144,9 +144,22 @@ class SeriesService(
             val omdbEpisodes = omdbClient.getSeasonEpisodes(series.imdbId, seasonSummary.seasonNumber).orEmpty()
             val omdbMatches = matchOmdbEpisodes(tmdbEpisodes, omdbEpisodes)
 
-            tmdbEpisodes.forEach episodeEntry@{ episodeEntry ->
-                val episodesInSeason = episodeRepository.listBySeason(season.id)
+            // Snapshotted once, *before* the loop -- not re-queried per episode. Title-identity matching is only
+            // ever meaningful against rows that existed before this run (a legacy episode from before OMDb-sourced
+            // numbering, possibly sitting under a stale number); two genuinely different episodes created *within*
+            // this same run can have deceptively similar titles (e.g. a two-parter -- "Jupiter Jazz (1)" vs "(2)"
+            // score 0.5 on episodeTitleSimilarity, "The Real Folk Blues (1)" vs "(2)" scores 0.667, both at or
+            // above TITLE_MATCH_THRESHOLD) and must never be compared against each other this way, or the second
+            // one silently never gets created at all -- a real bug this shipped with, caught live against Cowboy
+            // Bebop's own two-parters. Numbers created so far *this run* are still tracked separately below, since
+            // that check exists to prevent an actual (season, number) uniqueness violation, not to detect
+            // "already exists" -- matchOmdbEpisodes already guarantees no two TMDB episodes are matched to the
+            // same OMDb episode, but an unmatched entry's own TMDB number can still coincide with another entry's
+            // freshly-corrected one.
+            val episodesInSeason = episodeRepository.listBySeason(season.id)
+            val numbersUsedThisRun = mutableSetOf<Int>()
 
+            tmdbEpisodes.forEach episodeEntry@{ episodeEntry ->
                 // Title identity always wins over any number: an already-existing row (under whatever number it
                 // has -- possibly stale, possibly this episode's own corrected number, possibly neither) is never
                 // treated as a different, new episode just because the number computed below doesn't match it.
@@ -157,12 +170,16 @@ class SeriesService(
 
                 val omdbMatch = omdbMatches[episodeEntry.episodeNumber]
                 val correctedNumber = omdbMatch?.number ?: episodeEntry.episodeNumber
+
+                fun numberTaken(n: Int) = episodesInSeason.any { it.number == n } || n in numbersUsedThisRun
+
                 // The corrected number can coincide with a *different*, already-existing episode in this season
                 // (e.g. one OMDb had no match for, still sitting under its own TMDB number) -- (season, number) is
                 // a real DB uniqueness constraint, so this episode falls back to its own TMDB number rather than
                 // failing the whole import on a collision that belongs to an unrelated episode.
-                val number = if (episodesInSeason.any { it.number == correctedNumber }) episodeEntry.episodeNumber else correctedNumber
-                if (episodesInSeason.any { it.number == number }) return@episodeEntry
+                val number = if (numberTaken(correctedNumber)) episodeEntry.episodeNumber else correctedNumber
+                if (numberTaken(number)) return@episodeEntry
+                numbersUsedThisRun += number
 
                 val inserted = episodeRepository.create(season.id, number, episodeEntry.name)
                 val directorPersonId = episodeEntry.director?.let {

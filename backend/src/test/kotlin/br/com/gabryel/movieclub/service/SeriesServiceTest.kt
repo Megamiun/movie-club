@@ -519,6 +519,57 @@ class SeriesServiceTest {
         }
 
     @Test
+    fun `importSeasonsAndEpisodes creates both halves of a two-parter, not just the first`(): Unit =
+        runBlocking {
+            // Real bug, caught live against Cowboy Bebop: "Jupiter Jazz (1)" vs "Jupiter Jazz (2)" score 0.5 on
+            // episodeTitleSimilarity -- exactly TITLE_MATCH_THRESHOLD. On a fresh import (nothing pre-existing),
+            // the old code re-queried listBySeason() on every loop iteration, so by the time "(2)" was processed
+            // it saw "(1)" -- created moments earlier in this same run -- and treated it as "already exists",
+            // silently dropping the second half. Both must be created from an empty season.
+            val seriesId = Uuid.random()
+            val globalSeriesId = Uuid.random()
+            val seasonId = Uuid.random()
+            every {
+                seriesRepository.findById(seriesId)
+            } returns series(id = seriesId, globalSeriesId = globalSeriesId)
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+            coEvery { tmdbClient.getTvDetails(1396) } returns TmdbTvDetails(
+                originalName = "Cowboy Bebop",
+                name = "Cowboy Bebop",
+                seasons = listOf(TmdbSeasonSummary(1)),
+            )
+            every { seasonRepository.listBySeries(globalSeriesId) } returns emptyList()
+            every { seasonRepository.create(globalSeriesId, 1) } returns SeasonRow(seasonId, globalSeriesId, 1)
+
+            coEvery { tmdbClient.getSeasonDetails(1396, 1) } returns TmdbSeasonDetails(
+                seasonNumber = 1,
+                episodes = listOf(
+                    TmdbEpisodeDetails(name = "Jupiter Jazz (1)", episodeNumber = 8),
+                    TmdbEpisodeDetails(name = "Jupiter Jazz (2)", episodeNumber = 9),
+                ),
+            )
+            coEvery { omdbClient.getSeasonEpisodes("tt0903747", 1) } returns listOf(
+                OmdbSeasonEpisode(title = "Jupiter Jazz: Part 1", episode = "12", imdbId = "tt0618973"),
+                OmdbSeasonEpisode(title = "Jupiter Jazz: Part 2", episode = "13", imdbId = "tt0824569"),
+            )
+            every { episodeRepository.listBySeason(seasonId) } returns emptyList()
+            every {
+                episodeRepository.create(seasonId, 12, "Jupiter Jazz (1)")
+            } returns EpisodeRow(Uuid.random(), seasonId, 12, title = "Jupiter Jazz (1)")
+            every {
+                episodeRepository.create(seasonId, 13, "Jupiter Jazz (2)")
+            } returns EpisodeRow(Uuid.random(), seasonId, 13, title = "Jupiter Jazz (2)")
+            every { episodeRepository.updateTmdbMetadata(any(), any()) } answers { EpisodeRow(firstArg(), seasonId, 1) }
+
+            val created = seriesService.importSeasonsAndEpisodes(seriesId, memberId)
+
+            assertEquals(3, created) // season + both episodes
+            verify { episodeRepository.create(seasonId, 12, "Jupiter Jazz (1)") }
+            verify { episodeRepository.create(seasonId, 13, "Jupiter Jazz (2)") }
+        }
+
+    @Test
     fun `importSeasonsAndEpisodes is idempotent -- existing seasons and episodes aren't recreated`(): Unit =
         runBlocking {
             val seriesId = Uuid.random()
