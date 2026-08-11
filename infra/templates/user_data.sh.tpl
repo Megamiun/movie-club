@@ -9,6 +9,11 @@ dnf install -y docker
 systemctl enable --now docker
 usermod -aG docker ec2-user
 
+# AL2023's AMI ships the ECS container agent pre-installed and enabled by default -- unrelated to this box (plain
+# docker-compose, not ECS) and left running it just crash-loops indefinitely (exits, retries every ~15s,
+# recreating a container each time), showing up as a confusing stray container in `docker ps` for no reason.
+systemctl disable --now ecs
+
 # Amazon Linux 2023's docker package doesn't ship the compose plugin -- install the official CLI plugin binary
 # directly, matching this instance's own architecture (arm64 by default, see variables.tf's instance_type).
 COMPOSE_VERSION="v2.32.4"
