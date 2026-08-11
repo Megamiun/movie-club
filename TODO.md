@@ -41,6 +41,28 @@
     the success path now (the poll still reconciles regardless); the row-level `onChange` prop this replaced was
     otherwise unused in `MovieRow`/`EpisodeRow` (drag-and-drop lives at the page level), so it was removed rather
     than left dead.
+  - Code review of that commit found two real bugs, both fixed: (1) rollback race — a failed save's rollback
+    unconditionally restored a captured snapshot, which could clobber a second, already-succeeded concurrent save
+    on the same cell (e.g. quality-then-sentiment clicked quickly); fixed with a `matchesCurrent` compare-and-swap
+    guard so a rollback is a no-op once a newer save has already moved the review away from what it originally
+    wrote. (2) `comment` silently wiped on every rating-only save — a pre-existing bug (`RateMovieRequest.comment`
+    defaults to `null`, `ExposedMovieRepository.upsertReview` overwrites all three columns unconditionally), made
+    worse by this diff (the optimistic patch preserved the old comment locally, hiding the wipe for up to the next
+    10s poll instead of surfacing it within one round trip); fixed by echoing `previous?.comment` through on every
+    `moviesApi.rate`/`episodesApi.rate` call so it's never actually cleared.
+  - Also fixed from that review: `patchMovieReview`/`patchEpisodeReview` used to `.map()` (allocating a callback
+    result for) every meeting and every pick in the club's whole history on every single rating click, just to
+    replace the one that changed. Both now `findIndex` their target meeting and pick directly and replace just
+    that one slot in a copy of the two arrays involved -- the rest of the club's history is never touched.
+  - [ ] Remaining lower-stakes findings from that same review, not yet acted on:
+    - Duplicate `patchMovieReview`/`patchEpisodeReview` (~17 lines each, differ only by collection/id field) --
+      a shared generic helper would remove the duplication.
+    - The capture-previous/optimistic-patch/rollback dance is hand-inlined separately in `MovieRow.handleSaveRating`
+      and `EpisodeRow.handleSaveRating`, and `RatingForm.tsx`'s 4 call sites use a completely different,
+      non-optimistic pattern -- worth its own pass to extract one reusable optimistic-save hook, not folded in blind.
+    - `previous` is looked up via a second `pick.reviews.find(...)` scan in `handleSaveRating`, duplicating the
+      `review` lookup already computed a few lines below for the same member's cell in the same render pass --
+      trivial, bounded by club member count.
 - [ ] Separately (not yet done): `PUT /movies/{id}/review` (and the series/season/episode equivalents) is a full
   overwrite of both quality *and* sentiment together, not independent per-field — `InlineRatingEditor` already has
   to read the untouched field back out of its own props to avoid clobbering it on every save. Doesn't affect

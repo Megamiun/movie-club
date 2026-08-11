@@ -131,41 +131,61 @@ export function MeetingsPage() {
   // Optimistic rating saves -- patches the one review that changed directly in local state instead of waiting on
   // a save-then-refetch round trip (which used to refetch the club's *entire* meeting history just to show one
   // cell's new value). `handleSaveRating` in `MovieRow`/`EpisodeRow` calls these before awaiting the actual PUT,
-  // then calls them again with the previous values to roll back on failure.
-  const patchMovieReview = (meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string) => {
-    updateMeetings((prev) =>
-      prev?.map((m) =>
-        m.id !== meetingId ? m : {
-          ...m,
-          movies: m.movies.map((pick) =>
-            pick.movie.id !== movieId ? pick : {
-              ...pick,
-              reviews: upsertReview(pick.reviews, memberId, quality, sentiment, () => ({
-                movieId, memberId, qualityOptionId: null, sentimentOptionId: null, comment: null,
-              })),
-            },
-          ),
-        },
-      ) ?? prev,
-    )
+  // then calls them again to roll back on failure -- passing [onlyIfCurrent] on that rollback call so it's a
+  // no-op if a second, already-succeeded concurrent save (e.g. sentiment saved while quality's request was still
+  // in flight) has since moved the review away from what this call itself wrote; unconditionally restoring a
+  // captured "previous" snapshot would otherwise clobber that second save's result.
+  // Both patch functions locate their target meeting/pick with `findIndex` and replace just that one slot in a
+  // copy of the two arrays involved, instead of `.map()`ing (and allocating a callback result for) every meeting
+  // and every pick in the club on every single rating click -- the club's full history is otherwise untouched.
+  const patchMovieReview = (
+    meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string,
+    onlyIfCurrent?: { quality?: string; sentiment?: string },
+  ) => {
+    updateMeetings((prev) => {
+      if (!prev) return prev
+      const meetingIndex = prev.findIndex((m) => m.id === meetingId)
+      if (meetingIndex === -1) return prev
+      const meeting = prev[meetingIndex]
+      const pickIndex = meeting.movies.findIndex((p) => p.movie.id === movieId)
+      if (pickIndex === -1 || !matchesCurrent(meeting.movies[pickIndex].reviews, memberId, onlyIfCurrent)) return prev
+
+      const nextMovies = [...meeting.movies]
+      nextMovies[pickIndex] = {
+        ...nextMovies[pickIndex],
+        reviews: upsertReview(nextMovies[pickIndex].reviews, memberId, quality, sentiment, () => ({
+          movieId, memberId, qualityOptionId: null, sentimentOptionId: null, comment: null,
+        })),
+      }
+      const next = [...prev]
+      next[meetingIndex] = { ...meeting, movies: nextMovies }
+      return next
+    })
   }
 
-  const patchEpisodeReview = (meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string) => {
-    updateMeetings((prev) =>
-      prev?.map((m) =>
-        m.id !== meetingId ? m : {
-          ...m,
-          episodes: m.episodes.map((pick) =>
-            pick.episode.id !== episodeId ? pick : {
-              ...pick,
-              reviews: upsertReview(pick.reviews, memberId, quality, sentiment, () => ({
-                episodeId, memberId, qualityOptionId: null, sentimentOptionId: null, comment: null,
-              })),
-            },
-          ),
-        },
-      ) ?? prev,
-    )
+  const patchEpisodeReview = (
+    meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string,
+    onlyIfCurrent?: { quality?: string; sentiment?: string },
+  ) => {
+    updateMeetings((prev) => {
+      if (!prev) return prev
+      const meetingIndex = prev.findIndex((m) => m.id === meetingId)
+      if (meetingIndex === -1) return prev
+      const meeting = prev[meetingIndex]
+      const pickIndex = meeting.episodes.findIndex((p) => p.episode.id === episodeId)
+      if (pickIndex === -1 || !matchesCurrent(meeting.episodes[pickIndex].reviews, memberId, onlyIfCurrent)) return prev
+
+      const nextEpisodes = [...meeting.episodes]
+      nextEpisodes[pickIndex] = {
+        ...nextEpisodes[pickIndex],
+        reviews: upsertReview(nextEpisodes[pickIndex].reviews, memberId, quality, sentiment, () => ({
+          episodeId, memberId, qualityOptionId: null, sentimentOptionId: null, comment: null,
+        })),
+      }
+      const next = [...prev]
+      next[meetingIndex] = { ...meeting, episodes: nextEpisodes }
+      return next
+    })
   }
 
   // PointerSensor (mouse/trackpad) needs some movement before a drag starts, so a plain click on a rating cell,
@@ -518,8 +538,8 @@ function MeetingRows({
   seasonNumbers: Map<string, SeasonCodeInfo> | null
   typeFilters: MeetingTypeFilters
   isHovered: boolean
-  onMovieRate: (meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string) => void
-  onEpisodeRate: (meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string) => void
+  onMovieRate: (meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string, onlyIfCurrent?: { quality?: string; sentiment?: string }) => void
+  onEpisodeRate: (meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string, onlyIfCurrent?: { quality?: string; sentiment?: string }) => void
   registerRow: (el: HTMLTableRowElement | null) => void
 }) {
   const hasAnyPicks = meeting.movies.length > 0 || meeting.episodes.length > 0
@@ -576,6 +596,19 @@ function MeetingRows({
   )
 }
 
+/** True when [onlyIfCurrent] is absent (no guard requested), or when [memberId]'s review in [reviews] still has
+ * exactly the quality/sentiment values named in it -- the guard a rollback uses to check "did a second save
+ * change this since I wrote it?" before restoring a stale snapshot over top of it. */
+function matchesCurrent<R extends { memberId: string; qualityOptionId: string | null; sentimentOptionId: string | null }>(
+  reviews: R[],
+  memberId: string,
+  onlyIfCurrent: { quality?: string; sentiment?: string } | undefined,
+): boolean {
+  if (!onlyIfCurrent) return true
+  const current = reviews.find((r) => r.memberId === memberId)
+  return (current?.qualityOptionId ?? undefined) === onlyIfCurrent.quality && (current?.sentimentOptionId ?? undefined) === onlyIfCurrent.sentiment
+}
+
 /** Replaces [memberId]'s review in [reviews] (preserving its other fields, e.g. `comment`) if one already exists,
  * otherwise appends a new one built from [createIfMissing] -- shared by `patchMovieReview`/`patchEpisodeReview`,
  * generic over `MovieReview`/`EpisodeReview` since they're identical shapes apart from the foreign-key field name. */
@@ -621,7 +654,7 @@ function MovieRow({
   scales: RatingScale[]
   myMemberId: string | null
   meetingId: string
-  onRate: (meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string) => void
+  onRate: (meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string, onlyIfCurrent?: { quality?: string; sentiment?: string }) => void
 }) {
   const { movie } = pick
   const [error, setError] = useState<string | null>(null)
@@ -639,9 +672,15 @@ function MovieRow({
     setError(null)
     onRate(meetingId, movie.id, myMemberId, qualityOptionId, sentimentOptionId)
     try {
-      await moviesApi.rate(movie.id, qualityOptionId, sentimentOptionId)
+      // The backend overwrites all three columns unconditionally, so the existing comment has to be echoed back
+      // here or it gets silently wiped by a rating-only save.
+      await moviesApi.rate(movie.id, qualityOptionId, sentimentOptionId, previous?.comment ?? undefined)
     } catch (err) {
-      onRate(meetingId, movie.id, myMemberId, previous?.qualityOptionId ?? undefined, previous?.sentimentOptionId ?? undefined)
+      onRate(
+        meetingId, movie.id, myMemberId,
+        previous?.qualityOptionId ?? undefined, previous?.sentimentOptionId ?? undefined,
+        { quality: qualityOptionId, sentiment: sentimentOptionId },
+      )
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
   }
@@ -716,7 +755,7 @@ function EpisodeRow({
   myMemberId: string | null
   meetingId: string
   seasonCode: SeasonCodeInfo | undefined
-  onRate: (meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string) => void
+  onRate: (meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string, onlyIfCurrent?: { quality?: string; sentiment?: string }) => void
 }) {
   const { episode, series } = pick
   const [error, setError] = useState<string | null>(null)
@@ -733,9 +772,13 @@ function EpisodeRow({
     setError(null)
     onRate(meetingId, episode.id, myMemberId, qualityOptionId, sentimentOptionId)
     try {
-      await episodesApi.rate(episode.id, qualityOptionId, sentimentOptionId)
+      await episodesApi.rate(episode.id, qualityOptionId, sentimentOptionId, previous?.comment ?? undefined)
     } catch (err) {
-      onRate(meetingId, episode.id, myMemberId, previous?.qualityOptionId ?? undefined, previous?.sentimentOptionId ?? undefined)
+      onRate(
+        meetingId, episode.id, myMemberId,
+        previous?.qualityOptionId ?? undefined, previous?.sentimentOptionId ?? undefined,
+        { quality: qualityOptionId, sentiment: sentimentOptionId },
+      )
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
   }
