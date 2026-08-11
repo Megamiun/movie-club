@@ -42,7 +42,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { useForkRef } from '@mui/material/utils'
-import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react'
+import { Fragment, memo, useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link as RouterLink, useOutletContext } from 'react-router-dom'
 import { clubsApi } from '../api/clubs'
 import { episodesApi } from '../api/series'
@@ -138,7 +138,10 @@ export function MeetingsPage() {
   // Both patch functions locate their target meeting/pick with `findIndex` and replace just that one slot in a
   // copy of the two arrays involved, instead of `.map()`ing (and allocating a callback result for) every meeting
   // and every pick in the club on every single rating click -- the club's full history is otherwise untouched.
-  const patchMovieReview = (
+  // Wrapped in `useCallback` (stable as long as `updateMeetings` is, which `useAsync.setData` already guarantees)
+  // so `MovieRow`/`EpisodeRow` below can be `memo`d without a fresh `onRate` reference defeating it on every
+  // `MeetingsPage` render.
+  const patchMovieReview = useCallback((
     meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string,
     onlyIfCurrent?: { quality?: string; sentiment?: string },
   ) => {
@@ -161,9 +164,9 @@ export function MeetingsPage() {
       next[meetingIndex] = { ...meeting, movies: nextMovies }
       return next
     })
-  }
+  }, [updateMeetings])
 
-  const patchEpisodeReview = (
+  const patchEpisodeReview = useCallback((
     meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string,
     onlyIfCurrent?: { quality?: string; sentiment?: string },
   ) => {
@@ -186,7 +189,7 @@ export function MeetingsPage() {
       next[meetingIndex] = { ...meeting, episodes: nextEpisodes }
       return next
     })
-  }
+  }, [updateMeetings])
 
   // PointerSensor (mouse/trackpad) needs some movement before a drag starts, so a plain click on a rating cell,
   // link, or button inside the row still passes through untouched. TouchSensor uses a short press-and-hold delay
@@ -254,6 +257,14 @@ export function MeetingsPage() {
 
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const focusedYearRef = useRef<string | null>(null)
+
+  // Stable across renders (unlike an inline closure recreated per meeting on every `MeetingsPage` render) so
+  // `MeetingRows` can be `memo`d -- a fresh `registerRow` reference every render would otherwise defeat that
+  // memoization for every single row regardless of whether anything it actually depends on changed.
+  const registerRow = useCallback((meetingId: string, el: HTMLTableRowElement | null) => {
+    if (el) rowRefs.current.set(meetingId, el)
+    else rowRefs.current.delete(meetingId)
+  }, [])
 
   useEffect(() => {
     if (effectiveYear !== currentYear) return
@@ -342,10 +353,7 @@ export function MeetingsPage() {
                         isHovered={hoveredMeetingId === meeting.id}
                         onMovieRate={patchMovieReview}
                         onEpisodeRate={patchEpisodeReview}
-                        registerRow={(el) => {
-                          if (el) rowRefs.current.set(meeting.id, el)
-                          else rowRefs.current.delete(meeting.id)
-                        }}
+                        registerRow={registerRow}
                       />
                     ))}
                   </TableBody>
@@ -517,7 +525,10 @@ function MeetingDropRow({
   )
 }
 
-function MeetingRows({
+// `memo`d -- effective as long as its callers (`onMovieRate`/`onEpisodeRate`/`registerRow`) hand it stable
+// references, which `MeetingsPage` now does via `useCallback`, so a rating change in one meeting no longer forces
+// every other meeting's rows to re-render too.
+const MeetingRows = memo(function MeetingRows({
   meeting,
   club,
   scales,
@@ -540,7 +551,7 @@ function MeetingRows({
   isHovered: boolean
   onMovieRate: (meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string, onlyIfCurrent?: { quality?: string; sentiment?: string }) => void
   onEpisodeRate: (meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string, onlyIfCurrent?: { quality?: string; sentiment?: string }) => void
-  registerRow: (el: HTMLTableRowElement | null) => void
+  registerRow: (meetingId: string, el: HTMLTableRowElement | null) => void
 }) {
   const hasAnyPicks = meeting.movies.length > 0 || meeting.episodes.length > 0
   const visibleMovies = typeFilters.showMovies ? meeting.movies : []
@@ -556,7 +567,7 @@ function MeetingRows({
         hasAnyPicks={hasAnyPicks}
         hasVisiblePicks={hasVisiblePicks}
         club={club}
-        registerRow={registerRow}
+        registerRow={(el) => registerRow(meeting.id, el)}
       />
       {visibleMovies.map((pick) => (
         <MovieRow
@@ -594,7 +605,7 @@ function MeetingRows({
       ))}
     </Fragment>
   )
-}
+})
 
 /** True when [onlyIfCurrent] is absent (no guard requested), or when [memberId]'s review in [reviews] still has
  * exactly the quality/sentiment values named in it -- the guard a rollback uses to check "did a second save
@@ -641,7 +652,11 @@ function groupEpisodesBySeries(episodes: MeetingEpisodePick[]) {
   return order.map((key) => bySeriesId.get(key)!)
 }
 
-function MovieRow({
+// `memo`d together with `patchMovieReview`/`patchEpisodeReview` being wrapped in `useCallback` above -- a rating
+// click now only replaces the one changed pick's object reference (see the `findIndex`-based patch functions), so
+// every other row's props stay referentially stable and `memo` actually skips re-rendering them, instead of just
+// preserving references that nothing then checks.
+const MovieRow = memo(function MovieRow({
   pick,
   club,
   scales,
@@ -738,9 +753,9 @@ function MovieRow({
       <TableCell align="center"><WatchLinkCell href={movie.watchLink} /></TableCell>
     </TableRow>
   )
-}
+})
 
-function EpisodeRow({
+const EpisodeRow = memo(function EpisodeRow({
   pick,
   club,
   scales,
@@ -855,7 +870,7 @@ function EpisodeRow({
       <TableCell align="center">—</TableCell>
     </TableRow>
   )
-}
+})
 
 /** A plain icon-only link to a movie pick's optional "where to watch" URL (HBO/Netflix/magnet link/etc., see
  * `MovieSection`) -- episodes have no equivalent field, so `EpisodeRow` always renders the blank "—" fallback

@@ -54,6 +54,15 @@
     result for) every meeting and every pick in the club's whole history on every single rating click, just to
     replace the one that changed. Both now `findIndex` their target meeting and pick directly and replace just
     that one slot in a copy of the two arrays involved -- the rest of the club's history is never touched.
+  - Also fixed: the referential-equality preservation the `findIndex` rewrite above gives unaffected rows wasn't
+    actually paying off anywhere, since `MeetingRows`/`MovieRow`/`EpisodeRow` weren't memoized -- every row still
+    re-rendered on every rating click regardless. All three now wrapped in `React.memo`; `patchMovieReview`/
+    `patchEpisodeReview` wrapped in `useCallback` and the previously-inline-per-meeting `registerRow` closure
+    lifted to one stable `useCallback` (`registerRow(meetingId, el)`, called by `MeetingRows` as
+    `(el) => registerRow(meeting.id, el)`) so their references stay stable across `MeetingsPage` renders too --
+    without that, `onRate`/`registerRow` changing identity on every render would have defeated the memoization
+    entirely. `scales` still gets a fresh array reference on every 10s poll regardless of content, so rows still
+    re-render on that cadence either way -- not something this pass changes.
   - [ ] Remaining lower-stakes findings from that same review, not yet acted on:
     - Duplicate `patchMovieReview`/`patchEpisodeReview` (~17 lines each, differ only by collection/id field) --
       a shared generic helper would remove the duplication.
