@@ -94,6 +94,11 @@ services:
       POSTGRES_DB: movieclub
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: $${DATABASE_PASSWORD}
+      # A freshly-formatted ext4 filesystem always has a lost+found directory at its root (mkfs.ext4's own
+      # doing) -- initdb refuses to treat a non-empty directory as its data dir, even though the only thing in
+      # it is that. Pointing PGDATA at a subdirectory of the mount instead of the mount root itself is postgres's
+      # own documented fix for exactly this "mounting a volume directly as the data directory" scenario.
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - /mnt/postgres-data:/var/lib/postgresql/data
     healthcheck:

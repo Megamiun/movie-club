@@ -59,6 +59,14 @@ jobs:
           name: backend-install
           path: backend/build/install/backend
 
+      # upload-artifact/download-artifact doesn't reliably preserve the executable bit across the round trip --
+      # without this, bin/backend (Gradle's own launcher script, +x when installDist first created it) loses that
+      # permission, and the container fails with "Permission denied" at startup. Done here, on the runner, rather
+      # than a Dockerfile RUN chmod -- the from-artifact target deliberately has zero RUN instructions so building
+      # it for arm64 never needs QEMU (see the Dockerfile), and a RUN here would reintroduce exactly that.
+      - name: Restore executable permission on the launcher script
+        run: chmod +x backend/build/install/backend/bin/backend
+
       - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
@@ -106,6 +114,7 @@ jobs:
       - name: Deploy to EC2 via SSM Run Command
         env:
           INSTANCE_ID: ${{ steps.instance.outputs.id }}
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
           IMAGE: ${{ steps.ecr.outputs.registry }}/movie-club-backend:${{ github.sha }}
         run: |
           set -euo pipefail
@@ -114,6 +123,10 @@ jobs:
           cd /opt/movie-club
           ./fetch-secrets.sh
           echo "BACKEND_IMAGE=$IMAGE" | tee -a .env > /dev/null
+          # The instance's own IAM role (AmazonEC2ContainerRegistryReadOnly, iam.tf) grants ECR read access, but
+          # `docker pull` still needs an actual Docker-usable credential exchanged for it first -- IAM permission
+          # alone doesn't make `docker compose pull` transparently authenticated.
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $REGISTRY
           docker compose pull
           docker compose up -d
           docker image prune -f
