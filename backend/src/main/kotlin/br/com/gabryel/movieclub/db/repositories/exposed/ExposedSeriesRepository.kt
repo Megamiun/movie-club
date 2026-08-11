@@ -14,6 +14,7 @@ import br.com.gabryel.movieclub.db.tables.Series
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.innerJoin
 import org.jetbrains.exposed.v1.core.leftJoin
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
@@ -66,6 +67,16 @@ class ExposedSeriesRepository : SeriesRepository {
             .where { (ClubSeries.clubId eq clubId) and (Series.imdbId eq imdbId) }
             .map(::toRow)
             .singleOrNull()
+    }
+
+    override fun findByClubAndImdbIds(clubId: Uuid, imdbIds: List<String>): List<SeriesRow> {
+        if (imdbIds.isEmpty()) return emptyList()
+        return transaction {
+            joined()
+                .selectAll()
+                .where { (ClubSeries.clubId eq clubId) and (Series.imdbId inList imdbIds) }
+                .map(::toRow)
+        }
     }
 
     override fun findClubSeriesForMember(seriesId: Uuid, memberId: Uuid): SeriesRow? = transaction {

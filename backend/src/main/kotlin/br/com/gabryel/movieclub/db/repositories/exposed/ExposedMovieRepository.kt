@@ -13,6 +13,7 @@ import br.com.gabryel.movieclub.db.tables.People
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.innerJoin
 import org.jetbrains.exposed.v1.core.leftJoin
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
@@ -67,6 +68,16 @@ class ExposedMovieRepository : MovieRepository {
             .selectAll()
             .where { MeetingMovies.meetingId eq meetingId }
             .map(::toRow)
+    }
+
+    override fun listByMeetings(meetingIds: List<Uuid>): List<MovieRow> {
+        if (meetingIds.isEmpty()) return emptyList()
+        return transaction {
+            joined()
+                .selectAll()
+                .where { MeetingMovies.meetingId inList meetingIds }
+                .map(::toRow)
+        }
     }
 
     override fun updateMeeting(movieId: Uuid, newMeetingId: Uuid): MovieRow = transaction {
@@ -161,6 +172,16 @@ class ExposedMovieRepository : MovieRepository {
             .selectAll()
             .where { MemberMovieReviews.meetingMovieId eq movieId }
             .map(::toReviewRow)
+    }
+
+    override fun listReviewsByMovies(movieIds: List<Uuid>): List<MovieReviewRow> {
+        if (movieIds.isEmpty()) return emptyList()
+        return transaction {
+            MemberMovieReviews
+                .selectAll()
+                .where { MemberMovieReviews.meetingMovieId inList movieIds }
+                .map(::toReviewRow)
+        }
     }
 
     override fun reassignRatingOption(oldOptionId: Uuid, newOptionId: Uuid): Unit = transaction {

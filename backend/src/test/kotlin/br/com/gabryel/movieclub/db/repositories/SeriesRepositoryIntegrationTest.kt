@@ -126,6 +126,26 @@ class SeriesRepositoryIntegrationTest {
         assertEquals(reviewViaA, reviewViaB, "both picks share the same global series id, so the same review")
     }
 
+    @Test
+    fun `findByClubAndImdbIds resolves every matching pick in one batch, scoped to the club`() {
+        val club = newClub()
+        val otherClub = newClub()
+        val member = newMember()
+        val pickA = seriesRepository.create(club, member, "tt0903747", metadata())
+        val pickB = seriesRepository.create(club, member, "tt0111161", metadata(originalTitle = "The Wire"))
+        // Another club picking one of the same imdb ids shouldn't leak into this club's batch result.
+        seriesRepository.create(otherClub, member, "tt0903747", metadata())
+
+        val result = seriesRepository.findByClubAndImdbIds(club, listOf("tt0903747", "tt0111161"))
+
+        assertEquals(setOf(pickA.id, pickB.id), result.map { it.id }.toSet())
+    }
+
+    @Test
+    fun `findByClubAndImdbIds returns nothing for an empty imdb id list`() {
+        assertEquals(emptyList(), seriesRepository.findByClubAndImdbIds(Uuid.random(), emptyList()))
+    }
+
     private fun metadata(originalTitle: String = "Breaking Bad") = TmdbSeriesMetadata(
         tmdbId = "1396",
         originalTitle = originalTitle,

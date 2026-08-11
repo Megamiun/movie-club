@@ -83,13 +83,13 @@ class MeetingServiceTest {
         val movieReview = MovieReviewRow(movieRow.id, memberId, comment = "great")
         every { meetingRepository.findById(meetingRow.id) } returns meetingRow
         every { clubService.requireMembership(clubId, memberId) } returns membership()
-        every { movieRepository.listByMeeting(meetingRow.id) } returns listOf(movieRow)
-        every { episodeRepository.listByMeeting(meetingRow.id) } returns listOf(episodeRow)
+        every { movieRepository.listByMeetings(listOf(meetingRow.id)) } returns listOf(movieRow)
+        every { episodeRepository.listByMeetings(listOf(meetingRow.id)) } returns mapOf(meetingRow.id to listOf(episodeRow))
         val seriesRow = series()
-        every { movieRepository.listReviews(movieRow.id) } returns listOf(movieReview)
-        every { episodeRepository.listReviews(episodeRow.id) } returns emptyList()
-        every { episodeRepository.findSeriesImdbId(episodeRow.id) } returns "tt0903747"
-        every { seriesRepository.findByClubAndImdbId(clubId, "tt0903747") } returns seriesRow
+        every { movieRepository.listReviewsByMovies(listOf(movieRow.id)) } returns listOf(movieReview)
+        every { episodeRepository.listReviewsByEpisodes(listOf(episodeRow.id)) } returns emptyList()
+        every { episodeRepository.findSeriesImdbIds(listOf(episodeRow.id)) } returns mapOf(episodeRow.id to "tt0903747")
+        every { seriesRepository.findByClubAndImdbIds(clubId, listOf("tt0903747")) } returns listOf(seriesRow)
 
         val result = meetingService.getMeeting(meetingRow.id, memberId)
 
@@ -104,15 +104,41 @@ class MeetingServiceTest {
         val movieA = movie(meetingId = meetingA.id)
         every { clubService.requireMembership(clubId, memberId) } returns membership()
         every { meetingRepository.listByClub(clubId) } returns listOf(meetingA, meetingB)
-        every { movieRepository.listByMeeting(meetingA.id) } returns listOf(movieA)
-        every { movieRepository.listByMeeting(meetingB.id) } returns emptyList()
-        every { episodeRepository.listByMeeting(any()) } returns emptyList()
-        every { movieRepository.listReviews(movieA.id) } returns emptyList()
+        every { movieRepository.listByMeetings(listOf(meetingA.id, meetingB.id)) } returns listOf(movieA)
+        every { episodeRepository.listByMeetings(listOf(meetingA.id, meetingB.id)) } returns emptyMap()
+        every { movieRepository.listReviewsByMovies(listOf(movieA.id)) } returns emptyList()
+        every { episodeRepository.listReviewsByEpisodes(emptyList()) } returns emptyList()
+        every { episodeRepository.findSeriesImdbIds(emptyList()) } returns emptyMap()
+        every { seriesRepository.findByClubAndImdbIds(clubId, emptyList()) } returns emptyList()
 
         val result = meetingService.listMeetings(clubId, memberId)
 
         assertEquals(listOf(MeetingMoviePick(movieA, emptyList())), result.first { it.id == meetingA.id }.movies)
         assertEquals(emptyList(), result.first { it.id == meetingB.id }.movies)
+    }
+
+    @Test
+    fun `listMeetings attributes each movie to its own meeting, not every meeting`() {
+        // The real regression this batching change could introduce: listByMeetings now returns every movie across
+        // every meeting in one flat list, so grouping it back by meetingId has to be exact -- a movie belonging to
+        // meetingA must never show up under meetingB just because they were fetched in the same call.
+        val meetingA = meeting()
+        val meetingB = meeting()
+        val movieA = movie(meetingId = meetingA.id)
+        val movieB = movie(meetingId = meetingB.id)
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { meetingRepository.listByClub(clubId) } returns listOf(meetingA, meetingB)
+        every { movieRepository.listByMeetings(listOf(meetingA.id, meetingB.id)) } returns listOf(movieA, movieB)
+        every { episodeRepository.listByMeetings(listOf(meetingA.id, meetingB.id)) } returns emptyMap()
+        every { movieRepository.listReviewsByMovies(listOf(movieA.id, movieB.id)) } returns emptyList()
+        every { episodeRepository.listReviewsByEpisodes(emptyList()) } returns emptyList()
+        every { episodeRepository.findSeriesImdbIds(emptyList()) } returns emptyMap()
+        every { seriesRepository.findByClubAndImdbIds(clubId, emptyList()) } returns emptyList()
+
+        val result = meetingService.listMeetings(clubId, memberId)
+
+        assertEquals(listOf(movieA), result.first { it.id == meetingA.id }.movies.map { it.movie })
+        assertEquals(listOf(movieB), result.first { it.id == meetingB.id }.movies.map { it.movie })
     }
 
     @Test

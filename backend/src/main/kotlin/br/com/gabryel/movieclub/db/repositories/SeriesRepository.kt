@@ -15,6 +15,10 @@ interface SeriesRepository {
 
     fun findByClubAndImdbId(clubId: Uuid, imdbId: String): SeriesRow?
 
+    /** Batched form of [findByClubAndImdbId] for multiple imdb ids at once -- each [SeriesRow] already carries its
+     * own `imdbId`, so the caller does its own `associateBy`/lookup on the flat result. */
+    fun findByClubAndImdbIds(clubId: Uuid, imdbIds: List<String>): List<SeriesRow>
+
     /** Given the id of a *global* series, finds the acting member's own club's pick of it (if any) -- used to
      * authorize and resolve rating-scale context for Season/Episode, which no longer have one club of their own
      * to check directly since they're shared across every club following the series. */

@@ -22,6 +22,11 @@ interface MovieRepository {
 
     fun listByMeeting(meetingId: Uuid): List<MovieRow>
 
+    /** Batched form of [listByMeeting] for multiple meetings at once -- each [MovieRow] already carries its own
+     * `meetingId`, so the caller groups the flat result itself. Used by `MeetingService` to avoid a query per
+     * meeting when listing a club's whole history. */
+    fun listByMeetings(meetingIds: List<Uuid>): List<MovieRow>
+
     fun updateMeeting(movieId: Uuid, newMeetingId: Uuid): MovieRow
 
     fun updateDisplayTitle(
@@ -48,6 +53,10 @@ interface MovieRepository {
     fun findReview(movieId: Uuid, memberId: Uuid): MovieReviewRow?
 
     fun listReviews(movieId: Uuid): List<MovieReviewRow>
+
+    /** Batched form of [listReviews] for multiple movies at once -- each [MovieReviewRow] already carries its own
+     * `movieId`, so the caller groups the flat result itself. */
+    fun listReviewsByMovies(movieIds: List<Uuid>): List<MovieReviewRow>
 
     /** Repoints every review currently using [oldOptionId] (as either its quality or sentiment choice, whichever
      * applies) to [newOptionId] instead -- used when a rating option is deleted, so existing reviews aren't left

@@ -16,6 +16,12 @@ interface EpisodeRepository {
 
     fun listByMeeting(meetingId: Uuid): List<EpisodeRow>
 
+    /** Batched form of [listByMeeting] for multiple meetings at once. Unlike [MovieRepository]'s equivalent,
+     * [EpisodeRow] carries no `meetingId` of its own (Episode is genuinely global, only the `MeetingEpisodes` join
+     * table ties one to a meeting -- see CLAUDE.md's Series → Season → Episode section), so the grouping has to
+     * happen here, before that join column is dropped mapping into [EpisodeRow]. */
+    fun listByMeetings(meetingIds: List<Uuid>): Map<Uuid, List<EpisodeRow>>
+
     /** Matches by episode title or by the parent series' title, scoped to series [clubId] follows -- used to pick
      * an existing episode to assign to a meeting instead of requiring its raw id. */
     fun searchByClub(clubId: Uuid, query: String, limit: Int = 20): List<EpisodeSearchRow>
@@ -29,6 +35,9 @@ interface EpisodeRepository {
      * series (e.g. via `SeriesRepository.findByClubAndImdbId`) without `EpisodeRepository` depending on
      * `SeriesRepository` itself. Used by `MeetingService` to show/group a meeting's episodes by series. */
     fun findSeriesImdbId(episodeId: Uuid): String?
+
+    /** Batched form of [findSeriesImdbId] for multiple episodes at once, keyed by episode id. */
+    fun findSeriesImdbIds(episodeIds: List<Uuid>): Map<Uuid, String>
 
     /** Schedules the global episode for [meetingId] -- idempotent, since multiple clubs (or repeated calls) may
      * each want the same episode assigned to their own meeting. */
@@ -51,6 +60,10 @@ interface EpisodeRepository {
     fun findReview(episodeId: Uuid, memberId: Uuid): EpisodeReviewRow?
 
     fun listReviews(episodeId: Uuid): List<EpisodeReviewRow>
+
+    /** Batched form of [listReviews] for multiple episodes at once -- each [EpisodeReviewRow] already carries its
+     * own `episodeId`, so the caller groups the flat result itself. */
+    fun listReviewsByEpisodes(episodeIds: List<Uuid>): List<EpisodeReviewRow>
 
     /** Repoints every review currently using [oldOptionId] (as either its quality or sentiment choice, whichever
      * applies) to [newOptionId] instead -- used when a rating option is deleted, so existing reviews aren't left

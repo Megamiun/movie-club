@@ -55,11 +55,11 @@ class MeetingService(
 
     fun listMeetings(clubId: Uuid, actingMemberId: Uuid): List<MeetingWithPicks> {
         clubService.requireMembership(clubId, actingMemberId)
-        return meetingRepository.listByClub(clubId).map { it.withPicks() }
+        return loadPicks(meetingRepository.listByClub(clubId))
     }
 
     fun getMeeting(meetingId: Uuid, actingMemberId: Uuid): MeetingWithPicks =
-        requireMeetingAccess(meetingId, actingMemberId).withPicks()
+        loadPicks(listOf(requireMeetingAccess(meetingId, actingMemberId))).single()
 
     fun postponeMeeting(meetingId: Uuid, actingMemberId: Uuid, newDate: LocalDate): MeetingRow {
         val meeting = requireMeetingAccess(meetingId, actingMemberId)
@@ -109,18 +109,43 @@ class MeetingService(
         return meeting
     }
 
-    private fun MeetingRow.withPicks() = MeetingWithPicks(
-        id = id,
-        clubId = clubId,
-        date = date,
-        assignedMemberId = assignedMemberId,
-        movies = movieRepository.listByMeeting(id).map {
-            MeetingMoviePick(it, movieRepository.listReviews(it.id))
-        },
-        episodes = episodeRepository.listByMeeting(id).map {
-            val seriesImdbId = episodeRepository.findSeriesImdbId(it.id)
-            val series = seriesImdbId?.let { imdbId -> seriesRepository.findByClubAndImdbId(clubId, imdbId) }
-            MeetingEpisodePick(it, episodeRepository.listReviews(it.id), series)
-        },
-    )
+    /** Batch-loads every pick (+ reviews, + each episode's parent series) for [meetings] in a small fixed number
+     * of queries, instead of the previous one-query-per-meeting-then-one-per-pick walk (an N+1 that used to turn
+     * a single `GET /clubs/{clubId}/meetings` -- polled every 10s by the Meetings page -- into roughly
+     * `O(meetings + movies + episodes×3)` round-trips). Used by both [listMeetings] (a club's whole history) and
+     * [getMeeting] (a list of one), so there's one code path either way. */
+    private fun loadPicks(meetings: List<MeetingRow>): List<MeetingWithPicks> {
+        if (meetings.isEmpty()) return emptyList()
+        val meetingIds = meetings.map { it.id }
+
+        val moviesByMeeting = movieRepository.listByMeetings(meetingIds).groupBy { it.meetingId }
+        val allMovies = moviesByMeeting.values.flatten()
+        val movieReviewsByMovie = movieRepository.listReviewsByMovies(allMovies.map { it.id }).groupBy { it.movieId }
+
+        val episodesByMeeting = episodeRepository.listByMeetings(meetingIds)
+        val allEpisodes = episodesByMeeting.values.flatten()
+        val episodeReviewsByEpisode = episodeRepository.listReviewsByEpisodes(allEpisodes.map { it.id }).groupBy { it.episodeId }
+        val seriesImdbIdByEpisode = episodeRepository.findSeriesImdbIds(allEpisodes.map { it.id })
+        // Every meeting here belongs to the same club (listByClub's own scoping, or getMeeting's single-meeting
+        // list) -- safe to read it off the first one now that the empty-list guard above has already returned.
+        val seriesByImdbId = seriesRepository
+            .findByClubAndImdbIds(meetings.first().clubId, seriesImdbIdByEpisode.values.distinct())
+            .associateBy { it.imdbId }
+
+        return meetings.map { meeting ->
+            MeetingWithPicks(
+                id = meeting.id,
+                clubId = meeting.clubId,
+                date = meeting.date,
+                assignedMemberId = meeting.assignedMemberId,
+                movies = moviesByMeeting[meeting.id].orEmpty().map {
+                    MeetingMoviePick(it, movieReviewsByMovie[it.id].orEmpty())
+                },
+                episodes = episodesByMeeting[meeting.id].orEmpty().map {
+                    val series = seriesImdbIdByEpisode[it.id]?.let { imdbId -> seriesByImdbId[imdbId] }
+                    MeetingEpisodePick(it, episodeReviewsByEpisode[it.id].orEmpty(), series)
+                },
+            )
+        }
+    }
 }

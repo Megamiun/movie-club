@@ -8,6 +8,7 @@ import br.com.gabryel.movieclub.db.tables.MeetingEpisodes
 import br.com.gabryel.movieclub.db.tables.Meetings
 import br.com.gabryel.movieclub.db.tables.MemberEpisodeReviews
 import br.com.gabryel.movieclub.db.tables.MemberSeasonReviews
+import br.com.gabryel.movieclub.db.tables.Members
 import br.com.gabryel.movieclub.db.tables.Seasons
 import br.com.gabryel.movieclub.db.tables.Series
 import org.jetbrains.exposed.v1.core.eq
@@ -38,6 +39,7 @@ class SeasonAndEpisodeRepositoryIntegrationTest {
     private val episodeRepository = ExposedEpisodeRepository()
     private val seriesIds = mutableListOf<Uuid>()
     private val clubIds = mutableListOf<Uuid>()
+    private val memberIds = mutableListOf<Uuid>()
 
     @AfterTest
     fun cleanUp() {
@@ -53,6 +55,7 @@ class SeasonAndEpisodeRepositoryIntegrationTest {
             Series.deleteWhere { id inList seriesIds }
             Meetings.deleteWhere { id inList meetingIds }
             Clubs.deleteWhere { id inList clubIds }
+            Members.deleteWhere { id inList memberIds }
         }
     }
 
@@ -174,10 +177,70 @@ class SeasonAndEpisodeRepositoryIntegrationTest {
         assertEquals(episode.id, next?.id, "club B hasn't scheduled this episode itself, so it's still next for them")
     }
 
+    @Test
+    fun `listByMeetings returns every episode across all the given meetings, grouped by meeting`() {
+        val season = seasonRepository.create(newSeries(), 1)
+        val episodeA = episodeRepository.create(season.id, 1, "Pilot")
+        val episodeB = episodeRepository.create(season.id, 2, "Episode 2")
+        val meetingA = newMeeting()
+        val meetingB = newMeeting()
+        episodeRepository.assignToMeeting(episodeA.id, meetingA)
+        episodeRepository.assignToMeeting(episodeB.id, meetingB)
+
+        val result = episodeRepository.listByMeetings(listOf(meetingA, meetingB))
+
+        assertEquals(listOf(episodeA.id), result[meetingA]?.map { it.id })
+        assertEquals(listOf(episodeB.id), result[meetingB]?.map { it.id })
+    }
+
+    @Test
+    fun `listByMeetings returns nothing for an empty meeting id list`() {
+        assertEquals(emptyMap(), episodeRepository.listByMeetings(emptyList()))
+    }
+
+    @Test
+    fun `listReviewsByEpisodes returns every review across all the given episodes, in one batch`() {
+        val season = seasonRepository.create(newSeries(), 1)
+        val episodeA = episodeRepository.create(season.id, 1, "Pilot")
+        val episodeB = episodeRepository.create(season.id, 2, "Episode 2")
+        val member = newMember()
+        episodeRepository.upsertReview(episodeA.id, member, comment = "great pilot")
+        episodeRepository.upsertReview(episodeB.id, member, comment = "solid follow-up")
+
+        val result = episodeRepository.listReviewsByEpisodes(listOf(episodeA.id, episodeB.id))
+
+        assertEquals(setOf("great pilot", "solid follow-up"), result.map { it.comment }.toSet())
+    }
+
+    @Test
+    fun `listReviewsByEpisodes returns nothing for an empty episode id list`() {
+        assertEquals(emptyList(), episodeRepository.listReviewsByEpisodes(emptyList()))
+    }
+
+    @Test
+    fun `findSeriesImdbIds resolves every episode's parent series imdb id, in one batch`() {
+        val seriesId = newSeries()
+        val seriesImdbId = transaction { Series.selectAll().where { Series.id eq seriesId }.single()[Series.imdbId] }
+        val season = seasonRepository.create(seriesId, 1)
+        val episodeA = episodeRepository.create(season.id, 1, "Pilot")
+        val episodeB = episodeRepository.create(season.id, 2, "Episode 2")
+
+        val result = episodeRepository.findSeriesImdbIds(listOf(episodeA.id, episodeB.id))
+
+        assertEquals(mapOf(episodeA.id to seriesImdbId, episodeB.id to seriesImdbId), result)
+    }
+
+    @Test
+    fun `findSeriesImdbIds returns nothing for an empty episode id list`() {
+        assertEquals(emptyMap(), episodeRepository.findSeriesImdbIds(emptyList()))
+    }
+
     private fun newSeries() = IntegrationFixtures.insertSeries().also { seriesIds.add(it) }
 
     private fun newMeeting(): Uuid {
         val clubId = IntegrationFixtures.insertClub().also { clubIds.add(it) }
         return IntegrationFixtures.insertMeeting(clubId)
     }
+
+    private fun newMember() = IntegrationFixtures.insertMember().also { memberIds.add(it) }
 }

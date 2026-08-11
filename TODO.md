@@ -72,6 +72,23 @@
     - `previous` is looked up via a second `pick.reviews.find(...)` scan in `handleSaveRating`, duplicating the
       `review` lookup already computed a few lines below for the same member's cell in the same render pass --
       trivial, bounded by club member count.
+- [x] Fix the N+1 in `GET /clubs/{clubId}/meetings` (also flagged by that review, separate from the frontend
+  findings above -- this one's backend). `MeetingService.listMeetings` → `withPicks()` used to run, per meeting:
+  `movieRepository.listByMeeting` then per movie `listReviews`; `episodeRepository.listByMeeting` then per episode
+  `findSeriesImdbId` + `seriesRepository.findByClubAndImdbId` + `listReviews` -- roughly
+  `O(meetings + movies + episodes×3)` queries for one request, hit on every page load *and* every 10s poll tick.
+  - Fixed: added batched `listByMeetings`/`listReviewsByMovies` (`MovieRepository`), `listByMeetings`/
+    `listReviewsByEpisodes`/`findSeriesImdbIds` (`EpisodeRepository`), `findByClubAndImdbIds` (`SeriesRepository`)
+    -- each an `inList` query (already the codebase's own convention for batch lookups, e.g. the integration
+    tests' cleanup helpers), short-circuiting on an empty input list before touching Exposed at all. `withPicks()`
+    replaced with one `loadPicks(meetings: List<MeetingRow>)` that both `listMeetings` (the whole club) and
+    `getMeeting` (a list of one) now share -- one code path instead of two, and `getMeeting` gets the same fix
+    for free. Query count drops from scaling with club history to a fixed ~6 regardless of size.
+  - New repository integration tests (real Postgres via Testcontainers) per batch method, including the
+    empty-input-list case; a new `MeetingServiceTest` case specifically covers the regression this kind of
+    rewrite risks -- a movie belonging to one meeting showing up grouped under a different one once the fetch is
+    batched across meetings instead of done per-meeting. `./gradlew :backend:test`/`:backend:ktlintCheck` both
+    pass. Not manually verified against the running app (docker compose) -- automated coverage only.
 - [ ] Separately (not yet done): `PUT /movies/{id}/review` (and the series/season/episode equivalents) is a full
   overwrite of both quality *and* sentiment together, not independent per-field — `InlineRatingEditor` already has
   to read the untouched field back out of its own props to avoid clobbering it on every save. Doesn't affect

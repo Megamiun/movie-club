@@ -18,6 +18,7 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder.ASC
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.innerJoin
 import org.jetbrains.exposed.v1.core.leftJoin
 import org.jetbrains.exposed.v1.core.like
@@ -74,6 +75,20 @@ class ExposedEpisodeRepository : EpisodeRepository {
             .orderBy(Episodes.number)
             .orderBy(Seasons.number)
             .map(::toRow)
+    }
+
+    override fun listByMeetings(meetingIds: List<Uuid>): Map<Uuid, List<EpisodeRow>> {
+        if (meetingIds.isEmpty()) return emptyMap()
+        return transaction {
+            (MeetingEpisodes innerJoin Episodes)
+                .leftJoin(Seasons)
+                .leftJoin(People)
+                .selectAll()
+                .where { MeetingEpisodes.meetingId inList meetingIds }
+                .orderBy(Episodes.number)
+                .orderBy(Seasons.number)
+                .groupBy({ it[MeetingEpisodes.meetingId].value }, ::toRow)
+        }
     }
 
     override fun searchByClub(clubId: Uuid, query: String, limit: Int): List<EpisodeSearchRow> = transaction {
@@ -134,6 +149,18 @@ class ExposedEpisodeRepository : EpisodeRepository {
             .where { Episodes.id eq episodeId }
             .map { it[Series.imdbId] }
             .singleOrNull()
+    }
+
+    override fun findSeriesImdbIds(episodeIds: List<Uuid>): Map<Uuid, String> {
+        if (episodeIds.isEmpty()) return emptyMap()
+        return transaction {
+            Series
+                .innerJoin(Seasons, { Series.id }, { Seasons.seriesId })
+                .innerJoin(Episodes, { Seasons.id }, { Episodes.seasonId })
+                .selectAll()
+                .where { Episodes.id inList episodeIds }
+                .associate { it[Episodes.id].value to it[Series.imdbId] }
+        }
     }
 
     override fun assignToMeeting(episodeId: Uuid, meetingId: Uuid) {
@@ -208,6 +235,16 @@ class ExposedEpisodeRepository : EpisodeRepository {
             .selectAll()
             .where { MemberEpisodeReviews.episodeId eq episodeId }
             .map(::toReviewRow)
+    }
+
+    override fun listReviewsByEpisodes(episodeIds: List<Uuid>): List<EpisodeReviewRow> {
+        if (episodeIds.isEmpty()) return emptyList()
+        return transaction {
+            MemberEpisodeReviews
+                .selectAll()
+                .where { MemberEpisodeReviews.episodeId inList episodeIds }
+                .map(::toReviewRow)
+        }
     }
 
     override fun reassignRatingOption(oldOptionId: Uuid, newOptionId: Uuid): Unit = transaction {

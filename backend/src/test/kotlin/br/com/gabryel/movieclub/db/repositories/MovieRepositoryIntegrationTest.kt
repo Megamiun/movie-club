@@ -112,6 +112,45 @@ class MovieRepositoryIntegrationTest {
         assertEquals("great rewatch", review?.comment)
     }
 
+    @Test
+    fun `listByMeetings returns every pick across all the given meetings, in one batch`() {
+        val member = newMember()
+        val meetingA = newMeeting()
+        val meetingB = newMeeting()
+        val pickA = movieRepository.create(meetingA, member, "tt2911666", metadata())
+        val pickB = movieRepository.create(meetingB, member, "tt0111161", metadata(originalTitle = "The Shawshank Redemption"))
+
+        val result = movieRepository.listByMeetings(listOf(meetingA, meetingB))
+
+        assertEquals(setOf(pickA.id, pickB.id), result.map { it.id }.toSet())
+        assertEquals(meetingA, result.single { it.id == pickA.id }.meetingId)
+        assertEquals(meetingB, result.single { it.id == pickB.id }.meetingId)
+    }
+
+    @Test
+    fun `listByMeetings returns nothing for an empty meeting id list`() {
+        assertEquals(emptyList(), movieRepository.listByMeetings(emptyList()))
+    }
+
+    @Test
+    fun `listReviewsByMovies returns every review across all the given movies, in one batch`() {
+        val member = newMember()
+        val meeting = newMeeting()
+        val pickA = movieRepository.create(meeting, member, "tt2911666", metadata())
+        val pickB = movieRepository.create(meeting, member, "tt0111161", metadata(originalTitle = "The Shawshank Redemption"))
+        movieRepository.upsertReview(pickA.id, member, comment = "loved it")
+        movieRepository.upsertReview(pickB.id, member, comment = "a classic")
+
+        val result = movieRepository.listReviewsByMovies(listOf(pickA.id, pickB.id))
+
+        assertEquals(setOf("loved it", "a classic"), result.map { it.comment }.toSet())
+    }
+
+    @Test
+    fun `listReviewsByMovies returns nothing for an empty movie id list`() {
+        assertEquals(emptyList(), movieRepository.listReviewsByMovies(emptyList()))
+    }
+
     private fun metadata(originalTitle: String = "John Wick") = TmdbMovieMetadata(
         tmdbId = "245891",
         originalTitle = originalTitle,
