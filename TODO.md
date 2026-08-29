@@ -11,7 +11,26 @@
     previously defaulting to shown. Flipped `showEpisodes`'s default to `false` -- still a personal,
     `localStorage`-persisted preference, so anyone who wants episodes visible can turn the toggle back on and it
     sticks.
-- [ ] Remove date header, put it into the movie line
+- [x] Remove date header, put it into the movie line
+  - The meetings table used to give every meeting its own full-width header row (date + assigned member) above its
+    pick rows, even for the common one-movie week. `MeetingRows` now only renders that wide row (`MeetingDropRow`)
+    for a meeting with nothing visible to show (no picks at all, or everything filtered out) -- it's still the only
+    row that exists in that case, and the only drop target left once there's no pick row to double as one. Once a
+    meeting has any visible picks, the date rides along on the block's own first line instead: the first movie row,
+    or the first episode group's series-label row, or (the rare case of an episode with no resolved series to hang
+    a label row off of) the first episode row itself -- a `blockHeader` prop threaded into `MovieRow`/`EpisodeRow`
+    renders it as a small caption above the title, plus a top border to still visually separate consecutive
+    meetings' blocks. `registerRow` (used for the "scroll today's meeting into view" effect) moves to whichever row
+    is now carrying the block's identity.
+  - Verified in a real browser across all four shapes: movies-only default view (date above each movie title, no
+    header rows at all), a meeting with both a movie and episodes (date only on the movie, the episode group below
+    it stays unlabeled-by-date since it's the same meeting), episodes-only view (date merges into the series-label
+    row), and a meeting with nothing picked (falls back to the old full header row, "Nothing picked yet"/"Hidden by
+    filters" messaging intact). Drag-and-drop wasn't exercised through the browser automation this pass (Playwright
+    synthetic pointer events didn't reliably trigger dnd-kit's `PointerSensor`) -- reasoned through instead: the
+    change only omits the header row's own (now-redundant, since a populated meeting's pick rows already declare
+    their own droppable zones) drop target for populated meetings, and merges one extra non-drag ref into the first
+    row's existing `useForkRef` chain, without touching `useDraggable`/`useDroppable` setup itself.
 - [x] When clicking movie name, open meeting details
 - [x] Add link to imdb as a link icon after title
   - Companion changes, same rows: the meetings table's title cell used to wrap the whole title in the IMDB link

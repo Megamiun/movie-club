@@ -558,18 +558,42 @@ const MeetingRows = memo(function MeetingRows({
   const visibleEpisodeGroups = typeFilters.showEpisodes ? groupEpisodesBySeries(meeting.episodes) : []
   const hasVisiblePicks = visibleMovies.length > 0 || visibleEpisodeGroups.length > 0
 
+  // No separate header row once a meeting has anything visible to show -- the date rides along on the block's own
+  // first line instead (the first movie row, or the first episode group's series-label row, or -- the rare case of
+  // an episode with no resolved series to hang a label row off of -- the first episode row itself). A meeting with
+  // nothing visible (no picks at all, or everything filtered out) still needs `MeetingDropRow`: it's the only row
+  // that exists to say so, and the only drop target left once there's no pick row to double as one.
+  const firstGroupHasLabelRow = visibleMovies.length === 0 && Boolean(visibleEpisodeGroups[0]?.series)
+  const blockHeader = { date: meeting.date, isHovered }
+
   return (
     <Fragment>
-      <MeetingDropRow
-        meeting={meeting}
-        columnCount={columnCount}
-        isHovered={isHovered}
-        hasAnyPicks={hasAnyPicks}
-        hasVisiblePicks={hasVisiblePicks}
-        club={club}
-        registerRow={(el) => registerRow(meeting.id, el)}
-      />
-      {visibleMovies.map((pick) => (
+      {hasVisiblePicks ? (
+        firstGroupHasLabelRow && (
+          <TableRow
+            ref={(el: HTMLTableRowElement | null) => registerRow(meeting.id, el)}
+            sx={{ borderTop: '2px solid', borderTopColor: 'divider', bgcolor: isHovered ? 'action.selected' : undefined }}
+          >
+            <TableCell colSpan={columnCount} sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
+              <Typography variant="caption" color="text.secondary" component="div">
+                {meeting.date}
+              </Typography>
+              {resolveTitle(visibleEpisodeGroups[0].series!, club)}
+            </TableCell>
+          </TableRow>
+        )
+      ) : (
+        <MeetingDropRow
+          meeting={meeting}
+          columnCount={columnCount}
+          isHovered={isHovered}
+          hasAnyPicks={hasAnyPicks}
+          hasVisiblePicks={hasVisiblePicks}
+          club={club}
+          registerRow={(el) => registerRow(meeting.id, el)}
+        />
+      )}
+      {visibleMovies.map((pick, index) => (
         <MovieRow
           key={pick.movie.id}
           pick={pick}
@@ -578,29 +602,36 @@ const MeetingRows = memo(function MeetingRows({
           myMemberId={myMemberId}
           meetingId={meeting.id}
           onRate={onMovieRate}
+          blockHeader={index === 0 ? blockHeader : undefined}
+          registerRow={index === 0 ? (el) => registerRow(meeting.id, el) : undefined}
         />
       ))}
-      {visibleEpisodeGroups.map((group) => (
+      {visibleEpisodeGroups.map((group, groupIndex) => (
         <Fragment key={group.series?.id ?? group.picks[0].episode.id}>
-          {group.series && (
+          {group.series && !(groupIndex === 0 && firstGroupHasLabelRow) && (
             <TableRow>
               <TableCell colSpan={columnCount} sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
                 {resolveTitle(group.series, club)}
               </TableCell>
             </TableRow>
           )}
-          {group.picks.map((pick) => (
-            <EpisodeRow
-              key={pick.episode.id}
-              pick={pick}
-              club={club}
-              scales={scales}
-              myMemberId={myMemberId}
-              meetingId={meeting.id}
-              seasonCode={seasonNumbers?.get(pick.episode.seasonId)}
-              onRate={onEpisodeRate}
-            />
-          ))}
+          {group.picks.map((pick, pickIndex) => {
+            const isFirstOverall = visibleMovies.length === 0 && groupIndex === 0 && pickIndex === 0 && !firstGroupHasLabelRow
+            return (
+              <EpisodeRow
+                key={pick.episode.id}
+                pick={pick}
+                club={club}
+                scales={scales}
+                myMemberId={myMemberId}
+                meetingId={meeting.id}
+                seasonCode={seasonNumbers?.get(pick.episode.seasonId)}
+                onRate={onEpisodeRate}
+                blockHeader={isFirstOverall ? blockHeader : undefined}
+                registerRow={isFirstOverall ? (el) => registerRow(meeting.id, el) : undefined}
+              />
+            )
+          })}
         </Fragment>
       ))}
     </Fragment>
@@ -676,6 +707,8 @@ const MovieRow = memo(function MovieRow({
   myMemberId,
   meetingId,
   onRate,
+  blockHeader,
+  registerRow,
 }: {
   pick: MeetingMoviePick
   club: ClubOutletContext['club']
@@ -683,13 +716,15 @@ const MovieRow = memo(function MovieRow({
   myMemberId: string | null
   meetingId: string
   onRate: (meetingId: string, movieId: string, memberId: string, quality: string | null | undefined, sentiment: string | null | undefined, onlyIfCurrent?: { quality?: string | null; sentiment?: string | null }) => void
+  blockHeader?: { date: string; isHovered: boolean }
+  registerRow?: (el: HTMLTableRowElement | null) => void
 }) {
   const { movie } = pick
   const [error, setError] = useState<string | null>(null)
   const dragData: PickDragData = { kind: 'movie', fromMeetingId: meetingId, label: resolveTitle(movie, club) }
   const { attributes, listeners, setNodeRef: setDraggableRef, isDragging } = useDraggable({ id: movie.id, data: dragData })
   const { setNodeRef: setDroppableRef } = useDroppable({ id: `drop-${meetingId}-movie-${movie.id}`, data: { meetingId } satisfies MeetingDropData })
-  const rowRef = useForkRef(setDraggableRef, setDroppableRef)
+  const rowRef = useForkRef(setDraggableRef, setDroppableRef, registerRow)
 
   // Optimistic: patches the review locally before the request even fires, so the box updates instantly instead of
   // waiting on a save-then-refetch round trip. Only ever called for the viewer's own column (see `editable` below),
@@ -727,12 +762,25 @@ const MovieRow = memo(function MovieRow({
       ref={rowRef}
       {...attributes}
       {...listeners}
-      sx={{ cursor: 'grab', opacity: isDragging ? 0.4 : 1, touchAction: 'none' }}
+      sx={{
+        cursor: 'grab',
+        opacity: isDragging ? 0.4 : 1,
+        touchAction: 'none',
+        ...(blockHeader && {
+          '& td': { borderTop: '2px solid', borderTopColor: 'divider' },
+          bgcolor: blockHeader.isHovered ? 'action.selected' : undefined,
+        }),
+      }}
     >
       <TableCell>
         <MemberBadge member={club.members.find((m) => m.memberId === movie.chosenById)} />
       </TableCell>
       <TableCell>
+        {blockHeader && (
+          <Typography variant="caption" color="text.secondary" component="div">
+            {blockHeader.date}
+          </Typography>
+        )}
         <Link
           component={RouterLink}
           to={`/meetings/${meetingId}`}
@@ -793,6 +841,8 @@ const EpisodeRow = memo(function EpisodeRow({
   meetingId,
   seasonCode,
   onRate,
+  blockHeader,
+  registerRow,
 }: {
   pick: MeetingEpisodePick
   club: ClubOutletContext['club']
@@ -801,6 +851,8 @@ const EpisodeRow = memo(function EpisodeRow({
   meetingId: string
   seasonCode: SeasonCodeInfo | undefined
   onRate: (meetingId: string, episodeId: string, memberId: string, quality: string | null | undefined, sentiment: string | null | undefined, onlyIfCurrent?: { quality?: string | null; sentiment?: string | null }) => void
+  blockHeader?: { date: string; isHovered: boolean }
+  registerRow?: (el: HTMLTableRowElement | null) => void
 }) {
   const { episode, series } = pick
   const [error, setError] = useState<string | null>(null)
@@ -808,7 +860,7 @@ const EpisodeRow = memo(function EpisodeRow({
   const dragData: PickDragData = { kind: 'episode', fromMeetingId: meetingId, label }
   const { attributes, listeners, setNodeRef: setDraggableRef, isDragging } = useDraggable({ id: episode.id, data: dragData })
   const { setNodeRef: setDroppableRef } = useDroppable({ id: `drop-${meetingId}-episode-${episode.id}`, data: { meetingId } satisfies MeetingDropData })
-  const rowRef = useForkRef(setDraggableRef, setDroppableRef)
+  const rowRef = useForkRef(setDraggableRef, setDroppableRef, registerRow)
 
   // Optimistic -- see `MovieRow.handleSaveQuality`/`handleSaveSentiment` above for the rationale; same shape.
   const handleSaveQuality = async (optionId: string | null) => {
@@ -845,12 +897,25 @@ const EpisodeRow = memo(function EpisodeRow({
       ref={rowRef}
       {...attributes}
       {...listeners}
-      sx={{ cursor: 'grab', opacity: isDragging ? 0.4 : 1, touchAction: 'none' }}
+      sx={{
+        cursor: 'grab',
+        opacity: isDragging ? 0.4 : 1,
+        touchAction: 'none',
+        ...(blockHeader && {
+          '& td': { borderTop: '2px solid', borderTopColor: 'divider' },
+          bgcolor: blockHeader.isHovered ? 'action.selected' : undefined,
+        }),
+      }}
     >
       <TableCell>
         {series ? <MemberBadge member={club.members.find((m) => m.memberId === series.chosenById)} /> : '—'}
       </TableCell>
       <TableCell>
+        {blockHeader && (
+          <Typography variant="caption" color="text.secondary" component="div">
+            {blockHeader.date}
+          </Typography>
+        )}
         <Link
           component={RouterLink}
           to={`/meetings/${meetingId}`}
