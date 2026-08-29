@@ -49,6 +49,13 @@
     change only omits the header row's own (now-redundant, since a populated meeting's pick rows already declare
     their own droppable zones) drop target for populated meetings, and merges one extra non-drag ref into the first
     row's existing `useForkRef` chain, without touching `useDraggable`/`useDroppable` setup itself.
+  - Follow-up (user feedback: "make the date a diff column"): the date moved out of the Title cell's inline caption
+    into its own dedicated leading `Date` table column (before `By`), still populated only on a meeting block's
+    first row/label row and blank elsewhere -- same one-cell-per-block placement as before, just its own column
+    instead of overlaid text. `MeetingDropRow` and the special first-episode-group-label row both split into a
+    `Date` cell plus a `colSpan={columnCount - 1}` cell for the rest, so the "Hidden by filters"/series-label text
+    still spans the remaining width. `columnCount` bumped from `9 + members` to `10 + members` to account for the
+    new column. Re-verified all four shapes again in a real browser after this change.
 - [x] When clicking movie name, open meeting details
 - [x] Add link to imdb as a link icon after title
   - Companion changes, same rows: the meetings table's title cell used to wrap the whole title in the IMDB link

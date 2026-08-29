@@ -245,7 +245,7 @@ export function MeetingsPage() {
     }
   }
 
-  const columnCount = 9 + club.members.length
+  const columnCount = 10 + club.members.length
   const { sorted, years, currentYear, effectiveYear, itemsForYear: meetingsForYear, setSelectedYear } = useYearTabs(meetings ?? [])
   const seasonNumbers = useSeasonNumbers(sorted.flatMap((meeting) => meeting.episodes.map((pick) => pick.episode.seasonId)))
 
@@ -313,6 +313,7 @@ export function MeetingsPage() {
                 <Table size="small" sx={{ '& .MuiTableCell-root': { py: 0.35, px: 1, fontSize: '0.8125rem' } }}>
                   <TableHead>
                     <TableRow sx={{ '& .MuiTableCell-root': { py: 0.5, fontWeight: 600, fontSize: '0.75rem', color: 'text.secondary', bgcolor: 'action.hover' } }}>
+                      <TableCell width={90}>Date</TableCell>
                       <TableCell width={36}>By</TableCell>
                       <TableCell>Title</TableCell>
                       {club.members.map((m) => (
@@ -503,17 +504,17 @@ function MeetingDropRow({
       ref={rowRef}
       sx={{ '& td': { bgcolor: isHovered ? 'action.selected' : 'action.hover', fontWeight: 600 } }}
     >
-      <TableCell colSpan={columnCount}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
-          <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover">
-            {meeting.date}
-          </Link>
-          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 400 }}>
-            {meeting.assignedMemberId ? memberName(club.members, meeting.assignedMemberId) : 'Shared / merged'}
-            {!hasAnyPicks && ' · Nothing picked yet'}
-            {hasAnyPicks && !hasVisiblePicks && ' · Hidden by filters'}
-          </Typography>
-        </Stack>
+      <TableCell>
+        <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover" color="inherit">
+          {meeting.date}
+        </Link>
+      </TableCell>
+      <TableCell colSpan={columnCount - 1}>
+        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 400 }}>
+          {meeting.assignedMemberId ? memberName(club.members, meeting.assignedMemberId) : 'Shared / merged'}
+          {!hasAnyPicks && ' · Nothing picked yet'}
+          {hasAnyPicks && !hasVisiblePicks && ' · Hidden by filters'}
+        </Typography>
       </TableCell>
     </TableRow>
   )
@@ -568,10 +569,8 @@ const MeetingRows = memo(function MeetingRows({
             ref={(el: HTMLTableRowElement | null) => registerRow(meeting.id, el)}
             sx={{ borderTop: '2px solid', borderTopColor: 'divider', bgcolor: isHovered ? 'action.selected' : undefined }}
           >
-            <TableCell colSpan={columnCount} sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
-              <Typography variant="caption" color="text.secondary" component="div">
-                {meeting.date}
-              </Typography>
+            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>{meeting.date}</TableCell>
+            <TableCell colSpan={columnCount - 1} sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
               {resolveTitle(visibleEpisodeGroups[0].series!, club)}
             </TableCell>
           </TableRow>
@@ -766,15 +765,11 @@ const MovieRow = memo(function MovieRow({
         }),
       }}
     >
+      <TableCell>{blockHeader?.date}</TableCell>
       <TableCell>
         <MemberBadge member={club.members.find((m) => m.memberId === movie.chosenById)} />
       </TableCell>
       <TableCell>
-        {blockHeader && (
-          <Typography variant="caption" color="text.secondary" component="div">
-            {blockHeader.date}
-          </Typography>
-        )}
         <Link
           component={RouterLink}
           to={`/meetings/${meetingId}`}
@@ -901,15 +896,11 @@ const EpisodeRow = memo(function EpisodeRow({
         }),
       }}
     >
+      <TableCell>{blockHeader?.date}</TableCell>
       <TableCell>
         {series ? <MemberBadge member={club.members.find((m) => m.memberId === series.chosenById)} /> : '—'}
       </TableCell>
       <TableCell>
-        {blockHeader && (
-          <Typography variant="caption" color="text.secondary" component="div">
-            {blockHeader.date}
-          </Typography>
-        )}
         <Link
           component={RouterLink}
           to={`/meetings/${meetingId}`}
