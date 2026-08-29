@@ -84,11 +84,11 @@ interface MeetingDropData {
   meetingId: string
 }
 
-/** Which pick types show in the meetings table -- a personal display preference like `RatingDisplayContext`
- * (persisted to `localStorage`, not club data), but plain component state rather than a shared context since
- * nothing outside this page's own component tree needs it. Both default to shown; movies were the only pick type
- * before series/episodes existed, so defaulting them on keeps today's view unchanged until a user actively hides
- * something. */
+/** Which pick types show in the meetings table (the club's default landing tab) -- a personal display preference
+ * like `RatingDisplayContext` (persisted to `localStorage`, not club data), but plain component state rather than
+ * a shared context since nothing outside this page's own component tree needs it. Movies default to shown,
+ * episodes default to hidden -- movies are what most members land on this page to check first; anyone who also
+ * follows series can turn episodes back on and the choice persists. */
 const MEETING_TYPE_FILTERS_KEY = 'movieclub.meetingTypeFilters'
 
 interface MeetingTypeFilters {
@@ -99,9 +99,9 @@ interface MeetingTypeFilters {
 function loadMeetingTypeFilters(): MeetingTypeFilters {
   try {
     const parsed = JSON.parse(localStorage.getItem(MEETING_TYPE_FILTERS_KEY) ?? '{}')
-    return { showMovies: parsed.showMovies ?? true, showEpisodes: parsed.showEpisodes ?? true }
+    return { showMovies: parsed.showMovies ?? true, showEpisodes: parsed.showEpisodes ?? false }
   } catch {
-    return { showMovies: true, showEpisodes: true }
+    return { showMovies: true, showEpisodes: false }
   }
 }
 

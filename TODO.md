@@ -6,7 +6,11 @@
     browser (Playwright against the dev server): a logged-out visit still renders the form, a logged-in visit to
     `/register` lands on `/clubs` immediately.
 - [ ] Add a tab with a per month view, where to show the posters
-- [ ] Show only movies in the home page by default
+- [x] Show only movies in the home page by default
+  - `MeetingsPage` (the club's default landing tab) already had a `showMovies`/`showEpisodes` filter, both
+    previously defaulting to shown. Flipped `showEpisodes`'s default to `false` -- still a personal,
+    `localStorage`-persisted preference, so anyone who wants episodes visible can turn the toggle back on and it
+    sticks.
 - [ ] Remove date header, put it into the movie line
 - [ ] When clicking movie name, open meeting details
 - [ ] Add link to imdb as a link icon after title
