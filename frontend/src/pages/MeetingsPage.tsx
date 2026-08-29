@@ -60,6 +60,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import { useSeasonNumbers, type SeasonCodeInfo } from '../hooks/useSeasonNumbers'
+import { useYearTabs } from '../hooks/useYearTabs'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { useRatingDisplay, type RatingFillWith } from '../settings/RatingDisplayContext'
 import { countryFlag, countryName } from '../utils/country'
@@ -113,7 +114,6 @@ export function MeetingsPage() {
   const [date, setDate] = useState('')
   const [assignedMemberId, setAssignedMemberId] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const [selectedYear, setSelectedYear] = useState<string | null>(null)
   const [typeFilters, setTypeFilters] = useState(loadMeetingTypeFilters)
   const [moveError, setMoveError] = useState<string | null>(null)
   const [activeDrag, setActiveDrag] = useState<PickDragData | null>(null)
@@ -245,15 +245,9 @@ export function MeetingsPage() {
     }
   }
 
-  const sorted = [...(meetings ?? [])].sort((a, b) => a.date.localeCompare(b.date))
   const columnCount = 9 + club.members.length
+  const { sorted, years, currentYear, effectiveYear, itemsForYear: meetingsForYear, setSelectedYear } = useYearTabs(meetings ?? [])
   const seasonNumbers = useSeasonNumbers(sorted.flatMap((meeting) => meeting.episodes.map((pick) => pick.episode.seasonId)))
-
-  const years = [...new Set(sorted.map((meeting) => meeting.date.slice(0, 4)))].sort((a, b) => b.localeCompare(a))
-  const currentYear = String(new Date().getFullYear())
-  const defaultYear = years.includes(currentYear) ? currentYear : (years.at(0) ?? currentYear)
-  const effectiveYear = selectedYear && years.includes(selectedYear) ? selectedYear : defaultYear
-  const meetingsForYear = sorted.filter((meeting) => meeting.date.slice(0, 4) === effectiveYear)
 
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const focusedYearRef = useRef<string | null>(null)

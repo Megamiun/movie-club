@@ -7,6 +7,7 @@ import { RatingDisplayProvider } from './settings/RatingDisplayContext'
 import { AppLayout } from './layout/AppLayout'
 import { ClubLayout } from './layout/ClubLayout'
 import { AdminPage } from './pages/AdminPage'
+import { CalendarPage } from './pages/CalendarPage'
 import { ClubOverviewPage } from './pages/ClubOverviewPage'
 import { ClubsPage } from './pages/ClubsPage'
 import { ImportPage } from './pages/ImportPage'
@@ -53,6 +54,7 @@ function App() {
                   <Route path="movies" element={<MoviesPage />} />
                   <Route path="series" element={<SeriesListPage />} />
                   <Route path="watchlist" element={<WatchlistPage />} />
+                  <Route path="calendar" element={<CalendarPage />} />
                   <Route path="import" element={<ImportPage />} />
                   <Route path="overview" element={<ClubOverviewPage />} />
                 </Route>

@@ -5,7 +5,25 @@
     rendering the form -- same early-return-after-hooks shape as the rest of the route tree. Verified in a real
     browser (Playwright against the dev server): a logged-out visit still renders the form, a logged-in visit to
     `/register` lands on `/clubs` immediately.
-- [ ] Add a tab with a per month view, where to show the posters
+- [x] Add a tab with a per month view, where to show the posters
+  - New "Calendar" tab (`CalendarPage`, `/clubs/{clubId}/calendar`) alongside Meetings/Movies/Series/Watchlist/
+    Import/Overview in `ClubLayout` -- same underlying `meetingsApi.list` data as the Meetings table, same
+    newest-first year-tab pattern, but grouped by calendar month within the selected year and rendered as a poster
+    grid (one card per pick, not per meeting, so a merged meeting's multiple movies each get their own card) instead
+    of table rows. Reuses the `posterUrl` plumbing added for the meeting detail page's poster (see below): a movie
+    card shows `movie.posterUrl`; an episode card falls back to its parent series' own `posterUrl` (already embedded
+    on the pick via `pick.series` -- no extra fetch needed) since an episode has no poster of its own. A pick with
+    no resolved poster shows a movie/TV icon placeholder rather than leaving a gap. Every card links to its
+    meeting's detail page. No filter controls (shows both movies and episodes, unlike the Meetings table's
+    show/hide toggles) -- a visual overview is the point, not a variant of the same filtering.
+  - Verified in a real browser: tab renders, months group correctly with real poster art, episode cards visibly
+    share their series' poster across every episode of that series, clicking a card navigates to the right meeting.
+  - Code review of this addition found one real duplication, fixed: the "default to current year, else most recent
+    year with meetings" year-tab algorithm was copy-pasted verbatim from `MeetingsPage`. Extracted into a shared
+    `useYearTabs` hook (`frontend/src/hooks/useYearTabs.ts`); both pages now call it instead of each carrying their
+    own copy, so a future fix to that rule can't silently apply to only one of the two pages. Re-verified both
+    pages afterward (Meetings' year tabs/default-year/scroll-to-today still work, Calendar still navigates
+    correctly) since this touched state both pages depend on.
 - [x] Show only movies in the home page by default
   - `MeetingsPage` (the club's default landing tab) already had a `showMovies`/`showEpisodes` filter, both
     previously defaulting to shown. Flipped `showEpisodes`'s default to `false` -- still a personal,

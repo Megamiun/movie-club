@@ -11,6 +11,7 @@ const TABS = [
   { path: 'movies', label: 'Movies' },
   { path: 'series', label: 'Series' },
   { path: 'watchlist', label: 'Watchlist' },
+  { path: 'calendar', label: 'Calendar' },
   { path: 'import', label: 'Import' },
   { path: 'overview', label: 'Overview' },
 ]

@@ -1,0 +1,167 @@
+import LiveTvIcon from '@mui/icons-material/LiveTv'
+import MovieIcon from '@mui/icons-material/Movie'
+import { Box, Tab, Tabs, Typography } from '@mui/material'
+import { Link as RouterLink, useOutletContext } from 'react-router-dom'
+import { meetingsApi } from '../api/meetings'
+import type { MeetingEpisodePick, MeetingMoviePick, MeetingWithPicks } from '../api/types'
+import { AsyncState } from '../components/AsyncState'
+import { useAsync } from '../hooks/useAsync'
+import { useSeasonNumbers } from '../hooks/useSeasonNumbers'
+import { useSmartPolling } from '../hooks/useSmartPolling'
+import { useYearTabs } from '../hooks/useYearTabs'
+import type { ClubOutletContext } from '../layout/ClubOutletContext'
+import { episodeCode } from '../utils/episode'
+import { resolveTitle } from '../utils/title'
+
+const MONTH_FORMATTER = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' })
+
+interface PosterCardInfo {
+  key: string
+  meetingId: string
+  date: string
+  title: string
+  posterUrl: string | null
+  isEpisode: boolean
+}
+
+/** A visual, poster-first alternative to the Meetings table -- same underlying meeting data, grouped by calendar
+ * month within the selected year instead of one row per pick. Episode cards fall back to their parent series'
+ * poster (an episode has no poster of its own, see CLAUDE.md's MediaItem section) rather than going without art. */
+export function CalendarPage() {
+  const { club } = useOutletContext<ClubOutletContext>()
+  const { data: meetings, loading, error, silentReload } = useAsync(() => meetingsApi.list(club.id), [club.id])
+  useSmartPolling(silentReload, 10_000)
+
+  const seasonNumbers = useSeasonNumbers(
+    (meetings ?? []).flatMap((meeting) => meeting.episodes.map((pick) => pick.episode.seasonId)),
+  )
+
+  const { sorted, years, effectiveYear, itemsForYear: meetingsForYear, setSelectedYear } = useYearTabs(meetings ?? [])
+
+  const months = groupByMonth(meetingsForYear)
+
+  return (
+    <Box>
+      <Typography variant="h5" gutterBottom>
+        Calendar
+      </Typography>
+
+      <AsyncState loading={loading} error={error}>
+        {sorted.length === 0 ? (
+          <Typography color="text.secondary">No meetings yet.</Typography>
+        ) : (
+          <>
+            <Tabs value={effectiveYear} onChange={(_, year) => setSelectedYear(year)} sx={{ mb: 3 }}>
+              {years.map((year) => (
+                <Tab key={year} value={year} label={year} />
+              ))}
+            </Tabs>
+
+            {months.map(({ month, meetings: monthMeetings }) => {
+              const cards = monthMeetings.flatMap((meeting) => cardsFor(meeting, club, seasonNumbers))
+              if (cards.length === 0) return null
+              return (
+                <Box key={month} sx={{ mb: 4 }}>
+                  <Typography variant="h6" gutterBottom>
+                    {MONTH_FORMATTER.format(new Date(`${month}-01T00:00:00`))}
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                    {cards.map((card) => (
+                      <PosterCard key={card.key} card={card} />
+                    ))}
+                  </Box>
+                </Box>
+              )
+            })}
+          </>
+        )}
+      </AsyncState>
+    </Box>
+  )
+}
+
+function groupByMonth(meetings: MeetingWithPicks[]) {
+  const order: string[] = []
+  const byMonth = new Map<string, MeetingWithPicks[]>()
+  for (const meeting of meetings) {
+    const month = meeting.date.slice(0, 7)
+    if (!byMonth.has(month)) {
+      byMonth.set(month, [])
+      order.push(month)
+    }
+    byMonth.get(month)!.push(meeting)
+  }
+  return order.map((month) => ({ month, meetings: byMonth.get(month)! }))
+}
+
+function cardsFor(
+  meeting: MeetingWithPicks,
+  club: ClubOutletContext['club'],
+  seasonNumbers: Map<string, { number: number; seasonDigits: number; episodeDigits: number }> | null,
+): PosterCardInfo[] {
+  const movieCards = meeting.movies.map((pick: MeetingMoviePick) => ({
+    key: pick.movie.id,
+    meetingId: meeting.id,
+    date: meeting.date,
+    title: resolveTitle(pick.movie, club),
+    posterUrl: pick.movie.posterUrl,
+    isEpisode: false,
+  }))
+
+  const episodeCards = meeting.episodes.map((pick: MeetingEpisodePick) => {
+    const seasonCode = seasonNumbers?.get(pick.episode.seasonId)
+    const code = episodeCode(seasonCode?.number, pick.episode.number, seasonCode?.seasonDigits, seasonCode?.episodeDigits)
+    const seriesTitle = pick.series ? resolveTitle(pick.series, club) : null
+    return {
+      key: pick.episode.id,
+      meetingId: meeting.id,
+      date: meeting.date,
+      title: seriesTitle ? `${seriesTitle} ${code}` : code,
+      posterUrl: pick.series?.posterUrl ?? null,
+      isEpisode: true,
+    }
+  })
+
+  return [...movieCards, ...episodeCards]
+}
+
+function PosterCard({ card }: { card: PosterCardInfo }) {
+  return (
+    <Box
+      component={RouterLink}
+      to={`/meetings/${card.meetingId}`}
+      sx={{
+        width: 120,
+        textDecoration: 'none',
+        color: 'inherit',
+        display: 'block',
+        '&:hover': { opacity: 0.85 },
+      }}
+    >
+      {card.posterUrl ? (
+        <Box component="img" src={card.posterUrl} alt="" sx={{ width: '100%', aspectRatio: '2 / 3', objectFit: 'cover', borderRadius: 1 }} />
+      ) : (
+        <Box
+          sx={{
+            width: '100%',
+            aspectRatio: '2 / 3',
+            borderRadius: 1,
+            bgcolor: 'action.hover',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'text.disabled',
+          }}
+        >
+          {card.isEpisode ? <LiveTvIcon /> : <MovieIcon />}
+        </Box>
+      )}
+      <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
+        {card.date}
+      </Typography>
+      <Typography variant="body2" sx={{ lineHeight: 1.2 }}>
+        {card.title}
+      </Typography>
+    </Box>
+  )
+}
