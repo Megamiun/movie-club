@@ -39,6 +39,11 @@ internal data class RateMovieRequest(
 )
 
 @Serializable
+internal data class RateMovieOptionRequest(
+    val optionId: String?,
+)
+
+@Serializable
 internal data class TranslationResponse(
     val languageCode: String,
     val countryCode: String,

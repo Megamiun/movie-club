@@ -9,6 +9,8 @@ import br.com.gabryel.movieclub.db.tables.Meetings
 import br.com.gabryel.movieclub.db.tables.MemberEpisodeReviews
 import br.com.gabryel.movieclub.db.tables.MemberSeasonReviews
 import br.com.gabryel.movieclub.db.tables.Members
+import br.com.gabryel.movieclub.db.tables.RatingOptions
+import br.com.gabryel.movieclub.db.tables.RatingScales
 import br.com.gabryel.movieclub.db.tables.Seasons
 import br.com.gabryel.movieclub.db.tables.Series
 import org.jetbrains.exposed.v1.core.eq
@@ -16,10 +18,12 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import java.util.concurrent.CyclicBarrier
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.uuid.Uuid
 
@@ -54,6 +58,9 @@ class SeasonAndEpisodeRepositoryIntegrationTest {
             Seasons.deleteWhere { id inList seasonIds }
             Series.deleteWhere { id inList seriesIds }
             Meetings.deleteWhere { id inList meetingIds }
+            val scaleIds = RatingScales.selectAll().where { RatingScales.clubId inList clubIds }.map { it[RatingScales.id] }
+            RatingOptions.deleteWhere { scaleId inList scaleIds }
+            RatingScales.deleteWhere { clubId inList clubIds }
             Clubs.deleteWhere { id inList clubIds }
             Members.deleteWhere { id inList memberIds }
         }
@@ -218,6 +225,96 @@ class SeasonAndEpisodeRepositoryIntegrationTest {
     }
 
     @Test
+    fun `updateReviewQuality creates a review row when none exists yet`() {
+        val season = seasonRepository.create(newSeries(), 1)
+        val episode = episodeRepository.create(season.id, 1, "Pilot")
+        val member = newMember()
+        val option = newQualityOptionId()
+
+        episodeRepository.updateReviewQuality(episode.id, member, option)
+
+        assertEquals(option, episodeRepository.findReview(episode.id, member)?.qualityOptionId)
+    }
+
+    @Test
+    fun `updateReviewQuality leaves sentiment and comment untouched`() {
+        val season = seasonRepository.create(newSeries(), 1)
+        val episode = episodeRepository.create(season.id, 1, "Pilot")
+        val member = newMember()
+        val sentimentOption = newQualityOptionId()
+        episodeRepository.upsertReview(episode.id, member, sentimentOptionId = sentimentOption, comment = "great pilot")
+        val qualityOption = newQualityOptionId()
+
+        episodeRepository.updateReviewQuality(episode.id, member, qualityOption)
+        val review = episodeRepository.findReview(episode.id, member)
+
+        assertEquals(qualityOption, review?.qualityOptionId)
+        assertEquals(sentimentOption, review?.sentimentOptionId)
+        assertEquals("great pilot", review?.comment)
+    }
+
+    @Test
+    fun `updateReviewSentiment leaves quality and comment untouched`() {
+        val season = seasonRepository.create(newSeries(), 1)
+        val episode = episodeRepository.create(season.id, 1, "Pilot")
+        val member = newMember()
+        val qualityOption = newQualityOptionId()
+        episodeRepository.upsertReview(episode.id, member, qualityOptionId = qualityOption, comment = "great pilot")
+        val sentimentOption = newQualityOptionId()
+
+        episodeRepository.updateReviewSentiment(episode.id, member, sentimentOption)
+        val review = episodeRepository.findReview(episode.id, member)
+
+        assertEquals(sentimentOption, review?.sentimentOptionId)
+        assertEquals(qualityOption, review?.qualityOptionId)
+        assertEquals("great pilot", review?.comment)
+    }
+
+    @Test
+    fun `updateReviewQuality and updateReviewSentiment fired concurrently for a new review never lose either field`() {
+        val season = seasonRepository.create(newSeries(), 1)
+        val episode = episodeRepository.create(season.id, 1, "Pilot")
+        val member = newMember()
+        val qualityOption = newQualityOptionId()
+        val sentimentOption = newQualityOptionId()
+        val ready = CyclicBarrier(2)
+
+        val qualityThread = Thread {
+            ready.await()
+            episodeRepository.updateReviewQuality(episode.id, member, qualityOption)
+        }
+        val sentimentThread = Thread {
+            ready.await()
+            episodeRepository.updateReviewSentiment(episode.id, member, sentimentOption)
+        }
+        qualityThread.start()
+        sentimentThread.start()
+        qualityThread.join()
+        sentimentThread.join()
+
+        val review = episodeRepository.findReview(episode.id, member)
+        assertEquals(qualityOption, review?.qualityOptionId)
+        assertEquals(sentimentOption, review?.sentimentOptionId)
+    }
+
+    @Test
+    fun `updateReviewQuality with null clears only the quality rating`() {
+        val season = seasonRepository.create(newSeries(), 1)
+        val episode = episodeRepository.create(season.id, 1, "Pilot")
+        val member = newMember()
+        val qualityOption = newQualityOptionId()
+        val sentimentOption = newQualityOptionId()
+        episodeRepository.upsertReview(episode.id, member, qualityOption, sentimentOption, "great pilot")
+
+        episodeRepository.updateReviewQuality(episode.id, member, null)
+        val review = episodeRepository.findReview(episode.id, member)
+
+        assertNull(review?.qualityOptionId)
+        assertEquals(sentimentOption, review?.sentimentOptionId)
+        assertEquals("great pilot", review?.comment)
+    }
+
+    @Test
     fun `findSeriesImdbIds resolves every episode's parent series imdb id, in one batch`() {
         val seriesId = newSeries()
         val seriesImdbId = transaction { Series.selectAll().where { Series.id eq seriesId }.single()[Series.imdbId] }
@@ -243,4 +340,9 @@ class SeasonAndEpisodeRepositoryIntegrationTest {
     }
 
     private fun newMember() = IntegrationFixtures.insertMember().also { memberIds.add(it) }
+
+    private fun newQualityOptionId(): Uuid {
+        val clubId = IntegrationFixtures.insertClub().also { clubIds.add(it) }
+        return IntegrationFixtures.insertRatingOption(clubId)
+    }
 }

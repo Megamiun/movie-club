@@ -193,6 +193,26 @@ fun Route.seriesRoutes(seriesService: SeriesService, seasonService: SeasonServic
             call.respond(review.toResponse())
         }
 
+        patch("/episodes/{episodeId}/review/quality") {
+            val body = call.receive<RateOptionRequest>()
+            val review = episodeService.rateQuality(
+                call.uuidPathParam("episodeId"),
+                call.actingMemberId(),
+                body.optionId?.toUuidOrBadRequest(),
+            )
+            call.respond(review.toResponse())
+        }
+
+        patch("/episodes/{episodeId}/review/sentiment") {
+            val body = call.receive<RateOptionRequest>()
+            val review = episodeService.rateSentiment(
+                call.uuidPathParam("episodeId"),
+                call.actingMemberId(),
+                body.optionId?.toUuidOrBadRequest(),
+            )
+            call.respond(review.toResponse())
+        }
+
         get("/meetings/{meetingId}/episodes") {
             val episodes = episodeService.listEpisodesForMeeting(call.uuidPathParam("meetingId"), call.actingMemberId())
             call.respond(episodes.map { it.toResponse() })

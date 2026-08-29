@@ -21,7 +21,8 @@ export function InlineRatingEditor({
   qualityOptionId,
   sentimentOptionId,
   editable,
-  onSave,
+  onSaveQuality,
+  onSaveSentiment,
 }: {
   scales: RatingScale[]
   memberName: string
@@ -29,7 +30,8 @@ export function InlineRatingEditor({
   qualityOptionId: string | null
   sentimentOptionId: string | null
   editable: boolean
-  onSave: (qualityOptionId?: string, sentimentOptionId?: string) => void
+  onSaveQuality: (optionId: string | null) => void
+  onSaveSentiment: (optionId: string | null) => void
 }) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
   const { gradientPercent, fillWith } = useRatingDisplay()
@@ -145,7 +147,7 @@ export function InlineRatingEditor({
                 size="small"
                 displayEmpty
                 value={qualityOptionId ?? ''}
-                onChange={(e) => onSave(e.target.value || undefined, sentimentOptionId || undefined)}
+                onChange={(e) => onSaveQuality(e.target.value || null)}
                 renderValue={(value) =>
                   value ? <OptionLabel option={quality.options.find((o) => o.id === value)} /> : <em>Quality</em>
                 }
@@ -167,7 +169,7 @@ export function InlineRatingEditor({
                 size="small"
                 displayEmpty
                 value={sentimentOptionId ?? ''}
-                onChange={(e) => onSave(qualityOptionId || undefined, e.target.value || undefined)}
+                onChange={(e) => onSaveSentiment(e.target.value || null)}
                 renderValue={(value) =>
                   value ? <OptionLabel option={sentiment.options.find((o) => o.id === value)} /> : <em>Sentiment</em>
                 }

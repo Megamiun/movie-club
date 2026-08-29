@@ -2,6 +2,8 @@ package br.com.gabryel.movieclub.service
 
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
+import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
+import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.PersonRepository
@@ -353,6 +355,47 @@ class EpisodeServiceTest {
         every { episodeRepository.upsertReview(episodeId, memberId, comment = "good pilot") } returns review
 
         assertEquals(review, episodeService.rate(episodeId, memberId, comment = "good pilot"))
+    }
+
+    @Test
+    fun `rateQuality throws BadRequestException when option belongs to sentiment scale`() {
+        val episodeId = Uuid.random()
+        val optionId = Uuid.random()
+        every { episodeRepository.findById(episodeId) } returns episode(episodeId)
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        every { clubService.validateRatingOption(clubId, optionId, QUALITY) } throws
+            BadRequestException("Rating option is not a QUALITY option")
+
+        assertFailsWith<BadRequestException> { episodeService.rateQuality(episodeId, memberId, optionId) }
+    }
+
+    @Test
+    fun `rateQuality only updates the quality rating`() {
+        val episodeId = Uuid.random()
+        val optionId = Uuid.random()
+        every { episodeRepository.findById(episodeId) } returns episode(episodeId)
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        every { clubService.validateRatingOption(clubId, optionId, QUALITY) } returns Unit
+        val review = EpisodeReviewRow(episodeId, memberId, qualityOptionId = optionId)
+        every { episodeRepository.updateReviewQuality(episodeId, memberId, optionId) } returns review
+
+        assertEquals(review, episodeService.rateQuality(episodeId, memberId, optionId))
+    }
+
+    @Test
+    fun `rateSentiment only updates the sentiment rating`() {
+        val episodeId = Uuid.random()
+        val optionId = Uuid.random()
+        every { episodeRepository.findById(episodeId) } returns episode(episodeId)
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        every { clubService.validateRatingOption(clubId, optionId, SENTIMENT) } returns Unit
+        val review = EpisodeReviewRow(episodeId, memberId, sentimentOptionId = optionId)
+        every { episodeRepository.updateReviewSentiment(episodeId, memberId, optionId) } returns review
+
+        assertEquals(review, episodeService.rateSentiment(episodeId, memberId, optionId))
     }
 
     private fun episode(id: Uuid = Uuid.random()) = EpisodeRow(id = id, seasonId = seasonId, number = 1, title = "Pilot")

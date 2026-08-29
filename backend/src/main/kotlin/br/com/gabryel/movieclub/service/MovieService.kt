@@ -176,13 +176,34 @@ class MovieService(
         sentimentOptionId: Uuid? = null,
         comment: String? = null,
     ): MovieReviewRow {
-        val movie = requireMovieAccess(movieId, actingMemberId)
-        val meeting = meetingRepository.findById(movie.meetingId) ?: throw NotFoundException("Meeting not found")
+        val clubId = requireMovieClub(movieId, actingMemberId)
 
-        if (qualityOptionId != null) clubService.validateRatingOption(meeting.clubId, qualityOptionId, QUALITY)
-        if (sentimentOptionId != null) clubService.validateRatingOption(meeting.clubId, sentimentOptionId, SENTIMENT)
+        if (qualityOptionId != null) clubService.validateRatingOption(clubId, qualityOptionId, QUALITY)
+        if (sentimentOptionId != null) clubService.validateRatingOption(clubId, sentimentOptionId, SENTIMENT)
 
         return movieRepository.upsertReview(movieId, actingMemberId, qualityOptionId, sentimentOptionId, comment)
+    }
+
+    /** Sets only the quality rating, leaving sentiment/comment untouched -- see
+     * [MovieRepository.updateReviewQuality] for why this is safe against a concurrent [rateSentiment] call on the
+     * same review, unlike [rate], which always overwrites all three fields together. */
+    fun rateQuality(movieId: Uuid, actingMemberId: Uuid, qualityOptionId: Uuid?): MovieReviewRow {
+        val clubId = requireMovieClub(movieId, actingMemberId)
+        if (qualityOptionId != null) clubService.validateRatingOption(clubId, qualityOptionId, QUALITY)
+        return movieRepository.updateReviewQuality(movieId, actingMemberId, qualityOptionId)
+    }
+
+    /** Same as [rateQuality], for the sentiment rating instead. */
+    fun rateSentiment(movieId: Uuid, actingMemberId: Uuid, sentimentOptionId: Uuid?): MovieReviewRow {
+        val clubId = requireMovieClub(movieId, actingMemberId)
+        if (sentimentOptionId != null) clubService.validateRatingOption(clubId, sentimentOptionId, SENTIMENT)
+        return movieRepository.updateReviewSentiment(movieId, actingMemberId, sentimentOptionId)
+    }
+
+    private fun requireMovieClub(movieId: Uuid, actingMemberId: Uuid): Uuid {
+        val movie = requireMovieAccess(movieId, actingMemberId)
+        val meeting = meetingRepository.findById(movie.meetingId) ?: throw NotFoundException("Meeting not found")
+        return meeting.clubId
     }
 
     fun listReviews(movieId: Uuid, actingMemberId: Uuid): List<MovieReviewRow> {

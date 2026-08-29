@@ -116,6 +116,11 @@ internal data class RateRequest(
 )
 
 @Serializable
+internal data class RateOptionRequest(
+    val optionId: String?,
+)
+
+@Serializable
 internal data class SeriesReviewResponse(
     val seriesId: String,
     val memberId: String,

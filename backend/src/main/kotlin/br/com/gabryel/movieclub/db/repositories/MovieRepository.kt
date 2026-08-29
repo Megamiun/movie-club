@@ -52,6 +52,15 @@ interface MovieRepository {
 
     fun findReview(movieId: Uuid, memberId: Uuid): MovieReviewRow?
 
+    /** Sets *only* [qualityOptionId] on this member's review, creating it if it doesn't exist yet -- unlike
+     * [upsertReview], the update statement never touches `sentimentOptionId`/`comment` at all, so a concurrent
+     * update to either of those can never be clobbered by this call (or vice versa). `null` unambiguously clears
+     * the quality rating, since there's no other field it could be mistaken for "leave unchanged". */
+    fun updateReviewQuality(movieId: Uuid, memberId: Uuid, qualityOptionId: Uuid?): MovieReviewRow
+
+    /** Same as [updateReviewQuality], for `sentimentOptionId` instead. */
+    fun updateReviewSentiment(movieId: Uuid, memberId: Uuid, sentimentOptionId: Uuid?): MovieReviewRow
+
     fun listReviews(movieId: Uuid): List<MovieReviewRow>
 
     /** Batched form of [listReviews] for multiple movies at once -- each [MovieReviewRow] already carries its own

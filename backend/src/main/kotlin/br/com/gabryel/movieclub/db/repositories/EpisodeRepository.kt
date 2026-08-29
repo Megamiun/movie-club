@@ -59,6 +59,15 @@ interface EpisodeRepository {
 
     fun findReview(episodeId: Uuid, memberId: Uuid): EpisodeReviewRow?
 
+    /** Sets *only* [qualityOptionId] on this member's review, creating it if it doesn't exist yet -- unlike
+     * [upsertReview], the update statement never touches `sentimentOptionId`/`comment` at all, so a concurrent
+     * update to either of those can never be clobbered by this call (or vice versa). `null` unambiguously clears
+     * the quality rating, since there's no other field it could be mistaken for "leave unchanged". */
+    fun updateReviewQuality(episodeId: Uuid, memberId: Uuid, qualityOptionId: Uuid?): EpisodeReviewRow
+
+    /** Same as [updateReviewQuality], for `sentimentOptionId` instead. */
+    fun updateReviewSentiment(episodeId: Uuid, memberId: Uuid, sentimentOptionId: Uuid?): EpisodeReviewRow
+
     fun listReviews(episodeId: Uuid): List<EpisodeReviewRow>
 
     /** Batched form of [listReviews] for multiple episodes at once -- each [EpisodeReviewRow] already carries its

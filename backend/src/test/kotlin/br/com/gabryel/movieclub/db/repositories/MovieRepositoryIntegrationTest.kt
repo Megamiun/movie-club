@@ -9,11 +9,14 @@ import br.com.gabryel.movieclub.db.tables.Meetings
 import br.com.gabryel.movieclub.db.tables.MemberMovieReviews
 import br.com.gabryel.movieclub.db.tables.Members
 import br.com.gabryel.movieclub.db.tables.Movies
+import br.com.gabryel.movieclub.db.tables.RatingOptions
+import br.com.gabryel.movieclub.db.tables.RatingScales
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import java.util.concurrent.CyclicBarrier
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -48,6 +51,9 @@ class MovieRepositoryIntegrationTest {
             MeetingMovies.deleteWhere { id inList pickIds }
             Movies.deleteWhere { id inList movieIds }
             Meetings.deleteWhere { id inList meetingIds }
+            val scaleIds = RatingScales.selectAll().where { RatingScales.clubId inList clubIds }.map { it[RatingScales.id] }
+            RatingOptions.deleteWhere { scaleId inList scaleIds }
+            RatingScales.deleteWhere { clubId inList clubIds }
             ClubMembers.deleteWhere { clubId inList clubIds }
             Clubs.deleteWhere { id inList clubIds }
             Members.deleteWhere { id inList memberIds }
@@ -113,6 +119,96 @@ class MovieRepositoryIntegrationTest {
     }
 
     @Test
+    fun `updateReviewQuality creates a review row when none exists yet`() {
+        val member = newMember()
+        val meeting = newMeeting()
+        val pick = movieRepository.create(meeting, member, "tt2911666", metadata())
+        val option = newQualityOptionId()
+
+        movieRepository.updateReviewQuality(pick.id, member, option)
+
+        assertEquals(option, movieRepository.findReview(pick.id, member)?.qualityOptionId)
+    }
+
+    @Test
+    fun `updateReviewQuality leaves sentiment and comment untouched`() {
+        val member = newMember()
+        val meeting = newMeeting()
+        val pick = movieRepository.create(meeting, member, "tt2911666", metadata())
+        val sentimentOption = newQualityOptionId()
+        movieRepository.upsertReview(pick.id, member, sentimentOptionId = sentimentOption, comment = "great rewatch")
+        val qualityOption = newQualityOptionId()
+
+        movieRepository.updateReviewQuality(pick.id, member, qualityOption)
+        val review = movieRepository.findReview(pick.id, member)
+
+        assertEquals(qualityOption, review?.qualityOptionId)
+        assertEquals(sentimentOption, review?.sentimentOptionId)
+        assertEquals("great rewatch", review?.comment)
+    }
+
+    @Test
+    fun `updateReviewSentiment leaves quality and comment untouched`() {
+        val member = newMember()
+        val meeting = newMeeting()
+        val pick = movieRepository.create(meeting, member, "tt2911666", metadata())
+        val qualityOption = newQualityOptionId()
+        movieRepository.upsertReview(pick.id, member, qualityOptionId = qualityOption, comment = "great rewatch")
+        val sentimentOption = newQualityOptionId()
+
+        movieRepository.updateReviewSentiment(pick.id, member, sentimentOption)
+        val review = movieRepository.findReview(pick.id, member)
+
+        assertEquals(sentimentOption, review?.sentimentOptionId)
+        assertEquals(qualityOption, review?.qualityOptionId)
+        assertEquals("great rewatch", review?.comment)
+    }
+
+    @Test
+    fun `updateReviewQuality and updateReviewSentiment fired concurrently for a new review never lose either field`() {
+        val member = newMember()
+        val meeting = newMeeting()
+        val pick = movieRepository.create(meeting, member, "tt2911666", metadata())
+        val qualityOption = newQualityOptionId()
+        val sentimentOption = newQualityOptionId()
+        val ready = CyclicBarrier(2)
+
+        val qualityThread = Thread {
+            ready.await()
+            movieRepository.updateReviewQuality(pick.id, member, qualityOption)
+        }
+        val sentimentThread = Thread {
+            ready.await()
+            movieRepository.updateReviewSentiment(pick.id, member, sentimentOption)
+        }
+        qualityThread.start()
+        sentimentThread.start()
+        qualityThread.join()
+        sentimentThread.join()
+
+        val review = movieRepository.findReview(pick.id, member)
+        assertEquals(qualityOption, review?.qualityOptionId)
+        assertEquals(sentimentOption, review?.sentimentOptionId)
+    }
+
+    @Test
+    fun `updateReviewQuality with null clears only the quality rating`() {
+        val member = newMember()
+        val meeting = newMeeting()
+        val pick = movieRepository.create(meeting, member, "tt2911666", metadata())
+        val qualityOption = newQualityOptionId()
+        val sentimentOption = newQualityOptionId()
+        movieRepository.upsertReview(pick.id, member, qualityOption, sentimentOption, "great rewatch")
+
+        movieRepository.updateReviewQuality(pick.id, member, null)
+        val review = movieRepository.findReview(pick.id, member)
+
+        assertNull(review?.qualityOptionId)
+        assertEquals(sentimentOption, review?.sentimentOptionId)
+        assertEquals("great rewatch", review?.comment)
+    }
+
+    @Test
     fun `listByMeetings returns every pick across all the given meetings, in one batch`() {
         val member = newMember()
         val meetingA = newMeeting()
@@ -167,5 +263,10 @@ class MovieRepositoryIntegrationTest {
     private fun newMeeting(): Uuid {
         val clubId = IntegrationFixtures.insertClub().also { clubIds.add(it) }
         return IntegrationFixtures.insertMeeting(clubId).also { meetingIds.add(it) }
+    }
+
+    private fun newQualityOptionId(): Uuid {
+        val clubId = IntegrationFixtures.insertClub().also { clubIds.add(it) }
+        return IntegrationFixtures.insertRatingOption(clubId)
     }
 }

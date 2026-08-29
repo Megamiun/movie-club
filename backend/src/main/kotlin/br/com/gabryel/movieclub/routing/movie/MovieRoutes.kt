@@ -101,6 +101,26 @@ fun Route.movieRoutes(movieService: MovieService) {
             call.respond(review.toResponse())
         }
 
+        patch("/movies/{movieId}/review/quality") {
+            val body = call.receive<RateMovieOptionRequest>()
+            val review = movieService.rateQuality(
+                call.uuidPathParam("movieId"),
+                call.actingMemberId(),
+                body.optionId?.toUuidOrBadRequest(),
+            )
+            call.respond(review.toResponse())
+        }
+
+        patch("/movies/{movieId}/review/sentiment") {
+            val body = call.receive<RateMovieOptionRequest>()
+            val review = movieService.rateSentiment(
+                call.uuidPathParam("movieId"),
+                call.actingMemberId(),
+                body.optionId?.toUuidOrBadRequest(),
+            )
+            call.respond(review.toResponse())
+        }
+
         get("/movies/{movieId}/reviews") {
             val reviews = movieService.listReviews(call.uuidPathParam("movieId"), call.actingMemberId())
             call.respond(reviews.map { it.toResponse() })

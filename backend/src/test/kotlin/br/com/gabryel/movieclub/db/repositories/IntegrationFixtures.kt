@@ -1,10 +1,14 @@
 package br.com.gabryel.movieclub.db.repositories
 
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
+import br.com.gabryel.movieclub.db.RatingScaleType
+import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.tables.ClubMembers
 import br.com.gabryel.movieclub.db.tables.Clubs
 import br.com.gabryel.movieclub.db.tables.Meetings
 import br.com.gabryel.movieclub.db.tables.Members
+import br.com.gabryel.movieclub.db.tables.RatingOptions
+import br.com.gabryel.movieclub.db.tables.RatingScales
 import br.com.gabryel.movieclub.db.tables.Series
 import kotlinx.datetime.LocalDate
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -49,6 +53,21 @@ internal object IntegrationFixtures {
             it[Meetings.clubId] = clubId
             it[Meetings.date] = date
         }[Meetings.id].value
+    }
+
+    /** Inserts a rating scale + single option directly, bypassing `ClubService`'s own seeding -- used by tests that
+     * just need a real [RatingOptions] id to satisfy the FK on a review's quality/sentiment column. */
+    fun insertRatingOption(clubId: Uuid, type: RatingScaleType = QUALITY): Uuid = transaction {
+        val scaleId = RatingScales.insert {
+            it[RatingScales.clubId] = clubId
+            it[RatingScales.type] = type
+        }[RatingScales.id].value
+        RatingOptions.insert {
+            it[RatingOptions.scaleId] = scaleId
+            it[RatingOptions.label] = "Option"
+            it[RatingOptions.position] = 0
+            it[RatingOptions.color] = "#000000"
+        }[RatingOptions.id].value
     }
 
     /** Inserts a bare global [Series] catalog row directly -- used by Season/Episode tests, which only need a

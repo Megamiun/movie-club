@@ -69,5 +69,11 @@ export const episodesApi = {
   rate: (episodeId: string, qualityOptionId?: string, sentimentOptionId?: string, comment?: string) =>
     api.put<EpisodeReview>(`/episodes/${episodeId}/review`, { qualityOptionId, sentimentOptionId, comment }),
 
+  rateQuality: (episodeId: string, optionId: string | null) =>
+    api.patch<EpisodeReview>(`/episodes/${episodeId}/review/quality`, { optionId }),
+
+  rateSentiment: (episodeId: string, optionId: string | null) =>
+    api.patch<EpisodeReview>(`/episodes/${episodeId}/review/sentiment`, { optionId }),
+
   listForMeeting: (meetingId: string) => api.get<Episode[]>(`/meetings/${meetingId}/episodes`),
 }

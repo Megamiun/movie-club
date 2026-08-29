@@ -30,6 +30,7 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import org.jetbrains.exposed.v1.jdbc.upsert
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
@@ -218,6 +219,39 @@ class ExposedEpisodeRepository : EpisodeRepository {
                 it[MemberEpisodeReviews.sentimentOptionId] = sentimentOptionId
                 it[MemberEpisodeReviews.comment] = comment
             }
+        }
+        findReview(episodeId, memberId)!!
+    }
+
+    /** Uses an atomic `INSERT ... ON CONFLICT` (Exposed's [upsert]) rather than a check-then-act `findReview` +
+     * `insert`/`update` -- see [br.com.gabryel.movieclub.db.repositories.exposed.ExposedMovieRepository.updateReviewQuality]
+     * for why: the frontend fires this and [updateReviewSentiment] as two independent, unsequenced requests, so a
+     * first-time rating of both fields in quick succession could otherwise race two concurrent inserts against the
+     * composite `(episodeId, memberId)` primary key. `onUpdate` only assigns [qualityOptionId], leaving an
+     * existing row's `sentimentOptionId`/`comment` untouched by the conflict path. */
+    override fun updateReviewQuality(episodeId: Uuid, memberId: Uuid, qualityOptionId: Uuid?): EpisodeReviewRow = transaction {
+        MemberEpisodeReviews.upsert(
+            MemberEpisodeReviews.episodeId,
+            MemberEpisodeReviews.memberId,
+            onUpdate = { it[MemberEpisodeReviews.qualityOptionId] = qualityOptionId },
+        ) {
+            it[MemberEpisodeReviews.episodeId] = episodeId
+            it[MemberEpisodeReviews.memberId] = memberId
+            it[MemberEpisodeReviews.qualityOptionId] = qualityOptionId
+        }
+        findReview(episodeId, memberId)!!
+    }
+
+    /** Same as [updateReviewQuality], for [sentimentOptionId] instead. */
+    override fun updateReviewSentiment(episodeId: Uuid, memberId: Uuid, sentimentOptionId: Uuid?): EpisodeReviewRow = transaction {
+        MemberEpisodeReviews.upsert(
+            MemberEpisodeReviews.episodeId,
+            MemberEpisodeReviews.memberId,
+            onUpdate = { it[MemberEpisodeReviews.sentimentOptionId] = sentimentOptionId },
+        ) {
+            it[MemberEpisodeReviews.episodeId] = episodeId
+            it[MemberEpisodeReviews.memberId] = memberId
+            it[MemberEpisodeReviews.sentimentOptionId] = sentimentOptionId
         }
         findReview(episodeId, memberId)!!
     }

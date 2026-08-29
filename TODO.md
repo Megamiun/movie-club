@@ -1,5 +1,13 @@
 # TODO
 
+- [ ] Auto redirect from register page when already logged in
+- [ ] Add a tab with a per month view, where to show the posters
+- [ ] Show only movies in the home page by default
+- [ ] Remove date header, put it into the movie line
+- [ ] When clicking movie name, open meeting details
+- [ ] Add link to imdb as a link icon after title
+- [ ] Add poster and all details into the meeting details page
+
 - [x] Update instantly when changing languages, colors, rating and so on, but just the relevant components
   - Language-preference edits now refresh the shared `club` object (`LanguagePreferencesSection` calls the outlet's
     `silentReload`, same pattern as member color); `ClubLayout` polls that `club` fetch every 15s; `MeetingsPage`/
@@ -89,13 +97,28 @@
     rewrite risks -- a movie belonging to one meeting showing up grouped under a different one once the fetch is
     batched across meetings instead of done per-meeting. `./gradlew :backend:test`/`:backend:ktlintCheck` both
     pass. Not manually verified against the running app (docker compose) -- automated coverage only.
-- [ ] Separately (not yet done): `PUT /movies/{id}/review` (and the series/season/episode equivalents) is a full
-  overwrite of both quality *and* sentiment together, not independent per-field — `InlineRatingEditor` already has
-  to read the untouched field back out of its own props to avoid clobbering it on every save. Doesn't affect
-  perceived speed now that saves are optimistic, but still an open question: worth making genuinely independent
-  (separate endpoint/param), or is the frontend papering over it fine long-term? Same question extends to the
-  member-color and language-preference PATCHes ("Make APIs do one action per click" — Ratings / Colors / Languages
-  / PATCH? DELETE? PUT? — still unresolved).
+- [x] Separately: `PUT /movies/{id}/review` (and the episode equivalent) was a full overwrite of both quality *and*
+  sentiment together, not independent per-field — `InlineRatingEditor` had to read the untouched field back out of
+  its own props to avoid clobbering it on every save.
+  - Fixed for Movie and Episode (the two entities the meetings table actually rates inline): `PATCH
+    /movies/{movieId}/review/quality` and `.../review/sentiment` (and the `/episodes/...` equivalents),
+    `MovieService`/`EpisodeService.rateQuality`/`rateSentiment`, backed by new `MovieRepository`/
+    `EpisodeRepository.updateReviewQuality`/`updateReviewSentiment`. `InlineRatingEditor`'s `onSave` prop split into
+    `onSaveQuality`/`onSaveSentiment`, each firing its own independent PATCH — no more echoing the other field or
+    the comment back just to avoid wiping it. Series/Season's own combined `rate` endpoint is untouched; nothing in
+    the UI edits their ratings inline the way Movie/Episode's meetings-table cells do, so splitting them wasn't in
+    scope here.
+  - Code review of this change found one real bug, fixed: the new repository methods used a check-then-act
+    (`findReview` then `insert`/`update`) against `MemberMovieReviews`/`MemberEpisodeReviews`, both keyed by a
+    composite primary key. Harmless as long as a rating save was one combined PUT, but the frontend now fires
+    quality and sentiment as two independent, unsequenced PATCH calls — a first-time rating of both in quick
+    succession could have both transactions see "no review yet" and both attempt an `insert`, the loser hitting a
+    bare 500 off the PK violation and silently dropping that field's save despite the optimistic UI already
+    showing it as persisted. Fixed by using Exposed's atomic `upsert` (`INSERT ... ON CONFLICT`) instead, with
+    `onUpdate` assigning only the one field each method owns so the other field/`comment` are never touched by the
+    conflict path.
+  - Member-color and language-preference PATCHes raised the same "one action per click" question — still
+    unresolved, out of scope for this pass.
 
 # Stretch goals (only start after asked)
 

@@ -26,5 +26,11 @@ export const moviesApi = {
   rate: (movieId: string, qualityOptionId?: string, sentimentOptionId?: string, comment?: string) =>
     api.put<MovieReview>(`/movies/${movieId}/review`, { qualityOptionId, sentimentOptionId, comment }),
 
+  rateQuality: (movieId: string, optionId: string | null) =>
+    api.patch<MovieReview>(`/movies/${movieId}/review/quality`, { optionId }),
+
+  rateSentiment: (movieId: string, optionId: string | null) =>
+    api.patch<MovieReview>(`/movies/${movieId}/review/sentiment`, { optionId }),
+
   listReviews: (movieId: string) => api.get<MovieReview[]>(`/movies/${movieId}/reviews`),
 }

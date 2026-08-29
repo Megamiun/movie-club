@@ -162,11 +162,31 @@ class EpisodeService(
         sentimentOptionId: Uuid? = null,
         comment: String? = null,
     ): EpisodeReviewRow {
-        val episode = episodeRepository.findById(episodeId) ?: throw NotFoundException("Episode not found")
-        val series = requireClubSeriesForMember(season(episode.seasonId).seriesId, actingMemberId)
-        if (qualityOptionId != null) clubService.validateRatingOption(series.clubId, qualityOptionId, QUALITY)
-        if (sentimentOptionId != null) clubService.validateRatingOption(series.clubId, sentimentOptionId, SENTIMENT)
+        val clubId = requireEpisodeClub(episodeId, actingMemberId)
+        if (qualityOptionId != null) clubService.validateRatingOption(clubId, qualityOptionId, QUALITY)
+        if (sentimentOptionId != null) clubService.validateRatingOption(clubId, sentimentOptionId, SENTIMENT)
         return episodeRepository.upsertReview(episodeId, actingMemberId, qualityOptionId, sentimentOptionId, comment)
+    }
+
+    /** Sets only the quality rating, leaving sentiment/comment untouched -- see
+     * [EpisodeRepository.updateReviewQuality] for why this is safe against a concurrent [rateSentiment] call on
+     * the same review, unlike [rate], which always overwrites all three fields together. */
+    fun rateQuality(episodeId: Uuid, actingMemberId: Uuid, qualityOptionId: Uuid?): EpisodeReviewRow {
+        val clubId = requireEpisodeClub(episodeId, actingMemberId)
+        if (qualityOptionId != null) clubService.validateRatingOption(clubId, qualityOptionId, QUALITY)
+        return episodeRepository.updateReviewQuality(episodeId, actingMemberId, qualityOptionId)
+    }
+
+    /** Same as [rateQuality], for the sentiment rating instead. */
+    fun rateSentiment(episodeId: Uuid, actingMemberId: Uuid, sentimentOptionId: Uuid?): EpisodeReviewRow {
+        val clubId = requireEpisodeClub(episodeId, actingMemberId)
+        if (sentimentOptionId != null) clubService.validateRatingOption(clubId, sentimentOptionId, SENTIMENT)
+        return episodeRepository.updateReviewSentiment(episodeId, actingMemberId, sentimentOptionId)
+    }
+
+    private fun requireEpisodeClub(episodeId: Uuid, actingMemberId: Uuid): Uuid {
+        val episode = episodeRepository.findById(episodeId) ?: throw NotFoundException("Episode not found")
+        return requireClubSeriesForMember(season(episode.seasonId).seriesId, actingMemberId).clubId
     }
 
     private fun season(seasonId: Uuid): SeasonRow =

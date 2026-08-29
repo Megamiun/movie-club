@@ -142,8 +142,8 @@ export function MeetingsPage() {
   // so `MovieRow`/`EpisodeRow` below can be `memo`d without a fresh `onRate` reference defeating it on every
   // `MeetingsPage` render.
   const patchMovieReview = useCallback((
-    meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string,
-    onlyIfCurrent?: { quality?: string; sentiment?: string },
+    meetingId: string, movieId: string, memberId: string, quality: string | null | undefined, sentiment: string | null | undefined,
+    onlyIfCurrent?: { quality?: string | null; sentiment?: string | null },
   ) => {
     updateMeetings((prev) => {
       if (!prev) return prev
@@ -167,8 +167,8 @@ export function MeetingsPage() {
   }, [updateMeetings])
 
   const patchEpisodeReview = useCallback((
-    meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string,
-    onlyIfCurrent?: { quality?: string; sentiment?: string },
+    meetingId: string, episodeId: string, memberId: string, quality: string | null | undefined, sentiment: string | null | undefined,
+    onlyIfCurrent?: { quality?: string | null; sentiment?: string | null },
   ) => {
     updateMeetings((prev) => {
       if (!prev) return prev
@@ -549,8 +549,8 @@ const MeetingRows = memo(function MeetingRows({
   seasonNumbers: Map<string, SeasonCodeInfo> | null
   typeFilters: MeetingTypeFilters
   isHovered: boolean
-  onMovieRate: (meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string, onlyIfCurrent?: { quality?: string; sentiment?: string }) => void
-  onEpisodeRate: (meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string, onlyIfCurrent?: { quality?: string; sentiment?: string }) => void
+  onMovieRate: (meetingId: string, movieId: string, memberId: string, quality: string | null | undefined, sentiment: string | null | undefined, onlyIfCurrent?: { quality?: string | null; sentiment?: string | null }) => void
+  onEpisodeRate: (meetingId: string, episodeId: string, memberId: string, quality: string | null | undefined, sentiment: string | null | undefined, onlyIfCurrent?: { quality?: string | null; sentiment?: string | null }) => void
   registerRow: (meetingId: string, el: HTMLTableRowElement | null) => void
 }) {
   const hasAnyPicks = meeting.movies.length > 0 || meeting.episodes.length > 0
@@ -609,33 +609,46 @@ const MeetingRows = memo(function MeetingRows({
 
 /** True when [onlyIfCurrent] is absent (no guard requested), or when [memberId]'s review in [reviews] still has
  * exactly the quality/sentiment values named in it -- the guard a rollback uses to check "did a second save
- * change this since I wrote it?" before restoring a stale snapshot over top of it. */
+ * change this since I wrote it?" before restoring a stale snapshot over top of it. Only the field(s) actually
+ * present as a key in [onlyIfCurrent] are checked -- `rateQuality`/`rateSentiment` each touch exactly one field,
+ * so a quality-only rollback must not also demand sentiment still match, or it would spuriously refuse to roll
+ * back after an unrelated, already-succeeded sentiment save. */
 function matchesCurrent<R extends { memberId: string; qualityOptionId: string | null; sentimentOptionId: string | null }>(
   reviews: R[],
   memberId: string,
-  onlyIfCurrent: { quality?: string; sentiment?: string } | undefined,
+  onlyIfCurrent: { quality?: string | null; sentiment?: string | null } | undefined,
 ): boolean {
   if (!onlyIfCurrent) return true
   const current = reviews.find((r) => r.memberId === memberId)
-  return (current?.qualityOptionId ?? undefined) === onlyIfCurrent.quality && (current?.sentimentOptionId ?? undefined) === onlyIfCurrent.sentiment
+  if ('quality' in onlyIfCurrent && (current?.qualityOptionId ?? null) !== onlyIfCurrent.quality) return false
+  if ('sentiment' in onlyIfCurrent && (current?.sentimentOptionId ?? null) !== onlyIfCurrent.sentiment) return false
+  return true
 }
 
 /** Replaces [memberId]'s review in [reviews] (preserving its other fields, e.g. `comment`) if one already exists,
  * otherwise appends a new one built from [createIfMissing] -- shared by `patchMovieReview`/`patchEpisodeReview`,
- * generic over `MovieReview`/`EpisodeReview` since they're identical shapes apart from the foreign-key field name. */
+ * generic over `MovieReview`/`EpisodeReview` since they're identical shapes apart from the foreign-key field name.
+ * `quality`/`sentiment` are `undefined` when that field wasn't touched by this call (left as-is on an existing
+ * review) versus `null` when it was explicitly cleared -- `rateQuality`/`rateSentiment` each only ever pass one
+ * of the two. */
 function upsertReview<R extends { memberId: string; qualityOptionId: string | null; sentimentOptionId: string | null }>(
   reviews: R[],
   memberId: string,
-  quality: string | undefined,
-  sentiment: string | undefined,
+  quality: string | null | undefined,
+  sentiment: string | null | undefined,
   createIfMissing: () => R,
 ): R[] {
-  const qualityOptionId = quality ?? null
-  const sentimentOptionId = sentiment ?? null
   if (!reviews.some((r) => r.memberId === memberId)) {
-    return [...reviews, { ...createIfMissing(), qualityOptionId, sentimentOptionId }]
+    return [...reviews, { ...createIfMissing(), qualityOptionId: quality ?? null, sentimentOptionId: sentiment ?? null }]
   }
-  return reviews.map((r) => (r.memberId === memberId ? { ...r, qualityOptionId, sentimentOptionId } : r))
+  return reviews.map((r) => {
+    if (r.memberId !== memberId) return r
+    return {
+      ...r,
+      qualityOptionId: quality === undefined ? r.qualityOptionId : quality,
+      sentimentOptionId: sentiment === undefined ? r.sentimentOptionId : sentiment,
+    }
+  })
 }
 
 function groupEpisodesBySeries(episodes: MeetingEpisodePick[]) {
@@ -669,7 +682,7 @@ const MovieRow = memo(function MovieRow({
   scales: RatingScale[]
   myMemberId: string | null
   meetingId: string
-  onRate: (meetingId: string, movieId: string, memberId: string, quality?: string, sentiment?: string, onlyIfCurrent?: { quality?: string; sentiment?: string }) => void
+  onRate: (meetingId: string, movieId: string, memberId: string, quality: string | null | undefined, sentiment: string | null | undefined, onlyIfCurrent?: { quality?: string | null; sentiment?: string | null }) => void
 }) {
   const { movie } = pick
   const [error, setError] = useState<string | null>(null)
@@ -681,21 +694,30 @@ const MovieRow = memo(function MovieRow({
   // Optimistic: patches the review locally before the request even fires, so the box updates instantly instead of
   // waiting on a save-then-refetch round trip. Only ever called for the viewer's own column (see `editable` below),
   // so `myMemberId` is always set in practice here; the guard just covers the type, not a reachable UI state.
-  const handleSaveRating = async (qualityOptionId?: string, sentimentOptionId?: string) => {
+  // Quality and sentiment save independently via their own PATCH endpoint -- unlike the old combined PUT, neither
+  // call touches the other field or `comment`, so there's nothing to echo back to avoid clobbering them.
+  const handleSaveQuality = async (optionId: string | null) => {
     if (!myMemberId) return
-    const previous = pick.reviews.find((r) => r.memberId === myMemberId)
+    const previous = pick.reviews.find((r) => r.memberId === myMemberId)?.qualityOptionId ?? null
     setError(null)
-    onRate(meetingId, movie.id, myMemberId, qualityOptionId, sentimentOptionId)
+    onRate(meetingId, movie.id, myMemberId, optionId, undefined)
     try {
-      // The backend overwrites all three columns unconditionally, so the existing comment has to be echoed back
-      // here or it gets silently wiped by a rating-only save.
-      await moviesApi.rate(movie.id, qualityOptionId, sentimentOptionId, previous?.comment ?? undefined)
+      await moviesApi.rateQuality(movie.id, optionId)
     } catch (err) {
-      onRate(
-        meetingId, movie.id, myMemberId,
-        previous?.qualityOptionId ?? undefined, previous?.sentimentOptionId ?? undefined,
-        { quality: qualityOptionId, sentiment: sentimentOptionId },
-      )
+      onRate(meetingId, movie.id, myMemberId, previous, undefined, { quality: optionId })
+      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  const handleSaveSentiment = async (optionId: string | null) => {
+    if (!myMemberId) return
+    const previous = pick.reviews.find((r) => r.memberId === myMemberId)?.sentimentOptionId ?? null
+    setError(null)
+    onRate(meetingId, movie.id, myMemberId, undefined, optionId)
+    try {
+      await moviesApi.rateSentiment(movie.id, optionId)
+    } catch (err) {
+      onRate(meetingId, movie.id, myMemberId, undefined, previous, { sentiment: optionId })
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
   }
@@ -731,7 +753,8 @@ const MovieRow = memo(function MovieRow({
               qualityOptionId={review?.qualityOptionId ?? null}
               sentimentOptionId={review?.sentimentOptionId ?? null}
               editable={clubMember.memberId === myMemberId}
-              onSave={handleSaveRating}
+              onSaveQuality={handleSaveQuality}
+              onSaveSentiment={handleSaveSentiment}
             />
           </TableCell>
         )
@@ -770,7 +793,7 @@ const EpisodeRow = memo(function EpisodeRow({
   myMemberId: string | null
   meetingId: string
   seasonCode: SeasonCodeInfo | undefined
-  onRate: (meetingId: string, episodeId: string, memberId: string, quality?: string, sentiment?: string, onlyIfCurrent?: { quality?: string; sentiment?: string }) => void
+  onRate: (meetingId: string, episodeId: string, memberId: string, quality: string | null | undefined, sentiment: string | null | undefined, onlyIfCurrent?: { quality?: string | null; sentiment?: string | null }) => void
 }) {
   const { episode, series } = pick
   const [error, setError] = useState<string | null>(null)
@@ -780,20 +803,29 @@ const EpisodeRow = memo(function EpisodeRow({
   const { setNodeRef: setDroppableRef } = useDroppable({ id: `drop-${meetingId}-episode-${episode.id}`, data: { meetingId } satisfies MeetingDropData })
   const rowRef = useForkRef(setDraggableRef, setDroppableRef)
 
-  // Optimistic -- see `MovieRow.handleSaveRating` above for the rationale; same shape.
-  const handleSaveRating = async (qualityOptionId?: string, sentimentOptionId?: string) => {
+  // Optimistic -- see `MovieRow.handleSaveQuality`/`handleSaveSentiment` above for the rationale; same shape.
+  const handleSaveQuality = async (optionId: string | null) => {
     if (!myMemberId) return
-    const previous = pick.reviews.find((r) => r.memberId === myMemberId)
+    const previous = pick.reviews.find((r) => r.memberId === myMemberId)?.qualityOptionId ?? null
     setError(null)
-    onRate(meetingId, episode.id, myMemberId, qualityOptionId, sentimentOptionId)
+    onRate(meetingId, episode.id, myMemberId, optionId, undefined)
     try {
-      await episodesApi.rate(episode.id, qualityOptionId, sentimentOptionId, previous?.comment ?? undefined)
+      await episodesApi.rateQuality(episode.id, optionId)
     } catch (err) {
-      onRate(
-        meetingId, episode.id, myMemberId,
-        previous?.qualityOptionId ?? undefined, previous?.sentimentOptionId ?? undefined,
-        { quality: qualityOptionId, sentiment: sentimentOptionId },
-      )
+      onRate(meetingId, episode.id, myMemberId, previous, undefined, { quality: optionId })
+      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  const handleSaveSentiment = async (optionId: string | null) => {
+    if (!myMemberId) return
+    const previous = pick.reviews.find((r) => r.memberId === myMemberId)?.sentimentOptionId ?? null
+    setError(null)
+    onRate(meetingId, episode.id, myMemberId, undefined, optionId)
+    try {
+      await episodesApi.rateSentiment(episode.id, optionId)
+    } catch (err) {
+      onRate(meetingId, episode.id, myMemberId, undefined, previous, { sentiment: optionId })
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
   }
@@ -836,7 +868,8 @@ const EpisodeRow = memo(function EpisodeRow({
               qualityOptionId={review?.qualityOptionId ?? null}
               sentimentOptionId={review?.sentimentOptionId ?? null}
               editable={clubMember.memberId === myMemberId}
-              onSave={handleSaveRating}
+              onSaveQuality={handleSaveQuality}
+              onSaveSentiment={handleSaveSentiment}
             />
           </TableCell>
         )

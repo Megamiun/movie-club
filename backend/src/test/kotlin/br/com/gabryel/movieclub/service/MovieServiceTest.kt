@@ -6,6 +6,7 @@ import br.com.gabryel.movieclub.db.DisplayTitlePreference.LANGUAGE
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
 import br.com.gabryel.movieclub.db.MediaItemType.MOVIE
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
+import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
@@ -291,6 +292,49 @@ class MovieServiceTest {
         every { movieRepository.upsertReview(movieId, memberId, comment = "great") } returns review
 
         assertEquals(review, movieService.rate(movieId, memberId, comment = "great"))
+    }
+
+    @Test
+    fun `rateQuality throws BadRequestException when option belongs to sentiment scale`() {
+        val movieId = Uuid.random()
+        val optionId = Uuid.random()
+        every { movieRepository.findById(movieId) } returns movie(id = movieId)
+        every { meetingRepository.findById(meetingId) } returns meeting()
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { clubService.validateRatingOption(clubId, optionId, QUALITY) } throws
+            BadRequestException("Rating option is not a QUALITY option")
+
+        assertFailsWith<BadRequestException> { movieService.rateQuality(movieId, memberId, optionId) }
+    }
+
+    @Test
+    fun `rateQuality only updates the quality rating`() {
+        val movieId = Uuid.random()
+        val optionId = Uuid.random()
+        every { movieRepository.findById(movieId) } returns movie(id = movieId)
+        every { meetingRepository.findById(meetingId) } returns meeting()
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { clubService.validateRatingOption(clubId, optionId, QUALITY) } returns Unit
+
+        val review = MovieReviewRow(movieId, memberId, qualityOptionId = optionId)
+        every { movieRepository.updateReviewQuality(movieId, memberId, optionId) } returns review
+
+        assertEquals(review, movieService.rateQuality(movieId, memberId, optionId))
+    }
+
+    @Test
+    fun `rateSentiment only updates the sentiment rating`() {
+        val movieId = Uuid.random()
+        val optionId = Uuid.random()
+        every { movieRepository.findById(movieId) } returns movie(id = movieId)
+        every { meetingRepository.findById(meetingId) } returns meeting()
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { clubService.validateRatingOption(clubId, optionId, SENTIMENT) } returns Unit
+
+        val review = MovieReviewRow(movieId, memberId, sentimentOptionId = optionId)
+        every { movieRepository.updateReviewSentiment(movieId, memberId, optionId) } returns review
+
+        assertEquals(review, movieService.rateSentiment(movieId, memberId, optionId))
     }
 
     @Test
