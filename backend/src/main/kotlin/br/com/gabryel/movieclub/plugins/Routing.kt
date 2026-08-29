@@ -4,6 +4,7 @@ import br.com.gabryel.movieclub.routing.admin.adminRoutes
 import br.com.gabryel.movieclub.routing.auth.authRoutes
 import br.com.gabryel.movieclub.routing.club.clubRoutes
 import br.com.gabryel.movieclub.routing.import.importRoutes
+import br.com.gabryel.movieclub.routing.mediaitem.mediaItemRoutes
 import br.com.gabryel.movieclub.routing.meeting.meetingRoutes
 import br.com.gabryel.movieclub.routing.member.memberRoutes
 import br.com.gabryel.movieclub.routing.movie.movieRoutes
@@ -20,6 +21,7 @@ import br.com.gabryel.movieclub.service.SeriesService
 import br.com.gabryel.movieclub.service.WatchlistService
 import br.com.gabryel.movieclub.service.auth.JwtService
 import br.com.gabryel.movieclub.service.csvimport.ImportService
+import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import io.ktor.server.application.Application
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
@@ -37,6 +39,7 @@ fun Application.configureRouting(
     watchlistService: WatchlistService,
     importService: ImportService,
     adminService: AdminService,
+    tmdbClient: TmdbClient,
 ) {
     routing {
         get("/health") {
@@ -52,5 +55,6 @@ fun Application.configureRouting(
         watchlistRoutes(watchlistService)
         importRoutes(importService)
         adminRoutes(adminService)
+        mediaItemRoutes(tmdbClient)
     }
 }

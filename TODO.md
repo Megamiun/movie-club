@@ -1,5 +1,31 @@
 # TODO
 
+- [x] Add a monthly share feature, exporting a poster grid as an Instagram Stories-ratio image -- a share/download
+  icon next to each month's heading in the Calendar tab (`CalendarPage`). Generates a 1080x1920 PNG (9:16, same
+  ratio as an IG Story) client-side via `<canvas>` (`frontend/src/utils/monthShareImage.ts`): a grid of that
+  month's poster art only (no title/date text, no club branding baked in -- confirmed with the user, a plain
+  visual summary), sized/columned to the count of posters and centered both ways (including a short last row,
+  which centers on its own). Uses the Web Share API (`navigator.share`/`canShare`) when available so a phone can
+  hand the image straight to its OS share sheet (Instagram, Messages, etc.); falls back to a plain file download
+  otherwise (desktop, or unsupported browsers). This can only ever produce a downloadable/shareable image, not
+  actually post into Instagram's own Stories composer -- that needs Instagram's own app/API, out of scope for a
+  web app.
+  - Real blocker hit and fixed: TMDB's own CDN (`image.tmdb.org`) sends no CORS headers at all, so a poster loaded
+    directly into an `<img>` (even with `crossOrigin="anonymous"`) taints the canvas and silently breaks
+    `toBlob`/`toDataURL` -- confirmed via a real browser test before finding this (raw CORS errors in console, no
+    image ever loads). Fixed with a new backend proxy route, `GET /media-items/image-proxy?url=...`
+    (`routing/mediaitem/MediaItemRoutes.kt` -- the first route in the "shared MediaItem endpoints" package this
+    repo's CLAUDE.md/TODO already called for elsewhere, though for an unrelated reason here), which fetches the
+    image server-side (`TmdbClient.fetchImageBytes`, new method) and re-serves it through our own origin, which
+    already sends a permissive CORS header to every route via the existing global `configureCORS()` plugin.
+    Deliberately unauthenticated (unlike the rest of the API) -- a poster is already public content, nothing to
+    gate -- but restricted to URLs starting with `https://image.tmdb.org/` so it can't become an open arbitrary-URL
+    proxy (an SSRF risk otherwise).
+  - New backend test (`TmdbClientTest`) for `fetchImageBytes`. Verified end-to-end in a real browser: the proxy
+    route returns real poster bytes (`curl`), and the full share flow (click the icon on a month with 5 real
+    posters, generate, download) produces a correct, real PNG with no console errors -- confirmed by rendering the
+    downloaded file.
+
 - [x] Fix tabs not being scrollable on mobile when there are too many to fit -- the club nav tabs (`ClubLayout`,
   now 7 with the Calendar tab added this session), and the year tabs on both `MeetingsPage` and `CalendarPage`, all
   used MUI's default `Tabs` `variant="standard"`, which doesn't support horizontal scroll/swipe at all once tabs

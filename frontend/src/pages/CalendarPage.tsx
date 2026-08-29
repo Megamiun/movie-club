@@ -1,6 +1,7 @@
+import IosShareIcon from '@mui/icons-material/IosShare'
 import LiveTvIcon from '@mui/icons-material/LiveTv'
 import MovieIcon from '@mui/icons-material/Movie'
-import { Box, Stack, Tab, Tabs, Typography } from '@mui/material'
+import { Alert, Box, CircularProgress, IconButton, Stack, Tab, Tabs, Typography } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { Link as RouterLink, useOutletContext } from 'react-router-dom'
 import { meetingsApi } from '../api/meetings'
@@ -13,6 +14,7 @@ import { useSmartPolling } from '../hooks/useSmartPolling'
 import { useYearTabs } from '../hooks/useYearTabs'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { episodeCode } from '../utils/episode'
+import { generateMonthShareImage } from '../utils/monthShareImage'
 import { resolveTitle } from '../utils/title'
 
 const MONTH_FORMATTER = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' })
@@ -49,10 +51,50 @@ export function CalendarPage() {
   const { data: meetings, loading, error, silentReload } = useAsync(() => meetingsApi.list(club.id), [club.id])
   useSmartPolling(silentReload, 10_000)
   const [mediaFilters, setMediaFilters] = useState(loadCalendarMediaFilters)
+  const [sharingMonth, setSharingMonth] = useState<string | null>(null)
+  const [shareError, setShareError] = useState<string | null>(null)
 
   useEffect(() => {
     localStorage.setItem(CALENDAR_MEDIA_FILTERS_KEY, JSON.stringify(mediaFilters))
   }, [mediaFilters])
+
+  /** Generates that month's poster grid as a 1080x1920 PNG (Instagram Stories' own aspect ratio) and either hands
+   * it to the OS share sheet (phones -- lets the member pick Instagram, Messages, etc. directly) or falls back to
+   * a plain download (desktop, or any browser without file-sharing support). There's no server involvement at all
+   * -- the image is drawn entirely client-side from the same poster URLs already on screen. */
+  const handleShare = async (month: string, cards: PosterCardInfo[]) => {
+    setShareError(null)
+    setSharingMonth(month)
+    try {
+      const posterUrls = cards.map((card) => card.posterUrl).filter((url): url is string => Boolean(url))
+      const blob = await generateMonthShareImage(posterUrls)
+      const label = MONTH_FORMATTER.format(new Date(`${month}-01T00:00:00`))
+      const filename = `${club.name.replace(/[^a-z0-9]+/gi, '-')}-${month}.png`
+      const file = new File([blob], filename, { type: 'image/png' })
+
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: `${club.name} — ${label}` })
+          return
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') return
+          // Sharing failed for some other reason (e.g. no share target picked up the file type) -- fall through
+          // to a plain download instead of leaving the member with nothing.
+        }
+      }
+
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setShareError(err instanceof Error ? err.message : 'Something went wrong generating the image')
+    } finally {
+      setSharingMonth(null)
+    }
+  }
 
   const seasonNumbers = useSeasonNumbers(
     (meetings ?? []).flatMap((meeting) => meeting.episodes.map((pick) => pick.episode.seasonId)),
@@ -71,6 +113,12 @@ export function CalendarPage() {
         <MediaTypeFilterButtons filters={mediaFilters} onChange={setMediaFilters} />
       </Stack>
 
+      {shareError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setShareError(null)}>
+          {shareError}
+        </Alert>
+      )}
+
       <AsyncState loading={loading} error={error}>
         {sorted.length === 0 ? (
           <Typography color="text.secondary">No meetings yet.</Typography>
@@ -87,9 +135,19 @@ export function CalendarPage() {
               if (cards.length === 0) return null
               return (
                 <Box key={month} sx={{ mb: 4 }}>
-                  <Typography variant="h6" gutterBottom>
-                    {MONTH_FORMATTER.format(new Date(`${month}-01T00:00:00`))}
-                  </Typography>
+                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                    <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+                      {MONTH_FORMATTER.format(new Date(`${month}-01T00:00:00`))}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleShare(month, cards)}
+                      disabled={sharingMonth === month}
+                      title="Share this month as an image"
+                    >
+                      {sharingMonth === month ? <CircularProgress size={16} /> : <IosShareIcon fontSize="small" />}
+                    </IconButton>
+                  </Stack>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
                     {cards.map((card) => (
                       <PosterCard key={card.key} card={card} />

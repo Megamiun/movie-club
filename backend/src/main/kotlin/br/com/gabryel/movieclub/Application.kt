@@ -139,5 +139,6 @@ fun Application.module() {
         watchlistService,
         importService,
         adminService,
+        tmdbClient,
     )
 }

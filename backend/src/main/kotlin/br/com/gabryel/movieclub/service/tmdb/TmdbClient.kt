@@ -289,6 +289,14 @@ class TmdbClient(private val accessToken: String, engine: HttpClientEngine = CIO
         }
     }
 
+    /** Fetches a TMDB CDN poster image's raw bytes -- used to proxy poster art back through our own origin (see
+     * `routing.mediaitem.mediaItemRoutes`) for the frontend's month-share-image feature, which needs to draw
+     * posters into a `<canvas>` to export a PNG. TMDB's CDN doesn't send CORS headers, so a browser can never read
+     * pixel data pulled directly from `image.tmdb.org` into a canvas (the canvas becomes "tainted", blocking
+     * `toBlob`/`toDataURL` entirely) -- proxying the same bytes through our own origin (which does send a
+     * permissive CORS header) sidesteps that. [url] is expected to already be a full TMDB image URL. */
+    suspend fun fetchImageBytes(url: String): ByteArray = http.get(url).body()
+
     suspend fun findByImdbId(imdbId: String): TmdbMovieSummary? = find(imdbId).movieResults.firstOrNull()
 
     suspend fun findTvByImdbId(imdbId: String): TmdbTvSummary? = find(imdbId).tvResults.firstOrNull()

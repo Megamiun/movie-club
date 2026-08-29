@@ -12,6 +12,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
@@ -26,6 +27,17 @@ class TmdbClientTest {
             runBlocking { client.getMovieDetails(438631) }
         }
         assertEquals("TMDB request failed: 401 Unauthorized", exception.message)
+    }
+
+    @Test
+    fun `fetchImageBytes returns the raw response body`() {
+        val imageBytes = byteArrayOf(1, 2, 3, 4)
+        val engine = MockEngine { respond(imageBytes, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "image/jpeg")) }
+        val client = TmdbClient(accessToken = "token", engine = engine)
+
+        val result = runBlocking { client.fetchImageBytes("https://image.tmdb.org/t/p/w154/poster.jpg") }
+
+        assertContentEquals(imageBytes, result)
     }
 
     @Test
