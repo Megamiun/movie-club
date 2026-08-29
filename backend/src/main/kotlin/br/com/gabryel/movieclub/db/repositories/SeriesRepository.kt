@@ -1,6 +1,7 @@
 package br.com.gabryel.movieclub.db.repositories
 
 import br.com.gabryel.movieclub.db.DisplayTitlePreference
+import br.com.gabryel.movieclub.db.repositories.dto.CatalogTitleInfo
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
@@ -32,6 +33,10 @@ interface SeriesRepository {
     ): SeriesRow
 
     fun updateTmdbMetadata(seriesId: Uuid, metadata: TmdbSeriesMetadata, mediaItemId: Uuid? = null): SeriesRow
+
+    /** Same as [MovieRepository.findCatalogTitleInfoByMediaItemIds], for the Series catalog (`Series.mediaItemId`)
+     * instead. */
+    fun findCatalogTitleInfoByMediaItemIds(mediaItemIds: List<Uuid>): Map<Uuid, CatalogTitleInfo>
 
     fun upsertReview(
         seriesId: Uuid,

@@ -239,6 +239,12 @@ export interface WatchlistEntry {
   year: number | null
   posterUrl: string | null
   imdbRating: string | null
+  /** Sourced from the entry's underlying Movie/Series catalog row, not the `WatchlistEntries`/MediaItem join
+   * itself -- null/empty when that catalog row can't be found (see CLAUDE.md's MediaItem section). There's no
+   * `customTitle`/`displayTitlePreference`/`displayLanguageCode` here (unlike `Movie`/`Series`): an entry has no
+   * per-pick storage for those, so its title always resolves as if `ORIGINAL`. */
+  originalLanguage: string | null
+  translations: Translation[]
   position: number
 }
 

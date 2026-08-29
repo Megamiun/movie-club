@@ -1,5 +1,6 @@
 package br.com.gabryel.movieclub.service
 
+import br.com.gabryel.movieclub.db.repositories.ClubRepository
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
@@ -44,6 +45,7 @@ class MeetingService(
     private val episodeRepository: EpisodeRepository,
     private val seriesRepository: SeriesRepository,
     private val clubService: ClubService,
+    private val clubRepository: ClubRepository,
 ) {
     fun createMeeting(clubId: Uuid, actingMemberId: Uuid, date: LocalDate, assignedMemberId: Uuid? = null): MeetingRow {
         clubService.requireMembership(clubId, actingMemberId)
@@ -128,9 +130,11 @@ class MeetingService(
         val seriesImdbIdByEpisode = episodeRepository.findSeriesImdbIds(allEpisodes.map { it.id })
         // Every meeting here belongs to the same club (listByClub's own scoping, or getMeeting's single-meeting
         // list) -- safe to read it off the first one now that the empty-list guard above has already returned.
+        val clubId = meetings.first().clubId
         val seriesByImdbId = seriesRepository
-            .findByClubAndImdbIds(meetings.first().clubId, seriesImdbIdByEpisode.values.distinct())
+            .findByClubAndImdbIds(clubId, seriesImdbIdByEpisode.values.distinct())
             .associateBy { it.imdbId }
+        val movieComparator = movieSortOrder(clubId)
 
         return meetings.map { meeting ->
             MeetingWithPicks(
@@ -138,7 +142,7 @@ class MeetingService(
                 clubId = meeting.clubId,
                 date = meeting.date,
                 assignedMemberId = meeting.assignedMemberId,
-                movies = moviesByMeeting[meeting.id].orEmpty().map {
+                movies = moviesByMeeting[meeting.id].orEmpty().sortedWith(movieComparator).map {
                     MeetingMoviePick(it, movieReviewsByMovie[it.id].orEmpty())
                 },
                 episodes = episodesByMeeting[meeting.id].orEmpty().map {
@@ -147,5 +151,16 @@ class MeetingService(
                 },
             )
         }
+    }
+
+    /** Orders a meeting's movies by who chose them (the club's own rotation order, [ClubRepository.listMembers] --
+     * already the order the meetings table's rating columns use, so a merged meeting's picks read left-to-right in
+     * the same member order as the rest of the table), then alphabetically by title among that member's own
+     * picks. A pick by someone no longer in the club (removed after choosing) sorts last, since it has no rotation
+     * position at all. Episode order is untouched by this -- season/episode number already gives episodes a more
+     * meaningful order than title would. */
+    private fun movieSortOrder(clubId: Uuid): Comparator<MovieRow> {
+        val rotationIndexByMember = clubRepository.listMembers(clubId).withIndex().associate { (index, member) -> member.memberId to index }
+        return compareBy({ rotationIndexByMember[it.chosenById] ?: Int.MAX_VALUE }, { it.originalTitle.lowercase() })
     }
 }

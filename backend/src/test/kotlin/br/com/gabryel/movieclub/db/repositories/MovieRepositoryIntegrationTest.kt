@@ -233,6 +233,19 @@ class MovieRepositoryIntegrationTest {
     }
 
     @Test
+    fun `listByMeeting returns picks in the order they were added, not left to Postgres' own row order`() {
+        val member = newMember()
+        val meeting = newMeeting()
+        val first = movieRepository.create(meeting, member, "tt2911666", metadata())
+        val second = movieRepository.create(meeting, member, "tt0111161", metadata(originalTitle = "The Shawshank Redemption"))
+        val third = movieRepository.create(meeting, member, "tt0068646", metadata(originalTitle = "The Godfather"))
+
+        val result = movieRepository.listByMeeting(meeting)
+
+        assertEquals(listOf(first.id, second.id, third.id), result.map { it.id })
+    }
+
+    @Test
     fun `listByMeetings returns every pick across all the given meetings, in one batch`() {
         val member = newMember()
         val meetingA = newMeeting()

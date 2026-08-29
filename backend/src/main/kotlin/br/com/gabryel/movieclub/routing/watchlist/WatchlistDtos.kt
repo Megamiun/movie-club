@@ -1,5 +1,6 @@
 package br.com.gabryel.movieclub.routing.watchlist
 
+import br.com.gabryel.movieclub.routing.movie.TranslationResponse
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -25,5 +26,7 @@ internal data class WatchlistEntryResponse(
     val year: Int?,
     val posterUrl: String?,
     val imdbRating: String?,
+    val originalLanguage: String?,
+    val translations: List<TranslationResponse>,
     val position: Int,
 )

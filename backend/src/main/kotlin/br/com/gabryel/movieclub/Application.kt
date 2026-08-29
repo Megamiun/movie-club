@@ -56,8 +56,9 @@ fun Application.module() {
     val seriesRepository = ExposedSeriesRepository()
     val seasonRepository = ExposedSeasonRepository()
     val episodeRepository = ExposedEpisodeRepository()
+    val clubRepository = ExposedClubRepository()
     val clubService = ClubService(
-        ExposedClubRepository(),
+        clubRepository,
         ratingScaleRepository,
         memberRepository,
         movieRepository,
@@ -69,7 +70,8 @@ fun Application.module() {
     val personRepository = ExposedPersonRepository()
     val tmdbClient = TmdbClient(config.propertyOrNull("tmdb.accessToken")?.getString().orEmpty())
     val omdbClient = OmdbClient(config.propertyOrNull("omdb.apiKey")?.getString().orEmpty())
-    val meetingService = MeetingService(meetingRepository, movieRepository, episodeRepository, seriesRepository, clubService)
+    val meetingService =
+        MeetingService(meetingRepository, movieRepository, episodeRepository, seriesRepository, clubService, clubRepository)
     val movieService =
         MovieService(movieRepository, meetingRepository, clubService, mediaItemRepository, tmdbClient, omdbClient, personRepository)
     val seriesService = SeriesService(
@@ -95,7 +97,15 @@ fun Application.module() {
         watchlistRepository,
         personRepository,
     )
-    val watchlistService = WatchlistService(watchlistRepository, clubService, mediaItemRepository, tmdbClient, omdbClient)
+    val watchlistService = WatchlistService(
+        watchlistRepository,
+        clubService,
+        mediaItemRepository,
+        movieRepository,
+        seriesRepository,
+        tmdbClient,
+        omdbClient,
+    )
     val importService = ImportService(
         clubService,
         meetingRepository,

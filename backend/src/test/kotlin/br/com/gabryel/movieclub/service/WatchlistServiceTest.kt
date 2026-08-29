@@ -1,12 +1,17 @@
 package br.com.gabryel.movieclub.service
 
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
+import br.com.gabryel.movieclub.db.MediaItemType
 import br.com.gabryel.movieclub.db.MediaItemType.MOVIE
 import br.com.gabryel.movieclub.db.MediaItemType.SERIES
 import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
+import br.com.gabryel.movieclub.db.repositories.MovieRepository
+import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
+import br.com.gabryel.movieclub.db.repositories.dto.CatalogTitleInfo
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
+import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.db.repositories.dto.WatchlistEntryRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
@@ -30,10 +35,12 @@ class WatchlistServiceTest {
     private val watchlistRepository = mockk<WatchlistRepository>()
     private val clubService = mockk<ClubService>()
     private val mediaItemRepository = mockk<MediaItemRepository>()
+    private val movieRepository = mockk<MovieRepository>()
+    private val seriesRepository = mockk<SeriesRepository>()
     private val tmdbClient = mockk<TmdbClient>()
     private val omdbClient = mockk<OmdbClient>()
     private val watchlistService =
-        WatchlistService(watchlistRepository, clubService, mediaItemRepository, tmdbClient, omdbClient)
+        WatchlistService(watchlistRepository, clubService, mediaItemRepository, movieRepository, seriesRepository, tmdbClient, omdbClient)
 
     private val clubId = Uuid.random()
     private val memberId = Uuid.random()
@@ -41,6 +48,8 @@ class WatchlistServiceTest {
     init {
         coEvery { omdbClient.getImdbRating(any()) } returns null
         every { watchlistRepository.findByClubMemberAndMediaItem(any(), any(), any()) } returns null
+        every { movieRepository.findCatalogTitleInfoByMediaItemIds(any()) } returns emptyMap()
+        every { seriesRepository.findCatalogTitleInfoByMediaItemIds(any()) } returns emptyMap()
     }
 
     @Test
@@ -168,6 +177,52 @@ class WatchlistServiceTest {
         assertEquals(entries, watchlistService.listEntries(clubId, memberId))
     }
 
+    @Test
+    fun `listEntries fills in originalLanguage and translations from the movie catalog for a movie entry`() {
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+        val movieEntry = entry(type = MOVIE)
+        every { watchlistRepository.listByClub(clubId) } returns listOf(movieEntry)
+        val info = CatalogTitleInfo("en", listOf(Translation("pt", "BR", "Portuguese", "Duna")))
+        every { movieRepository.findCatalogTitleInfoByMediaItemIds(listOf(movieEntry.mediaItemId)) } returns
+            mapOf(movieEntry.mediaItemId to info)
+
+        val result = watchlistService.listEntries(clubId, memberId).single()
+
+        assertEquals("en", result.originalLanguage)
+        assertEquals(info.translations, result.translations)
+    }
+
+    @Test
+    fun `listEntries fills in originalLanguage and translations from the series catalog for a series entry`() {
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+        val seriesEntry = entry(type = SERIES)
+        every { watchlistRepository.listByClub(clubId) } returns listOf(seriesEntry)
+        val info = CatalogTitleInfo("ja", listOf(Translation("en", "US", "English", "Cowboy Bebop")))
+        every { seriesRepository.findCatalogTitleInfoByMediaItemIds(listOf(seriesEntry.mediaItemId)) } returns
+            mapOf(seriesEntry.mediaItemId to info)
+
+        val result = watchlistService.listEntries(clubId, memberId).single()
+
+        assertEquals("ja", result.originalLanguage)
+        assertEquals(info.translations, result.translations)
+    }
+
+    @Test
+    fun `listEntries leaves originalLanguage null when the media item has no matching catalog row`() {
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+        val movieEntry = entry(type = MOVIE)
+        every { watchlistRepository.listByClub(clubId) } returns listOf(movieEntry)
+        every { movieRepository.findCatalogTitleInfoByMediaItemIds(listOf(movieEntry.mediaItemId)) } returns emptyMap()
+
+        val result = watchlistService.listEntries(clubId, memberId).single()
+
+        assertEquals(null, result.originalLanguage)
+        assertEquals(emptyList(), result.translations)
+    }
+
     private fun membership() = ClubMembershipRow(clubId, memberId, MEMBER, 0, Clock.System.now())
 
     private fun mediaItem(id: Uuid = Uuid.random()) = MediaItemRow(
@@ -183,12 +238,13 @@ class WatchlistServiceTest {
         memberId: Uuid = this.memberId,
         mediaItemId: Uuid = Uuid.random(),
         position: Int = 0,
+        type: MediaItemType = SERIES,
     ) = WatchlistEntryRow(
         id = id,
         clubId = clubId,
         memberId = memberId,
         mediaItemId = mediaItemId,
-        type = SERIES,
+        type = type,
         title = "Dune",
         imdbId = "tt1160419",
         position = position,

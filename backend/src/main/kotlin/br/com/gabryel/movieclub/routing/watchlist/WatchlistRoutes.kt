@@ -1,7 +1,9 @@
 package br.com.gabryel.movieclub.routing.watchlist
 
+import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.db.repositories.dto.WatchlistEntryRow
 import br.com.gabryel.movieclub.routing.actingMemberId
+import br.com.gabryel.movieclub.routing.movie.TranslationResponse
 import br.com.gabryel.movieclub.routing.toMediaItemTypeOrBadRequest
 import br.com.gabryel.movieclub.routing.toMoveDirectionOrBadRequest
 import br.com.gabryel.movieclub.routing.uuidPathParam
@@ -62,5 +64,9 @@ private fun WatchlistEntryRow.toResponse() = WatchlistEntryResponse(
     year = year,
     posterUrl = posterUrl,
     imdbRating = imdbRating?.toPlainString(),
+    originalLanguage = originalLanguage,
+    translations = translations.map { it.toResponse() },
     position = position,
 )
+
+private fun Translation.toResponse() = TranslationResponse(languageCode, countryCode, englishName, title)

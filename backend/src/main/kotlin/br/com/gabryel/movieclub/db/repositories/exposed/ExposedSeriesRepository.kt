@@ -3,6 +3,7 @@ package br.com.gabryel.movieclub.db.repositories.exposed
 import br.com.gabryel.movieclub.db.DisplayTitlePreference
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
+import br.com.gabryel.movieclub.db.repositories.dto.CatalogTitleInfo
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
@@ -115,6 +116,17 @@ class ExposedSeriesRepository : SeriesRepository {
             it.applyTmdbMetadata(metadata, mediaItemId)
         }
         findById(seriesId)!!
+    }
+
+    override fun findCatalogTitleInfoByMediaItemIds(mediaItemIds: List<Uuid>): Map<Uuid, CatalogTitleInfo> {
+        if (mediaItemIds.isEmpty()) return emptyMap()
+        return transaction {
+            Series.selectAll()
+                .where { Series.mediaItemId inList mediaItemIds }
+                .associate { row ->
+                    row[Series.mediaItemId]!!.value to CatalogTitleInfo(row[Series.originalLanguage], row[Series.translations])
+                }
+        }
     }
 
     override fun upsertReview(

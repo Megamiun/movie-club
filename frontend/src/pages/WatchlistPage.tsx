@@ -32,6 +32,7 @@ import { useAsync } from '../hooks/useAsync'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { ratingLabel } from '../utils/rating'
+import { resolveTitle, type LanguagePreferences } from '../utils/title'
 
 export function WatchlistPage() {
   const { club } = useOutletContext<ClubOutletContext>()
@@ -41,6 +42,7 @@ export function WatchlistPage() {
 
   useSmartPolling(silentReload, 15000)
   const sortedMeetings = [...(meetings ?? [])].sort((a, b) => a.date.localeCompare(b.date))
+  const languagePrefs: LanguagePreferences = { preferredLanguages: club.preferredLanguages, ignoredLanguages: club.ignoredLanguages }
 
   // Acting member's own column always leftmost, everyone else afterwards in the club's usual member order.
   const orderedMembers = [...club.members].sort((a, b) => {
@@ -66,6 +68,7 @@ export function WatchlistPage() {
             clubId={club.id}
             meetings={sortedMeetings}
             myMemberId={member?.id ?? null}
+            languagePrefs={languagePrefs}
             onChange={reload}
           />
           <WatchlistBoard
@@ -77,6 +80,7 @@ export function WatchlistPage() {
             clubId={club.id}
             meetings={[]}
             myMemberId={member?.id ?? null}
+            languagePrefs={languagePrefs}
             onChange={reload}
           />
         </Stack>
@@ -94,6 +98,7 @@ function WatchlistBoard({
   clubId,
   meetings,
   myMemberId,
+  languagePrefs,
   onChange,
 }: {
   type: 'MOVIE' | 'SERIES'
@@ -104,6 +109,7 @@ function WatchlistBoard({
   clubId: string
   meetings: Meeting[]
   myMemberId: string | null
+  languagePrefs: LanguagePreferences
   onChange: () => void
 }) {
   const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
@@ -136,6 +142,7 @@ function WatchlistBoard({
             entries={entries.filter((entry) => entry.memberId === columnMember.memberId).sort((a, b) => a.position - b.position)}
             isOwnColumn={columnMember.memberId === myMemberId}
             meetings={meetings}
+            languagePrefs={languagePrefs}
             onChange={onChange}
           />
         ))}
@@ -170,12 +177,14 @@ function WatchlistColumn({
   entries,
   isOwnColumn,
   meetings,
+  languagePrefs,
   onChange,
 }: {
   member: ClubMember
   entries: WatchlistEntry[]
   isOwnColumn: boolean
   meetings: Meeting[]
+  languagePrefs: LanguagePreferences
   onChange: () => void
 }) {
   const [dragError, setDragError] = useState<string | null>(null)
@@ -237,6 +246,7 @@ function WatchlistColumn({
                 canMoveDown={index < entries.length - 1}
                 meetings={meetings}
                 isOwner={isOwnColumn}
+                languagePrefs={languagePrefs}
                 onChange={onChange}
               />
             ))}
@@ -253,6 +263,7 @@ function WatchlistCard({
   canMoveDown,
   meetings,
   isOwner,
+  languagePrefs,
   onChange,
 }: {
   entry: WatchlistEntry
@@ -260,6 +271,7 @@ function WatchlistCard({
   canMoveDown: boolean
   meetings: Meeting[]
   isOwner: boolean
+  languagePrefs: LanguagePreferences
   onChange: () => void
 }) {
   const [targetMeetingId, setTargetMeetingId] = useState('')
@@ -300,6 +312,20 @@ function WatchlistCard({
 
   const rating = ratingLabel(entry)
   const canMoveToMeeting = isOwner && entry.type === 'MOVIE' && meetings.length > 0
+  // A watchlist entry has no Movie/Series pick of its own, so no customTitle/displayTitlePreference/
+  // displayLanguageCode to read -- its title always resolves as if ORIGINAL (see CLAUDE.md's WatchlistEntry
+  // section and the backend's WatchlistEntryRow doc comment for why).
+  const title = resolveTitle(
+    {
+      originalTitle: entry.title,
+      originalLanguage: entry.originalLanguage,
+      translations: entry.translations,
+      customTitle: null,
+      displayTitlePreference: 'ORIGINAL',
+      displayLanguageCode: null,
+    },
+    languagePrefs,
+  )
 
   return (
     <Paper
@@ -326,7 +352,7 @@ function WatchlistCard({
         )}
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
           <Typography variant="body2" sx={{ fontWeight: 500 }}>
-            {entry.title}
+            {title}
           </Typography>
           <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexWrap: 'wrap', mt: 0.25 }}>
             {entry.year && <Chip size="small" label={entry.year} />}

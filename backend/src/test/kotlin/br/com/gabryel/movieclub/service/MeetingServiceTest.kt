@@ -3,6 +3,7 @@ package br.com.gabryel.movieclub.service
 import br.com.gabryel.movieclub.db.ClubRole
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
+import br.com.gabryel.movieclub.db.repositories.ClubRepository
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
@@ -33,12 +34,17 @@ class MeetingServiceTest {
     private val episodeRepository = mockk<EpisodeRepository>()
     private val seriesRepository = mockk<SeriesRepository>()
     private val clubService = mockk<ClubService>()
+    private val clubRepository = mockk<ClubRepository>()
     private val meetingService =
-        MeetingService(meetingRepository, movieRepository, episodeRepository, seriesRepository, clubService)
+        MeetingService(meetingRepository, movieRepository, episodeRepository, seriesRepository, clubService, clubRepository)
 
     private val clubId = Uuid.random()
     private val memberId = Uuid.random()
     private val date = LocalDate(2026, 1, 5)
+
+    init {
+        every { clubRepository.listMembers(any()) } returns emptyList()
+    }
 
     @Test
     fun `createMeeting requires club membership`() {
@@ -142,6 +148,34 @@ class MeetingServiceTest {
     }
 
     @Test
+    fun `listMeetings orders a meeting's movies by the chooser's club rotation order, then alphabetically by title`() {
+        val meeting = meeting()
+        val memberA = Uuid.random()
+        val memberB = Uuid.random()
+        // memberB comes first in rotation order, even though memberA's pick was created/listed first.
+        val pickByBZebra = movie(meetingId = meeting.id, chosenById = memberB, originalTitle = "Zebra")
+        val pickByBApple = movie(meetingId = meeting.id, chosenById = memberB, originalTitle = "apple")
+        val pickByA = movie(meetingId = meeting.id, chosenById = memberA, originalTitle = "Anything")
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { meetingRepository.listByClub(clubId) } returns listOf(meeting)
+        every { clubRepository.listMembers(clubId) } returns listOf(
+            ClubMembershipRow(clubId, memberB, MEMBER, 0, Clock.System.now()),
+            ClubMembershipRow(clubId, memberA, MEMBER, 1, Clock.System.now()),
+        )
+        every { movieRepository.listByMeetings(listOf(meeting.id)) } returns listOf(pickByBZebra, pickByA, pickByBApple)
+        every { episodeRepository.listByMeetings(listOf(meeting.id)) } returns emptyMap()
+        every { movieRepository.listReviewsByMovies(any()) } returns emptyList()
+        every { episodeRepository.listReviewsByEpisodes(emptyList()) } returns emptyList()
+        every { episodeRepository.findSeriesImdbIds(emptyList()) } returns emptyMap()
+        every { seriesRepository.findByClubAndImdbIds(clubId, emptyList()) } returns emptyList()
+
+        val result = meetingService.listMeetings(clubId, memberId).single().movies.map { it.movie }
+
+        // memberB (rotation 0) before memberA (rotation 1); within memberB's own picks, "apple" before "Zebra".
+        assertEquals(listOf(pickByBApple, pickByBZebra, pickByA), result)
+    }
+
+    @Test
     fun `swapAssignments throws BadRequestException for meetings in different clubs`() {
         val meetingA = meeting()
         val meetingB = meeting(clubId = Uuid.random())
@@ -226,12 +260,12 @@ class MeetingServiceTest {
         assignedMemberId: Uuid? = null,
     ) = MeetingRow(id, clubId, date, assignedMemberId)
 
-    private fun movie(id: Uuid = Uuid.random(), meetingId: Uuid, chosenById: Uuid = memberId) = MovieRow(
+    private fun movie(id: Uuid = Uuid.random(), meetingId: Uuid, chosenById: Uuid = memberId, originalTitle: String = "A Movie") = MovieRow(
         id = id,
         meetingId = meetingId,
         chosenById = chosenById,
         imdbId = "tt0000000",
-        originalTitle = "A Movie",
+        originalTitle = originalTitle,
         translations = emptyList(),
         displayTitlePreference = ORIGINAL,
         createdAt = Clock.System.now(),

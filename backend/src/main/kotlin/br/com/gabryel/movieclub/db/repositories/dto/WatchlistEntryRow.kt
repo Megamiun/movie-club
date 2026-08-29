@@ -8,7 +8,12 @@ import kotlin.uuid.Uuid
 /** The externally-visible "watchlist entry" -- a flattened join of the `WatchlistEntries` pick row (just
  * `position`) and the [MediaItemRow] it references, same shape convention as [MovieRow]/[SeriesRow]. [id] is the
  * entry's own id; [mediaItemId] is the referenced [MediaItemRow]'s id, needed to check "is this already on the
- * watchlist" without a second lookup. */
+ * watchlist" without a second lookup. [originalLanguage]/[translations] aren't part of the `WatchlistEntries`/
+ * `MediaItems` join itself -- `WatchlistService` fills them in afterward via [MovieRepository]/
+ * [SeriesRepository.findCatalogTitleInfoByMediaItemIds], since an entry has no Movie/Series pick of its own to
+ * source them from directly. There's no `displayTitlePreference`/`customTitle`/`displayLanguageCode` here at all
+ * (unlike [MovieRow]/[SeriesRow]) -- a Watchlist entry has no per-pick storage for those overrides, so its title
+ * always resolves as if `ORIGINAL`. */
 data class WatchlistEntryRow(
     val id: Uuid,
     val clubId: Uuid,
@@ -20,6 +25,8 @@ data class WatchlistEntryRow(
     val year: Int? = null,
     val posterUrl: String? = null,
     val imdbRating: BigDecimal? = null,
+    val originalLanguage: String? = null,
+    val translations: List<Translation> = emptyList(),
     val position: Int,
     val createdAt: Instant,
 )

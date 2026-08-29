@@ -1,5 +1,49 @@
 # TODO
 
+- [x] Apply language rules to the Watchlist tab -- resolves the item further down about MediaItem/`resolveTitle`
+  (see "Let a MediaItem be linked back...", now folded into this entry rather than kept as its own open item).
+  A watchlist entry only ever exposed `MediaItem.title` (the flat original title, no translations/originalLanguage),
+  so `resolveTitle` (the club's preferred/ignored-language title resolution already used everywhere else) couldn't
+  run on it at all -- a club that's set up to hide Japanese/Korean/etc. original titles still saw them raw in the
+  Watchlist.
+  - Added `MovieRepository`/`SeriesRepository.findCatalogTitleInfoByMediaItemIds` -- a reverse lookup from a
+    MediaItem back to its own Movie/Series catalog row's `originalLanguage`/`translations` (the exact TODO ask),
+    returning a new shared `CatalogTitleInfo` DTO, batched (one query per type, not per entry) and keyed by
+    `Movies.media_item_id`/`Series.media_item_id`. `WatchlistService` composes this (repos still don't depend on
+    each other) to fill in `WatchlistEntryRow.originalLanguage`/`translations` on every entry it returns
+    (`listEntries`, `addEntry`, `addEntryByTitleSearch`, `moveEntry`). An entry has no per-pick
+    `customTitle`/`displayTitlePreference`/`displayLanguageCode` at all (no storage for it, unlike Movie/Series
+    picks) -- its title always resolves as if `ORIGINAL`, which is the only thing a reverse lookup alone can ever
+    give it; genuinely per-entry title overrides would need real new columns on `WatchlistEntries` itself, out of
+    scope here.
+  - `WatchlistPage.tsx` now calls `resolveTitle` (adapting each `WatchlistEntry` into the `TitledMedia` shape
+    inline, with the fixed `ORIGINAL`/`null`/`null` fields, rather than adding fake always-constant fields to the
+    type itself) instead of rendering `entry.title` raw.
+  - Verified in a real browser: club "A" ignores `ja`/prefers `en`; adding "Spirited Away" (original title
+    "千と千尋の神隠し") to the watchlist now shows the English title on the card instead of the raw Japanese one.
+  - New backend tests: `MovieRepository`/`SeriesRepository.findCatalogTitleInfoByMediaItemIds` unit coverage via
+    `WatchlistServiceTest` (movie entry, series entry, and the no-matching-catalog-row fallback case).
+
+- [x] Fix the meetings table's movie order silently changing between polls -- user-reported ("I feel like I see
+  sometimes the order of movies changing"), and confirmed as a real bug, not just perception:
+  `ExposedMovieRepository.listByMeeting`/`listByMeetings` had no `ORDER BY` at all, unlike the Episode equivalents
+  (which already order by season/episode number) -- without one, Postgres doesn't guarantee row order is stable
+  across repeated queries, so the 10s poll could occasionally return picks in a different order with nothing in
+  the app itself having changed.
+  - Fixed the nondeterminism at the DB level: both methods now `orderBy(MeetingMovies.createdAt)` (insertion order),
+    same stability guarantee Episode already had.
+  - On top of that, per follow-up feedback ("keep by user order, then title order"), `MeetingService.loadPicks` now
+    explicitly sorts each meeting's movies by the chooser's club rotation order (`ClubRepository.listMembers`,
+    already the order the rating columns use) and then alphabetically by title among that member's own picks --
+    the actual intended display order, with the DB-level `createdAt` order only ever mattering as a final tiebreak
+    for genuine duplicates. Episode order is untouched (season/episode number is already more meaningful there than
+    title would be). Added `ClubRepository` as a new `MeetingService` dependency for this.
+  - New tests: a repository-level integration test proving `listByMeeting` returns picks in creation order, and a
+    `MeetingServiceTest` case proving the rotation-then-title sort (a later-picked movie by an earlier-rotation
+    member sorts before an earlier-picked movie by a later-rotation member). Verified against the real running app:
+    a merged meeting with a rotation-0 member's pick and two rotation-1 member picks now consistently shows the
+    rotation-0 pick first, then the rotation-1 picks alphabetically.
+
 - [x] Auto redirect from register page when already logged in
   - `RegisterPage` now redirects to `/clubs` (`<Navigate replace>`) as soon as `useAuth().member` is set, before
     rendering the form -- same early-return-after-hooks shape as the rest of the route tree. Verified in a real
@@ -113,15 +157,6 @@
     same "inclusive" picker, or does this only need to cover Sentiment-style (pastel-family) colors, with Quality
     staying out of scope? That decides whether a single saturation-only slider is enough or the full 2D square is
     needed. Pick back up here next time.
-- [ ] Let a MediaItem be linked back to its real underlying Movie/Series catalog row, and used as that type — right
-  now MediaItem only carries a flat `title` (no `translations`/`originalLanguage`), so anything holding just a
-  MediaItem (Watchlist today) can't resolve a proper display title. `resolveTitle` isn't callable on Watchlist
-  entries as a result — see CLAUDE.md's Movie section. Movie/Series already point *to* MediaItem
-  (`media_item_id`); this is the reverse lookup (e.g. `MovieRepository`/`SeriesRepository.findByMediaItemId`,
-  composed in `WatchlistService`, same as any other cross-entity orchestration).
-  - Preference for this and future cross-type work: wherever an operation is common across Movie/Series/Episode
-    (not just this reverse lookup), prefer exposing it once on the shared MediaItem endpoints rather than
-    duplicating it per type.
 - [ ] Validate how simple we can make minimum metrics, such as response time and status code rates. 
   - If simple/cheap, let's do it
 - [x] Rating a movie/episode felt slow to update. Root cause: `InlineRatingEditor`'s save had zero optimistic

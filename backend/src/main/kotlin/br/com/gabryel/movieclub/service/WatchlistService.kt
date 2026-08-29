@@ -5,6 +5,8 @@ import br.com.gabryel.movieclub.db.MediaItemType.EPISODE
 import br.com.gabryel.movieclub.db.MediaItemType.MOVIE
 import br.com.gabryel.movieclub.db.MediaItemType.SERIES
 import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
+import br.com.gabryel.movieclub.db.repositories.MovieRepository
+import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
 import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
 import br.com.gabryel.movieclub.db.repositories.dto.WatchlistEntryRow
@@ -22,6 +24,8 @@ class WatchlistService(
     private val watchlistRepository: WatchlistRepository,
     private val clubService: ClubService,
     private val mediaItemRepository: MediaItemRepository,
+    private val movieRepository: MovieRepository,
+    private val seriesRepository: SeriesRepository,
     private val tmdbClient: TmdbClient,
     private val omdbClient: OmdbClient,
 ) {
@@ -45,7 +49,7 @@ class WatchlistService(
         if (watchlistRepository.findByClubMemberAndMediaItem(clubId, actingMemberId, mediaItem.id) != null)
             throw BadRequestException("This is already in your watchlist")
 
-        return watchlistRepository.create(clubId, actingMemberId, mediaItem.id)
+        return enrichCatalogTitle(watchlistRepository.create(clubId, actingMemberId, mediaItem.id))
     }
 
     /** Best-effort variant for CSV import, which only ever has a bare title (the Reserve CSV has no id column at
@@ -66,7 +70,7 @@ class WatchlistService(
             EPISODE -> throw BadRequestException("Episodes cannot be added to the watchlist yet")
         } ?: return null
 
-        return watchlistRepository.create(clubId, actingMemberId, mediaItem.id)
+        return enrichCatalogTitle(watchlistRepository.create(clubId, actingMemberId, mediaItem.id))
     }
 
     private suspend fun fetchMovieMediaItem(tmdbId: Int): MediaItemRow {
@@ -103,7 +107,7 @@ class WatchlistService(
 
     fun listEntries(clubId: Uuid, actingMemberId: Uuid): List<WatchlistEntryRow> {
         clubService.requireMembership(clubId, actingMemberId)
-        return watchlistRepository.listByClub(clubId)
+        return enrichCatalogTitles(watchlistRepository.listByClub(clubId))
     }
 
     /** Swaps [entryId] with whichever entry is immediately adjacent to it within its own owner's column -- among
@@ -125,7 +129,7 @@ class WatchlistService(
 
         watchlistRepository.updatePosition(entry.id, target.position)
         watchlistRepository.updatePosition(target.id, entry.position)
-        return watchlistRepository.findById(entryId)!!
+        return enrichCatalogTitle(watchlistRepository.findById(entryId)!!)
     }
 
     fun deleteEntry(entryId: Uuid, actingMemberId: Uuid) {
@@ -143,4 +147,30 @@ class WatchlistService(
 
         return entry
     }
+
+    /** Fills in [WatchlistEntryRow.originalLanguage]/[WatchlistEntryRow.translations] from the entry's underlying
+     * Movie/Series catalog row (see [MovieRepository.findCatalogTitleInfoByMediaItemIds]) -- neither the
+     * `WatchlistEntries`/`MediaItems` join `ExposedWatchlistRepository` itself does can supply these (repositories
+     * don't depend on each other), so this cross-entity composition lives here, same as any other in this
+     * codebase. Batched across every entry at once rather than per-entry, to avoid a query per row when listing a
+     * whole club's watchlist. An entry whose MediaItem has no matching catalog row (not yet backfilled, or
+     * [MediaItemType.EPISODE] -- watchlist entries can't be episodes yet) is left with its default `null`/empty
+     * values, which `resolveTitle` treats the same as "no translation data available". */
+    private fun enrichCatalogTitles(entries: List<WatchlistEntryRow>): List<WatchlistEntryRow> {
+        val movieMediaItemIds = entries.filter { it.type == MOVIE }.map { it.mediaItemId }
+        val seriesMediaItemIds = entries.filter { it.type == SERIES }.map { it.mediaItemId }
+        val movieCatalogInfo = movieRepository.findCatalogTitleInfoByMediaItemIds(movieMediaItemIds)
+        val seriesCatalogInfo = seriesRepository.findCatalogTitleInfoByMediaItemIds(seriesMediaItemIds)
+
+        return entries.map { entry ->
+            val info = when (entry.type) {
+                MOVIE -> movieCatalogInfo[entry.mediaItemId]
+                SERIES -> seriesCatalogInfo[entry.mediaItemId]
+                EPISODE -> null
+            } ?: return@map entry
+            entry.copy(originalLanguage = info.originalLanguage, translations = info.translations)
+        }
+    }
+
+    private fun enrichCatalogTitle(entry: WatchlistEntryRow): WatchlistEntryRow = enrichCatalogTitles(listOf(entry)).single()
 }

@@ -3,6 +3,7 @@ package br.com.gabryel.movieclub.db.repositories.exposed
 import br.com.gabryel.movieclub.db.DisplayTitlePreference
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
+import br.com.gabryel.movieclub.db.repositories.dto.CatalogTitleInfo
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbMovieMetadata
@@ -65,19 +66,30 @@ class ExposedMovieRepository : MovieRepository {
             .singleOrNull()
     }
 
+    /** Ordered by [MeetingMovies.createdAt] (oldest first) -- without an explicit order, Postgres doesn't guarantee
+     * row order is stable across repeated queries, so the meetings table's movie order could silently shuffle
+     * between polls with nothing in the app itself having changed. [EpisodeRepository]'s equivalent methods already
+     * order by season/episode number for the same reason; Movie has no natural sequence number of its own, so
+     * insertion order (when each movie was added to the meeting) is the next best stable choice. */
     override fun listByMeeting(meetingId: Uuid): List<MovieRow> = transaction {
         joined()
             .selectAll()
             .where { MeetingMovies.meetingId eq meetingId }
+            .orderBy(MeetingMovies.createdAt)
             .map(::toRow)
     }
 
+    /** Batched form of [listByMeeting] -- see its doc for why this orders by [MeetingMovies.createdAt]. Ordering by
+     * `createdAt` alone (not also grouping by `meetingId` first) is enough: the caller (`MeetingService.loadPicks`)
+     * regroups this flat list with `groupBy { it.meetingId }`, which preserves encounter order within each group
+     * regardless of how meetings interleave in the flat list. */
     override fun listByMeetings(meetingIds: List<Uuid>): List<MovieRow> {
         if (meetingIds.isEmpty()) return emptyList()
         return transaction {
             joined()
                 .selectAll()
                 .where { MeetingMovies.meetingId inList meetingIds }
+                .orderBy(MeetingMovies.createdAt)
                 .map(::toRow)
         }
     }
@@ -122,6 +134,17 @@ class ExposedMovieRepository : MovieRepository {
             it.applyTmdbMetadata(metadata, mediaItemId)
         }
         findById(movieId)!!
+    }
+
+    override fun findCatalogTitleInfoByMediaItemIds(mediaItemIds: List<Uuid>): Map<Uuid, CatalogTitleInfo> {
+        if (mediaItemIds.isEmpty()) return emptyMap()
+        return transaction {
+            Movies.selectAll()
+                .where { Movies.mediaItemId inList mediaItemIds }
+                .associate { row ->
+                    row[Movies.mediaItemId]!!.value to CatalogTitleInfo(row[Movies.originalLanguage], row[Movies.translations])
+                }
+        }
     }
 
     /** Deletes only this pick (and its reviews) -- the shared global catalog row is left alone since other

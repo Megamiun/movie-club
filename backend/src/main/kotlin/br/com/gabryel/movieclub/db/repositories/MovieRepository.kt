@@ -1,6 +1,7 @@
 package br.com.gabryel.movieclub.db.repositories
 
 import br.com.gabryel.movieclub.db.DisplayTitlePreference
+import br.com.gabryel.movieclub.db.repositories.dto.CatalogTitleInfo
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbMovieMetadata
@@ -39,6 +40,14 @@ interface MovieRepository {
     fun updateWatchLink(movieId: Uuid, watchLink: String? = null): MovieRow
 
     fun updateTmdbMetadata(movieId: Uuid, metadata: TmdbMovieMetadata, mediaItemId: Uuid? = null): MovieRow
+
+    /** Reverse lookup from a MediaItem back to its own catalog row's `originalLanguage`/`translations`, keyed by
+     * `Movies.mediaItemId` rather than the catalog row's own id -- used by `WatchlistService` to give a
+     * Watchlist entry (which references a MediaItem directly, with no Movie pick of its own) enough to resolve a
+     * language-aware display title. Batched since `WatchlistService.listEntries` needs this for every entry at
+     * once; entries whose MediaItem has no matching Movie catalog row (e.g. not yet backfilled) are simply absent
+     * from the result rather than erroring. */
+    fun findCatalogTitleInfoByMediaItemIds(mediaItemIds: List<Uuid>): Map<Uuid, CatalogTitleInfo>
 
     fun delete(movieId: Uuid)
 
