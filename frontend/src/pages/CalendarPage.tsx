@@ -76,7 +76,7 @@ export function CalendarPage() {
           <Typography color="text.secondary">No meetings yet.</Typography>
         ) : (
           <>
-            <Tabs value={effectiveYear} onChange={(_, year) => setSelectedYear(year)} sx={{ mb: 3 }}>
+            <Tabs value={effectiveYear} onChange={(_, year) => setSelectedYear(year)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ mb: 3 }}>
               {years.map((year) => (
                 <Tab key={year} value={year} label={year} />
               ))}

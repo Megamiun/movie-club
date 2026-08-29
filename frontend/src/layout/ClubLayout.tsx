@@ -34,7 +34,7 @@ export function ClubLayout() {
         <Typography variant="h4" gutterBottom>
           {club?.name}
         </Typography>
-        <Tabs value={activeTab} sx={{ mb: 3 }}>
+        <Tabs value={activeTab} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ mb: 3 }}>
           {TABS.map((tab) => (
             <Tab
               key={tab.path}

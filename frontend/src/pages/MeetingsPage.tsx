@@ -295,6 +295,9 @@ export function MeetingsPage() {
             <Tabs
               value={effectiveYear}
               onChange={(_, year) => setSelectedYear(year)}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
               sx={{ mb: 2 }}
             >
               {years.map((year) => (

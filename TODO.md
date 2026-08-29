@@ -1,5 +1,13 @@
 # TODO
 
+- [x] Fix tabs not being scrollable on mobile when there are too many to fit -- the club nav tabs (`ClubLayout`,
+  now 7 with the Calendar tab added this session), and the year tabs on both `MeetingsPage` and `CalendarPage`, all
+  used MUI's default `Tabs` `variant="standard"`, which doesn't support horizontal scroll/swipe at all once tabs
+  overflow their container -- on a narrow phone screen, tabs past the fold were simply unreachable. All three now
+  use `variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile`. Verified at a 390px mobile viewport: the
+  nav tabs' scroll container now has `overflow-x: auto` with `scrollWidth` (715px) genuinely exceeding `clientWidth`
+  (278px), and scrolling to and clicking a previously off-screen tab (Overview) navigates correctly.
+
 - [x] Apply language rules to the Watchlist tab -- resolves the item further down about MediaItem/`resolveTitle`
   (see "Let a MediaItem be linked back...", now folded into this entry rather than kept as its own open item).
   A watchlist entry only ever exposed `MediaItem.title` (the flat original title, no translations/originalLanguage),
