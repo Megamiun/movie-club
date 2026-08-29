@@ -1,6 +1,10 @@
 # TODO
 
-- [ ] Auto redirect from register page when already logged in
+- [x] Auto redirect from register page when already logged in
+  - `RegisterPage` now redirects to `/clubs` (`<Navigate replace>`) as soon as `useAuth().member` is set, before
+    rendering the form -- same early-return-after-hooks shape as the rest of the route tree. Verified in a real
+    browser (Playwright against the dev server): a logged-out visit still renders the form, a logged-in visit to
+    `/register` lands on `/clubs` immediately.
 - [ ] Add a tab with a per month view, where to show the posters
 - [ ] Show only movies in the home page by default
 - [ ] Remove date header, put it into the movie line

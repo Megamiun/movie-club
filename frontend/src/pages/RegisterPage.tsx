@@ -1,11 +1,11 @@
 import { Alert, Box, Button, Paper, TextField, Typography } from '@mui/material'
 import { useState, type FormEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError } from '../api/client'
 
 export function RegisterPage() {
-  const { register } = useAuth()
+  const { member, register } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [inviteToken, setInviteToken] = useState(searchParams.get('token') ?? '')
@@ -14,6 +14,8 @@ export function RegisterPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  if (member) return <Navigate to="/clubs" replace />
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
