@@ -204,7 +204,12 @@ enforces those automatically. This section is for conventions ktlint can't check
   way for language-based resolution and is gone entirely, not kept alongside), year, director, runtime, genre,
   `origin_country`, `production_countries` (a second, distinct country list — TMDB's full production-country objects,
   not just origin codes), IMDB rating (via OMDb, see MediaItem above — TMDB's own `vote_average`/`tmdb_rating` was
-  removed entirely, see MediaItem above), poster (stored in S3), `metadata_fetched_at`. Also `director_imdb_id` — resolved from the credited director's TMDB *person* id (`credits`
+  removed entirely, see MediaItem above), poster (stored in S3), `metadata_fetched_at`. The catalog row's own
+  `poster_s3_key` column is long-unused/always null (see MediaItem above) — the API's `posterUrl` field is instead
+  resolved by joining `MediaItems` through the catalog row's `media_item_id` (same join shape as `director`/`People`
+  below), so it's null exactly when there's no linked MediaItem. Used by the meeting detail page's `MovieSection`
+  (thumbnail + larger expanded view) and the Calendar tab's poster grid (see Schedule Model below). Also
+  `director_imdb_id` — resolved from the credited director's TMDB *person* id (`credits`
   crew entry, job `"Director"`) via a second best-effort `/person/{id}/external_ids` call
   (`TmdbClient.getPersonExternalIds`); like the OMDb rating lookup, a failure here (rate limit, no linked IMDB page)
   never blocks adding/refreshing the movie itself, it just leaves `director_imdb_id` null. Used to link the
@@ -229,7 +234,16 @@ enforces those automatically. This section is for conventions ktlint can't check
   the shared catalog row for every other pick of the same movie
 - Separate "where to watch" link (e.g. HBO, Netflix, magnet link) — per-meeting-pick, not global
 - Per-member **ratings**: quality scale + sentiment scale (both optional) — keyed to the per-meeting pick, not the
-  global movie, since the same movie rewatched at a later meeting can get a fresh rating
+  global movie, since the same movie rewatched at a later meeting can get a fresh rating. `PUT /movies/{id}/review`
+  overwrites quality, sentiment, and comment together in one call; `PATCH /movies/{id}/review/quality` and
+  `.../review/sentiment` (`MovieService.rateQuality`/`rateSentiment`, backed by `MovieRepository.updateReviewQuality`/
+  `updateReviewSentiment`) each touch only their own field, added so `InlineRatingEditor`'s two independent dropdowns
+  (one per rating) don't have to echo the untouched field/comment back on every save just to avoid clobbering it.
+  The two repository methods use an atomic Exposed `upsert` (`INSERT ... ON CONFLICT`), not a check-then-act
+  `insert`/`update` — with two independent PATCH calls now able to fire concurrently for a first-time rating (quality
+  and sentiment saved in quick succession), a non-atomic version could have both transactions see "no review yet"
+  and race on the insert. Episode has the identical split; Series/Season don't (nothing in the UI rates them inline
+  the way the meetings table rates Movie/Episode, so splitting them wasn't done)
 - Per-member **comments** (free text, optional)
 - Deleting a pick removes only that meeting's choice; the shared catalog row (and any other club's pick of it) is
   untouched
@@ -347,6 +361,13 @@ enforces those automatically. This section is for conventions ktlint can't check
 - References a **MediaItem** directly (movie or series) instead of storing its own title/year/rating — added by
   search only, no freeform/manual entry (see MediaItem above). A given (club, member, MediaItem) triple can only
   appear once — a DB unique constraint, not just an app-level check
+- Title display uses the same `resolveTitle` language resolution every Movie/Series pick uses, even though an entry
+  is just a MediaItem reference with no pick of its own to source `originalLanguage`/`translations` from directly.
+  `MovieRepository`/`SeriesRepository.findCatalogTitleInfoByMediaItemIds` (batched, keyed by `media_item_id`) looks
+  up the entry's underlying Movie/Series *catalog* row for just those two fields; `WatchlistService` composes this
+  onto every `WatchlistEntryRow` it returns. There's no per-entry `customTitle`/`displayTitlePreference`/
+  `displayLanguageCode` at all (no storage for it, unlike Movie/Series picks), so an entry's title always resolves
+  as if `ORIGINAL` — genuinely per-entry overrides would need new columns on `WatchlistEntries` itself
 - `WatchlistPage` is a Trello-style board per section (Movies, Series): one column per club member, the viewer's own
   column always leftmost, others following the club's rotation order. `position` is scoped to `(club, MediaItem
   type, member)`, so each member's column reorders independently; each column has its own `DndContext` so a card
@@ -464,11 +485,52 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Two icon toggles (`MovieIcon`/`LiveTvIcon`) next to the Meetings page heading show/hide movie picks and episode
   picks independently — there's no separate "series" row to toggle on its own (a meeting only ever has movie picks
   and episode picks; a series' own name is just a grouping label shown above its episodes), so the "series" toggle
-  maps to `meeting.episodes`. Both default on. Personal display preference, `localStorage`-persisted like
-  `RatingDisplayContext` but plain component state (`MeetingsPage`'s own `MEETING_TYPE_FILTERS_KEY`) rather than a
-  shared context, since nothing outside this page needs it. A meeting whose only picks are all currently filtered
-  out still shows its date/assigned-member header row ("Hidden by filters" instead of "Nothing picked yet") rather
-  than disappearing, so the list doesn't jump around as filters are toggled
+  maps to `meeting.episodes`. Movies default on, episodes default off (most members land on this page to check
+  movies first; anyone who also follows series can turn episodes back on and it persists). Personal display
+  preference, `localStorage`-persisted like `RatingDisplayContext` but plain component state (`MeetingsPage`'s own
+  `MEETING_TYPE_FILTERS_KEY`) rather than a shared context. The toggle component itself
+  (`components/MediaTypeFilterButtons.tsx`) is shared with the Calendar tab below — both pages show/hide the exact
+  same two pick types the exact same way
+- The table has its own leading `Date` column rather than a full-width header row per meeting — a meeting's date
+  only actually appears once, on the first visible row of its block (first movie row, first episode group's
+  series-label row, or a bare episode row in the rare case of no resolved series), with a top border marking where
+  a new meeting's block starts; blank on every other row in that block. A meeting with nothing visible (no picks at
+  all, or everything filtered out) still gets the old full-width row (`MeetingDropRow` — "Nothing picked
+  yet"/"Hidden by filters" messaging), since it's the only row that exists to say so and the only drop target left
+  once there's no pick row of its own to double as one
+- A pick's title links to that meeting's own detail page (`/meetings/{id}`) rather than IMDB directly — IMDB gets
+  its own small icon link right after the title instead, both wired with `stopPropagation` so neither fights the
+  row's own drag-and-drop
+- A meeting's movies sort by the chooser's own club rotation order (`ClubRepository.listMembers`, the same order the
+  rating columns already use) and then alphabetically by title among that member's own picks
+  (`MeetingService.loadPicks`'s `movieSortOrder`) — without this, a merged meeting's picks had no guaranteed order at
+  all (`ExposedMovieRepository.listByMeeting`/`listByMeetings` had no `ORDER BY`, unlike Episode's own
+  season/episode-number ordering), so the same meeting could show its movies in a different order between polls.
+  Episode order is untouched (season/episode number is already more meaningful there than title would be)
+- A "Calendar" tab (`CalendarPage`, `/clubs/{clubId}/calendar`) is a visual, poster-first alternative to the
+  Meetings table — same underlying meeting data and year-tab picker (`useYearTabs`, shared with `MeetingsPage`),
+  grouped by calendar month within the selected year instead of table rows, one poster card per pick (so a merged
+  meeting's several movies each get their own card). Movie cards use the pick's own poster (see Movie above);
+  episode cards fall back to their parent series' poster (an episode has no poster of its own). Uses the same
+  `MediaTypeFilterButtons` toggle as the Meetings table, but defaults to movies-only (not movies-and-episodes-both)
+  since a mixed poster grid by default is less useful than the table's row-based view
+  - Each month heading has a share icon that renders that month's poster grid (posters only — no title/date text
+    or club branding) into a 1080x1920 PNG, Instagram Stories' own 9:16 aspect ratio, entirely client-side via
+    `<canvas>` (`utils/monthShareImage.ts`). Uses the Web Share API when available (hands the image straight to
+    the phone's OS share sheet — Instagram, Messages, etc.) and falls back to a plain file download otherwise. This
+    can only ever produce a downloadable/shareable image, not post directly into Instagram's own Stories composer
+    — that needs Instagram's own app/API, out of scope here
+  - TMDB's own CDN sends no CORS headers, so a poster loaded directly from `image.tmdb.org` taints the canvas and
+    silently breaks `toBlob`/`toDataURL` entirely. Routed instead through a new backend proxy,
+    `GET /media-items/image-proxy?url=...` (`routing/mediaitem/MediaItemRoutes.kt`, backed by a new
+    `TmdbClient.fetchImageBytes`), which re-serves the same bytes through our own origin — already covered by the
+    app's existing global, permissive CORS plugin. Deliberately unauthenticated, unlike the rest of the API (a
+    poster is already public content, nothing to gate) but restricted to URLs starting with
+    `https://image.tmdb.org/` so it can't become an open arbitrary-URL proxy (an SSRF risk otherwise)
+- All three `Tabs` instances in the app (club nav tabs, and both year-tab pickers on Meetings/Calendar) use MUI's
+  `scrollable` variant with auto scroll buttons — the default non-scrollable variant has no horizontal
+  scroll/swipe support at all once tabs overflow their container, which made tabs past the fold unreachable on a
+  narrow phone screen once the club nav grew past what fits (7 tabs as of the Calendar tab above)
 
 ### Key scenarios
 
@@ -488,6 +550,7 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Movie and series management per meeting
 - Ratings + comments entry (mobile-responsive — used on the couch)
 - Personal watchlist per member
+- Calendar/poster view per month, with a one-tap monthly share image sized for Instagram Stories
 - Stats/charts (genres, rating comparisons, etc.)
 - CSV importer for existing 2025/2026/2027 data
 - Year-at-a-time schedule generation
