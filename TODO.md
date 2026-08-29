@@ -14,10 +14,20 @@
     card shows `movie.posterUrl`; an episode card falls back to its parent series' own `posterUrl` (already embedded
     on the pick via `pick.series` -- no extra fetch needed) since an episode has no poster of its own. A pick with
     no resolved poster shows a movie/TV icon placeholder rather than leaving a gap. Every card links to its
-    meeting's detail page. No filter controls (shows both movies and episodes, unlike the Meetings table's
-    show/hide toggles) -- a visual overview is the point, not a variant of the same filtering.
+    meeting's detail page.
+  - Follow-up (user feedback): added a Movies/Series selector next to the "Calendar" heading -- first built as an
+    exclusive either/or picker, but per follow-up feedback ("not exclusive, should be like main tab") changed to the
+    same independent show/hide toggle the Meetings table already uses (each can be on/off on its own; both, either,
+    or neither can be shown). That button pair was extracted out of `MeetingsPage` into a shared
+    `MediaTypeFilterButtons` component (`frontend/src/components/MediaTypeFilterButtons.tsx`) so both pages render
+    the identical control instead of two copies -- `MeetingsPage`'s own local version was deleted in favor of it.
+    Defaults to movies only (unlike Meetings' movies-and-episodes-both default), persisted to `localStorage`
+    (`movieclub.calendarMediaFilters`) like every other personal display preference in this app. Episode cards'
+    titles now also include the episode's own name (e.g. "Twin Peaks S3E01 - Part 1"), not just the series title
+    and S#E# code.
   - Verified in a real browser: tab renders, months group correctly with real poster art, episode cards visibly
-    share their series' poster across every episode of that series, clicking a card navigates to the right meeting.
+    share their series' poster across every episode of that series, clicking a card navigates to the right meeting,
+    the Movies/Series toggle filters correctly and its choice persists across reload.
   - Code review of this addition found one real duplication, fixed: the "default to current year, else most recent
     year with meetings" year-tab algorithm was copy-pasted verbatim from `MeetingsPage`. Extracted into a shared
     `useYearTabs` hook (`frontend/src/hooks/useYearTabs.ts`); both pages now call it instead of each carrying their
@@ -56,6 +66,9 @@
     `Date` cell plus a `colSpan={columnCount - 1}` cell for the rest, so the "Hidden by filters"/series-label text
     still spans the remaining width. `columnCount` bumped from `9 + members` to `10 + members` to account for the
     new column. Re-verified all four shapes again in a real browser after this change.
+  - Follow-up (user feedback): the Date column's text is now always bold (`fontWeight: 600`) in `MovieRow`/
+    `EpisodeRow`, not just in the empty-meeting fallback row where it already was -- consistent weight regardless
+    of which row shape is carrying the date for that block.
 - [x] When clicking movie name, open meeting details
 - [x] Add link to imdb as a link icon after title
   - Companion changes, same rows: the meetings table's title cell used to wrap the whole title in the IMDB link

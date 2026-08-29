@@ -1,10 +1,12 @@
 import LiveTvIcon from '@mui/icons-material/LiveTv'
 import MovieIcon from '@mui/icons-material/Movie'
-import { Box, Tab, Tabs, Typography } from '@mui/material'
+import { Box, Stack, Tab, Tabs, Typography } from '@mui/material'
+import { useEffect, useState } from 'react'
 import { Link as RouterLink, useOutletContext } from 'react-router-dom'
 import { meetingsApi } from '../api/meetings'
 import type { MeetingEpisodePick, MeetingMoviePick, MeetingWithPicks } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { MediaTypeFilterButtons, type MediaTypeFilters } from '../components/MediaTypeFilterButtons'
 import { useAsync } from '../hooks/useAsync'
 import { useSeasonNumbers } from '../hooks/useSeasonNumbers'
 import { useSmartPolling } from '../hooks/useSmartPolling'
@@ -14,6 +16,21 @@ import { episodeCode } from '../utils/episode'
 import { resolveTitle } from '../utils/title'
 
 const MONTH_FORMATTER = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' })
+
+/** Which pick types the poster grid shows -- same independent show/hide toggle as the Meetings table (each can be
+ * on/off on its own), not an either/or picker. A personal display preference, `localStorage`-persisted like the
+ * Meetings table's own filters; defaults to movies only, unlike Meetings' movies-and-episodes-both default, since a
+ * poster grid mixing two unrelated things at once by default is less useful than the table's row-based view. */
+const CALENDAR_MEDIA_FILTERS_KEY = 'movieclub.calendarMediaFilters'
+
+function loadCalendarMediaFilters(): MediaTypeFilters {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CALENDAR_MEDIA_FILTERS_KEY) ?? '{}')
+    return { showMovies: parsed.showMovies ?? true, showEpisodes: parsed.showEpisodes ?? false }
+  } catch {
+    return { showMovies: true, showEpisodes: false }
+  }
+}
 
 interface PosterCardInfo {
   key: string
@@ -31,6 +48,11 @@ export function CalendarPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { data: meetings, loading, error, silentReload } = useAsync(() => meetingsApi.list(club.id), [club.id])
   useSmartPolling(silentReload, 10_000)
+  const [mediaFilters, setMediaFilters] = useState(loadCalendarMediaFilters)
+
+  useEffect(() => {
+    localStorage.setItem(CALENDAR_MEDIA_FILTERS_KEY, JSON.stringify(mediaFilters))
+  }, [mediaFilters])
 
   const seasonNumbers = useSeasonNumbers(
     (meetings ?? []).flatMap((meeting) => meeting.episodes.map((pick) => pick.episode.seasonId)),
@@ -42,9 +64,12 @@ export function CalendarPage() {
 
   return (
     <Box>
-      <Typography variant="h5" gutterBottom>
-        Calendar
-      </Typography>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
+        <Typography variant="h5" gutterBottom sx={{ mb: 0 }}>
+          Calendar
+        </Typography>
+        <MediaTypeFilterButtons filters={mediaFilters} onChange={setMediaFilters} />
+      </Stack>
 
       <AsyncState loading={loading} error={error}>
         {sorted.length === 0 ? (
@@ -58,7 +83,7 @@ export function CalendarPage() {
             </Tabs>
 
             {months.map(({ month, meetings: monthMeetings }) => {
-              const cards = monthMeetings.flatMap((meeting) => cardsFor(meeting, club, seasonNumbers))
+              const cards = monthMeetings.flatMap((meeting) => cardsFor(meeting, club, seasonNumbers, mediaFilters))
               if (cards.length === 0) return null
               return (
                 <Box key={month} sx={{ mb: 4 }}>
@@ -98,29 +123,35 @@ function cardsFor(
   meeting: MeetingWithPicks,
   club: ClubOutletContext['club'],
   seasonNumbers: Map<string, { number: number; seasonDigits: number; episodeDigits: number }> | null,
+  mediaFilters: MediaTypeFilters,
 ): PosterCardInfo[] {
-  const movieCards = meeting.movies.map((pick: MeetingMoviePick) => ({
-    key: pick.movie.id,
-    meetingId: meeting.id,
-    date: meeting.date,
-    title: resolveTitle(pick.movie, club),
-    posterUrl: pick.movie.posterUrl,
-    isEpisode: false,
-  }))
+  const movieCards = mediaFilters.showMovies
+    ? meeting.movies.map((pick: MeetingMoviePick) => ({
+        key: pick.movie.id,
+        meetingId: meeting.id,
+        date: meeting.date,
+        title: resolveTitle(pick.movie, club),
+        posterUrl: pick.movie.posterUrl,
+        isEpisode: false,
+      }))
+    : []
 
-  const episodeCards = meeting.episodes.map((pick: MeetingEpisodePick) => {
-    const seasonCode = seasonNumbers?.get(pick.episode.seasonId)
-    const code = episodeCode(seasonCode?.number, pick.episode.number, seasonCode?.seasonDigits, seasonCode?.episodeDigits)
-    const seriesTitle = pick.series ? resolveTitle(pick.series, club) : null
-    return {
-      key: pick.episode.id,
-      meetingId: meeting.id,
-      date: meeting.date,
-      title: seriesTitle ? `${seriesTitle} ${code}` : code,
-      posterUrl: pick.series?.posterUrl ?? null,
-      isEpisode: true,
-    }
-  })
+  const episodeCards = mediaFilters.showEpisodes
+    ? meeting.episodes.map((pick: MeetingEpisodePick) => {
+        const seasonCode = seasonNumbers?.get(pick.episode.seasonId)
+        const code = episodeCode(seasonCode?.number, pick.episode.number, seasonCode?.seasonDigits, seasonCode?.episodeDigits)
+        const seriesTitle = pick.series ? resolveTitle(pick.series, club) : null
+        const codeAndName = `${code}${pick.episode.title ? ` - ${pick.episode.title}` : ''}`
+        return {
+          key: pick.episode.id,
+          meetingId: meeting.id,
+          date: meeting.date,
+          title: seriesTitle ? `${seriesTitle} ${codeAndName}` : codeAndName,
+          posterUrl: pick.series?.posterUrl ?? null,
+          isEpisode: true,
+        }
+      })
+    : []
 
   return [...movieCards, ...episodeCards]
 }

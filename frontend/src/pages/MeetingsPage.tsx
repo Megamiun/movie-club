@@ -1,6 +1,4 @@
 import AddIcon from '@mui/icons-material/Add'
-import LiveTvIcon from '@mui/icons-material/LiveTv'
-import MovieIcon from '@mui/icons-material/Movie'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import TuneIcon from '@mui/icons-material/Tune'
 import {
@@ -54,6 +52,7 @@ import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
 import { InlineRatingEditor } from '../components/InlineRatingEditor'
 import { MemberAutocomplete } from '../components/MemberAutocomplete'
+import { MediaTypeFilterButtons } from '../components/MediaTypeFilterButtons'
 import { MemberBadge } from '../components/MemberBadge'
 import { TruncatedList } from '../components/TruncatedList'
 import { useAuth } from '../auth/AuthContext'
@@ -279,7 +278,7 @@ export function MeetingsPage() {
           Meetings
         </Typography>
         <RatingDisplaySettingsButton />
-        <MeetingTypeFilterButtons filters={typeFilters} onChange={setTypeFilters} />
+        <MediaTypeFilterButtons filters={typeFilters} onChange={setTypeFilters} />
       </Stack>
 
       {moveError && (
@@ -452,30 +451,6 @@ function RatingDisplaySettingsButton() {
   )
 }
 
-/** Two icon toggles -- Movies and Series -- for which pick types show in the table below. Each is independently
- * on/off (not exclusive: both, either, or neither can be active at once). */
-function MeetingTypeFilterButtons({ filters, onChange }: { filters: MeetingTypeFilters; onChange: (next: MeetingTypeFilters) => void }) {
-  return (
-    <Stack direction="row" spacing={0.5}>
-      <IconButton
-        size="small"
-        color={filters.showMovies ? 'primary' : 'default'}
-        onClick={() => onChange({ ...filters, showMovies: !filters.showMovies })}
-        title={filters.showMovies ? 'Hide movies' : 'Show movies'}
-      >
-        <MovieIcon fontSize="small" />
-      </IconButton>
-      <IconButton
-        size="small"
-        color={filters.showEpisodes ? 'primary' : 'default'}
-        onClick={() => onChange({ ...filters, showEpisodes: !filters.showEpisodes })}
-        title={filters.showEpisodes ? 'Hide series' : 'Show series'}
-      >
-        <LiveTvIcon fontSize="small" />
-      </IconButton>
-    </Stack>
-  )
-}
 
 /** A meeting's header row is always a drop target (even for an empty meeting with no pick rows of its own to
  * double as one) -- registers its own [useDroppable] rather than relying on a pick row being present. */
@@ -765,7 +740,7 @@ const MovieRow = memo(function MovieRow({
         }),
       }}
     >
-      <TableCell>{blockHeader?.date}</TableCell>
+      <TableCell sx={{ fontWeight: 600 }}>{blockHeader?.date}</TableCell>
       <TableCell>
         <MemberBadge member={club.members.find((m) => m.memberId === movie.chosenById)} />
       </TableCell>
@@ -896,7 +871,7 @@ const EpisodeRow = memo(function EpisodeRow({
         }),
       }}
     >
-      <TableCell>{blockHeader?.date}</TableCell>
+      <TableCell sx={{ fontWeight: 600 }}>{blockHeader?.date}</TableCell>
       <TableCell>
         {series ? <MemberBadge member={club.members.find((m) => m.memberId === series.chosenById)} /> : '—'}
       </TableCell>
