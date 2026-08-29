@@ -514,12 +514,16 @@ enforces those automatically. This section is for conventions ktlint can't check
   episode cards fall back to their parent series' poster (an episode has no poster of its own). Uses the same
   `MediaTypeFilterButtons` toggle as the Meetings table, but defaults to movies-only (not movies-and-episodes-both)
   since a mixed poster grid by default is less useful than the table's row-based view
-  - Each month heading has a share icon that renders that month's poster grid (posters only — no title/date text
-    or club branding) into a 1080x1920 PNG, Instagram Stories' own 9:16 aspect ratio, entirely client-side via
-    `<canvas>` (`utils/monthShareImage.ts`). Uses the Web Share API when available (hands the image straight to
-    the phone's OS share sheet — Instagram, Messages, etc.) and falls back to a plain file download otherwise. This
-    can only ever produce a downloadable/shareable image, not post directly into Instagram's own Stories composer
-    — that needs Instagram's own app/API, out of scope here
+  - Each month heading has a share icon that renders that month's poster grid, with the "Month Year" label in a
+    reserved header band at the top (no club name/branding — just the month) into a 1080x1920 PNG, Instagram
+    Stories' own 9:16 aspect ratio, entirely client-side via `<canvas>` (`utils/monthShareImage.ts`). The grid below
+    the header sizes itself to the remaining space, same centering rules as before. Uses the Web Share API when
+    available (hands the image straight to the phone's OS share sheet — Instagram, Messages, etc.) and falls back
+    to a plain file download otherwise. This can only ever produce a downloadable/shareable image, not post
+    directly into Instagram's own Stories composer — that needs Instagram's own app/API, out of scope here. Sample
+    exports at a few different poster counts showed the grid fills the frame well most of the time, but a count
+    that lands on 3 columns with a short last row (e.g. 8) reads sparse — large empty bars top and bottom, since
+    the grid only ever scales *down* to fit, never up to fill unused space; not yet addressed
   - TMDB's own CDN sends no CORS headers, so a poster loaded directly from `image.tmdb.org` taints the canvas and
     silently breaks `toBlob`/`toDataURL` entirely. Routed instead through a new backend proxy,
     `GET /media-items/image-proxy?url=...` (`routing/mediaitem/MediaItemRoutes.kt`, backed by a new

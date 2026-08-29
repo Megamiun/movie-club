@@ -5,14 +5,15 @@ const IMAGE_HEIGHT = 1920
 const PADDING = 60
 const GAP = 24
 const CORNER_RADIUS = 16
+const HEADER_HEIGHT = 96
 
-/** Renders a poster-only grid (no title/date text, no club branding -- see CLAUDE.md/TODO for why: a plain visual
- * summary, not a labeled one) into a 1080x1920 PNG, Instagram Stories' own aspect ratio (9:16). Posters are laid
- * out in a grid sized to the number given, scaled down (preserving aspect) only if it wouldn't otherwise fit the
- * canvas height, and centered both vertically and horizontally (including a short last row, which centers on its
- * own rather than trailing left-aligned). Each poster is cover-fit (cropped, not stretched) into its tile, same as
- * the on-screen `PosterCard`'s own `object-fit: cover`. */
-export async function generateMonthShareImage(posterUrls: string[]): Promise<Blob> {
+/** Renders a poster grid (no per-poster title/date text, no club branding -- just the month/year label at top and
+ * the art) into a 1080x1920 PNG, Instagram Stories' own aspect ratio (9:16). Posters are laid out in a grid sized
+ * to the number given, scaled down (preserving aspect) only if it wouldn't otherwise fit the space below the
+ * header, and centered both vertically and horizontally within that space (including a short last row, which
+ * centers on its own rather than trailing left-aligned). Each poster is cover-fit (cropped, not stretched) into
+ * its tile, same as the on-screen `PosterCard`'s own `object-fit: cover`. */
+export async function generateMonthShareImage(posterUrls: string[], label: string): Promise<Blob> {
   if (posterUrls.length === 0) {
     throw new Error('Nothing with a poster to share this month')
   }
@@ -26,11 +27,18 @@ export async function generateMonthShareImage(posterUrls: string[]): Promise<Blo
   ctx.fillStyle = '#0a0a0a'
   ctx.fillRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT)
 
+  ctx.fillStyle = '#f2f2f2'
+  ctx.font = '600 52px system-ui, -apple-system, "Segoe UI", sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(label, IMAGE_WIDTH / 2, PADDING + HEADER_HEIGHT / 2)
+
   const images = await Promise.all(posterUrls.map(loadImage))
 
   const columns = columnsFor(images.length)
+  const gridTopPadding = PADDING + HEADER_HEIGHT
   const availableWidth = IMAGE_WIDTH - PADDING * 2
-  const availableHeight = IMAGE_HEIGHT - PADDING * 2
+  const availableHeight = IMAGE_HEIGHT - gridTopPadding - PADDING
   let tileWidth = (availableWidth - GAP * (columns - 1)) / columns
   let tileHeight = tileWidth * 1.5
   const rows = Math.ceil(images.length / columns)
@@ -44,7 +52,7 @@ export async function generateMonthShareImage(posterUrls: string[]): Promise<Blo
   }
 
   const gridWidth = columns * tileWidth + (columns - 1) * GAP
-  const gridTop = PADDING + (availableHeight - gridHeight) / 2
+  const gridTop = gridTopPadding + (availableHeight - gridHeight) / 2
   const gridLeft = PADDING + (availableWidth - gridWidth) / 2
 
   images.forEach((img, index) => {

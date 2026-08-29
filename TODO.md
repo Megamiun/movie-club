@@ -3,9 +3,10 @@
 - [x] Add a monthly share feature, exporting a poster grid as an Instagram Stories-ratio image -- a share/download
   icon next to each month's heading in the Calendar tab (`CalendarPage`). Generates a 1080x1920 PNG (9:16, same
   ratio as an IG Story) client-side via `<canvas>` (`frontend/src/utils/monthShareImage.ts`): a grid of that
-  month's poster art only (no title/date text, no club branding baked in -- confirmed with the user, a plain
-  visual summary), sized/columned to the count of posters and centered both ways (including a short last row,
-  which centers on its own). Uses the Web Share API (`navigator.share`/`canShare`) when available so a phone can
+  month's poster art (originally posters-only per the user's own call; a follow-up added the "Month Year" label
+  back at the top -- no club name/branding, just the month), sized/columned to the count of posters and centered
+  both ways below the header (including a short last row, which centers on its own). Uses the Web Share API
+  (`navigator.share`/`canShare`) when available so a phone can
   hand the image straight to its OS share sheet (Instagram, Messages, etc.); falls back to a plain file download
   otherwise (desktop, or unsupported browsers). This can only ever produce a downloadable/shareable image, not
   actually post into Instagram's own Stories composer -- that needs Instagram's own app/API, out of scope for a
@@ -25,6 +26,15 @@
     route returns real poster bytes (`curl`), and the full share flow (click the icon on a month with 5 real
     posters, generate, download) produces a correct, real PNG with no console errors -- confirmed by rendering the
     downloaded file.
+  - Follow-up (user review): generated real samples at 4/5/8/10 posters (same `generateMonthShareImage`, published
+    as an Artifact gallery so they could actually be viewed) to check the grid at different counts. 4/5/10 fill the
+    frame well; 8 (3 columns × a short 3-row grid) reads sparse -- large empty bars top and bottom, since the grid
+    only ever scales *down* to fit, never up to fill unused space. Not yet fixed -- flagged for a follow-up pass if
+    wanted (e.g. widening which counts land on 2 vs. 3 columns, or scaling small grids up toward the canvas size).
+  - Follow-up (user feedback): added the "Month Year" label back at the top after all (`generateMonthShareImage`
+    now takes a required `label` param, drawn in a reserved header band before the poster grid, which now sizes
+    itself to the remaining space below the header rather than the full canvas). Re-verified the same four sample
+    counts render correctly with the header in place.
 
 - [x] Fix tabs not being scrollable on mobile when there are too many to fit -- the club nav tabs (`ClubLayout`,
   now 7 with the Calendar tab added this session), and the year tabs on both `MeetingsPage` and `CalendarPage`, all

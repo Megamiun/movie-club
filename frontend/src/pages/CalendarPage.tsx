@@ -67,8 +67,8 @@ export function CalendarPage() {
     setSharingMonth(month)
     try {
       const posterUrls = cards.map((card) => card.posterUrl).filter((url): url is string => Boolean(url))
-      const blob = await generateMonthShareImage(posterUrls)
       const label = MONTH_FORMATTER.format(new Date(`${month}-01T00:00:00`))
+      const blob = await generateMonthShareImage(posterUrls, label)
       const filename = `${club.name.replace(/[^a-z0-9]+/gi, '-')}-${month}.png`
       const file = new File([blob], filename, { type: 'image/png' })
 
