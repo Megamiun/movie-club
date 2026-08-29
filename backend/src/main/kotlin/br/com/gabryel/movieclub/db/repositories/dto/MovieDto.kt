@@ -30,6 +30,7 @@ data class MovieRow(
     val productionCountries: List<String>? = null,
     val imdbRating: BigDecimal? = null,
     val posterS3Key: String? = null,
+    val posterUrl: String? = null,
     val watchLink: String? = null,
     val metadataFetchedAt: Instant? = null,
     val createdAt: Instant,

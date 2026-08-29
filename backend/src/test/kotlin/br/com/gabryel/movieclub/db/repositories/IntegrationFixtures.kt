@@ -1,10 +1,13 @@
 package br.com.gabryel.movieclub.db.repositories
 
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
+import br.com.gabryel.movieclub.db.MediaItemType
+import br.com.gabryel.movieclub.db.MediaItemType.MOVIE
 import br.com.gabryel.movieclub.db.RatingScaleType
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.tables.ClubMembers
 import br.com.gabryel.movieclub.db.tables.Clubs
+import br.com.gabryel.movieclub.db.tables.MediaItems
 import br.com.gabryel.movieclub.db.tables.Meetings
 import br.com.gabryel.movieclub.db.tables.Members
 import br.com.gabryel.movieclub.db.tables.RatingOptions
@@ -68,6 +71,21 @@ internal object IntegrationFixtures {
             it[RatingOptions.position] = 0
             it[RatingOptions.color] = "#000000"
         }[RatingOptions.id].value
+    }
+
+    /** Inserts a [MediaItems] row directly -- used by tests that need a real `media_item_id` to link a Movie/Series
+     * catalog row to, so its `posterUrl` can be exercised through the join. */
+    fun insertMediaItem(
+        posterUrl: String? = "https://image.tmdb.org/t/p/w500/poster.jpg",
+        type: MediaItemType = MOVIE,
+    ): Uuid = transaction {
+        MediaItems.insert {
+            it[MediaItems.type] = type
+            it[MediaItems.imdbId] = "tt${Uuid.random().toString().take(7)}"
+            it[MediaItems.title] = "Integration Test Media Item"
+            it[MediaItems.posterUrl] = posterUrl
+            it[MediaItems.createdAt] = Clock.System.now()
+        }[MediaItems.id].value
     }
 
     /** Inserts a bare global [Series] catalog row directly -- used by Season/Episode tests, which only need a

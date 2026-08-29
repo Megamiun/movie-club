@@ -8,6 +8,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
 import br.com.gabryel.movieclub.db.tables.ClubMembers
 import br.com.gabryel.movieclub.db.tables.ClubSeries
+import br.com.gabryel.movieclub.db.tables.MediaItems
 import br.com.gabryel.movieclub.db.tables.MemberSeriesReviews
 import br.com.gabryel.movieclub.db.tables.People
 import br.com.gabryel.movieclub.db.tables.Series
@@ -184,7 +185,7 @@ class ExposedSeriesRepository : SeriesRepository {
         }[Series.id].value
     }
 
-    private fun joined() = ClubSeries.innerJoin(Series).leftJoin(People)
+    private fun joined() = ClubSeries.innerJoin(Series).leftJoin(People).leftJoin(MediaItems)
 
     private fun toRow(row: ResultRow) = SeriesRow(
         id = row[ClubSeries.id].value,
@@ -206,6 +207,7 @@ class ExposedSeriesRepository : SeriesRepository {
         imdbRating = row[Series.imdbRating],
         creator = row.getOrNull(People.name),
         posterS3Key = row[Series.posterS3Key],
+        posterUrl = row.getOrNull(MediaItems.posterUrl),
         status = row[Series.status],
         metadataFetchedAt = row[Series.metadataFetchedAt],
         createdAt = row[ClubSeries.createdAt],

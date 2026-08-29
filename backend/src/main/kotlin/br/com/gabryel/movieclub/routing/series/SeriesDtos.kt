@@ -65,6 +65,7 @@ internal data class SeriesResponse(
     val imdbRating: String?,
     val creator: String?,
     val posterS3Key: String?,
+    val posterUrl: String?,
 )
 
 @Serializable

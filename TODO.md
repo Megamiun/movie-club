@@ -10,7 +10,20 @@
 - [ ] Remove date header, put it into the movie line
 - [ ] When clicking movie name, open meeting details
 - [ ] Add link to imdb as a link icon after title
-- [ ] Add poster and all details into the meeting details page
+- [x] Add poster and all details into the meeting details page
+  - The meeting detail page's Movie section already showed director/runtime/genre/country/rating -- the poster was
+    the one missing piece, and there was no `posterUrl` anywhere on the `Movie`/`Series` API response to render (the
+    existing `posterS3Key` column is long-unused/always null, see CLAUDE.md's MediaItem section). Added `posterUrl`
+    to `MovieRow`/`SeriesRow` (and their routing responses), sourced by left-joining `MediaItems` through the
+    catalog row's existing `media_item_id` -- the same join shape already used for `director`/`creator` via
+    `People`. `MovieSection`'s accordion now shows a small poster thumbnail in the collapsed row and a larger one
+    next to the details in the expanded view. Episode posters (via the parent series) are out of scope for this
+    pass -- `EpisodeSection` doesn't currently fetch the parent series at all, so wiring that up is a bigger,
+    separate change.
+  - New repository integration tests (`findById resolves posterUrl through the linked MediaItem` /
+    `... has a null posterUrl when there is no linked MediaItem`) for both Movie and Series. Verified visually
+    against a real running backend + seeded data (Playwright screenshot of an expanded movie accordion showing the
+    poster).
 
 - [x] Update instantly when changing languages, colors, rating and so on, but just the relevant components
   - Language-preference edits now refresh the shared `club` object (`LanguagePreferencesSection` calls the outlet's

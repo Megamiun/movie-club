@@ -73,6 +73,7 @@ internal data class MovieResponse(
     val productionCountries: List<String>?,
     val imdbRating: String?,
     val posterS3Key: String?,
+    val posterUrl: String?,
     val watchLink: String?,
 )
 

@@ -236,6 +236,9 @@ function MovieItem({
     <Accordion>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexGrow: 1 }}>
+          {movie.posterUrl && (
+            <Box component="img" src={movie.posterUrl} alt="" sx={{ width: 32, borderRadius: 0.5, flexShrink: 0 }} />
+          )}
           <Typography sx={{ flexGrow: 1 }}>{title}</Typography>
           {movie.year && <Chip size="small" label={movie.year} />}
           {ratingLabel(movie) && <Chip size="small" label={ratingLabel(movie)} />}
@@ -252,15 +255,20 @@ function MovieItem({
           </Alert>
         )}
         <Stack spacing={2}>
-          <Typography variant="body2" color="text.secondary">
-            Chosen by {memberName(members, movie.chosenById)} &middot; Director: {movie.director ?? '—'} &middot;
-            Runtime:{' '}
-            {movie.runtimeMinutes ? `${movie.runtimeMinutes}min` : '—'}
-            {movie.genre && movie.genre.length > 0 ? ` · Genre: ${movie.genre.join(', ')}` : ''}
-            {movie.productionCountries && movie.productionCountries.length > 0
-              ? ` · Country: ${movie.productionCountries.join(', ')}`
-              : ''}
-          </Typography>
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
+            {movie.posterUrl && (
+              <Box component="img" src={movie.posterUrl} alt="" sx={{ width: 92, borderRadius: 1, flexShrink: 0 }} />
+            )}
+            <Typography variant="body2" color="text.secondary">
+              Chosen by {memberName(members, movie.chosenById)} &middot; Director: {movie.director ?? '—'} &middot;
+              Runtime:{' '}
+              {movie.runtimeMinutes ? `${movie.runtimeMinutes}min` : '—'}
+              {movie.genre && movie.genre.length > 0 ? ` · Genre: ${movie.genre.join(', ')}` : ''}
+              {movie.productionCountries && movie.productionCountries.length > 0
+                ? ` · Country: ${movie.productionCountries.join(', ')}`
+                : ''}
+            </Typography>
+          </Stack>
 
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             <TextField

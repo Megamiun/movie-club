@@ -5,6 +5,7 @@ import br.com.gabryel.movieclub.db.repositories.exposed.ExposedSeriesRepository
 import br.com.gabryel.movieclub.db.tables.ClubMembers
 import br.com.gabryel.movieclub.db.tables.ClubSeries
 import br.com.gabryel.movieclub.db.tables.Clubs
+import br.com.gabryel.movieclub.db.tables.MediaItems
 import br.com.gabryel.movieclub.db.tables.MemberSeriesReviews
 import br.com.gabryel.movieclub.db.tables.Members
 import br.com.gabryel.movieclub.db.tables.Series
@@ -35,6 +36,7 @@ class SeriesRepositoryIntegrationTest {
     private val seriesRepository = ExposedSeriesRepository()
     private val clubIds = mutableListOf<Uuid>()
     private val memberIds = mutableListOf<Uuid>()
+    private val mediaItemIds = mutableListOf<Uuid>()
 
     @AfterTest
     fun cleanUp() {
@@ -45,6 +47,7 @@ class SeriesRepositoryIntegrationTest {
             MemberSeriesReviews.deleteWhere { seriesId inList seriesIds }
             ClubSeries.deleteWhere { id inList pickIds }
             Series.deleteWhere { id inList seriesIds }
+            MediaItems.deleteWhere { id inList mediaItemIds }
             ClubMembers.deleteWhere { clubId inList clubIds }
             Clubs.deleteWhere { id inList clubIds }
             Members.deleteWhere { id inList memberIds }
@@ -65,6 +68,27 @@ class SeriesRepositoryIntegrationTest {
         assertNotEquals(pickA.id, pickB.id, "each club's pick should be its own row")
         assertEquals(pickA.globalSeriesId, pickB.globalSeriesId, "both picks should share the same catalog row")
         assertEquals(1, catalogRowCount)
+    }
+
+    @Test
+    fun `findById resolves posterUrl through the linked MediaItem`() {
+        val club = newClub()
+        val member = newMember()
+        val mediaItemId = newMediaItem("https://image.tmdb.org/t/p/w500/poster.jpg")
+
+        val pick = seriesRepository.create(club, member, "tt0903747", metadata(), mediaItemId)
+
+        assertEquals("https://image.tmdb.org/t/p/w500/poster.jpg", seriesRepository.findById(pick.id)?.posterUrl)
+    }
+
+    @Test
+    fun `findById has a null posterUrl when there is no linked MediaItem`() {
+        val club = newClub()
+        val member = newMember()
+
+        val pick = seriesRepository.create(club, member, "tt0903747", metadata())
+
+        assertNull(seriesRepository.findById(pick.id)?.posterUrl)
     }
 
     @Test
@@ -159,4 +183,6 @@ class SeriesRepositoryIntegrationTest {
     private fun newMember() = IntegrationFixtures.insertMember().also { memberIds.add(it) }
 
     private fun newClub() = IntegrationFixtures.insertClub().also { clubIds.add(it) }
+
+    private fun newMediaItem(posterUrl: String?) = IntegrationFixtures.insertMediaItem(posterUrl).also { mediaItemIds.add(it) }
 }

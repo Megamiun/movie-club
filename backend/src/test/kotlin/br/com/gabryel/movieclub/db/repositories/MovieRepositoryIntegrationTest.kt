@@ -4,6 +4,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.TmdbMovieMetadata
 import br.com.gabryel.movieclub.db.repositories.exposed.ExposedMovieRepository
 import br.com.gabryel.movieclub.db.tables.ClubMembers
 import br.com.gabryel.movieclub.db.tables.Clubs
+import br.com.gabryel.movieclub.db.tables.MediaItems
 import br.com.gabryel.movieclub.db.tables.MeetingMovies
 import br.com.gabryel.movieclub.db.tables.Meetings
 import br.com.gabryel.movieclub.db.tables.MemberMovieReviews
@@ -40,6 +41,7 @@ class MovieRepositoryIntegrationTest {
     private val clubIds = mutableListOf<Uuid>()
     private val memberIds = mutableListOf<Uuid>()
     private val meetingIds = mutableListOf<Uuid>()
+    private val mediaItemIds = mutableListOf<Uuid>()
 
     @AfterTest
     fun cleanUp() {
@@ -50,6 +52,7 @@ class MovieRepositoryIntegrationTest {
             MemberMovieReviews.deleteWhere { meetingMovieId inList pickIds }
             MeetingMovies.deleteWhere { id inList pickIds }
             Movies.deleteWhere { id inList movieIds }
+            MediaItems.deleteWhere { id inList mediaItemIds }
             Meetings.deleteWhere { id inList meetingIds }
             val scaleIds = RatingScales.selectAll().where { RatingScales.clubId inList clubIds }.map { it[RatingScales.id] }
             RatingOptions.deleteWhere { scaleId inList scaleIds }
@@ -104,6 +107,27 @@ class MovieRepositoryIntegrationTest {
         val catalogRowCount = transaction { Movies.selectAll().where { Movies.imdbId eq "tt2911666" }.count() }
 
         assertEquals(1, catalogRowCount, "the shared catalog row must survive deleting just one pick")
+    }
+
+    @Test
+    fun `findById resolves posterUrl through the linked MediaItem`() {
+        val member = newMember()
+        val meeting = newMeeting()
+        val mediaItemId = newMediaItem("https://image.tmdb.org/t/p/w500/poster.jpg")
+
+        val pick = movieRepository.create(meeting, member, "tt2911666", metadata(), mediaItemId)
+
+        assertEquals("https://image.tmdb.org/t/p/w500/poster.jpg", movieRepository.findById(pick.id)?.posterUrl)
+    }
+
+    @Test
+    fun `findById has a null posterUrl when there is no linked MediaItem`() {
+        val member = newMember()
+        val meeting = newMeeting()
+
+        val pick = movieRepository.create(meeting, member, "tt2911666", metadata())
+
+        assertNull(movieRepository.findById(pick.id)?.posterUrl)
     }
 
     @Test
@@ -269,4 +293,6 @@ class MovieRepositoryIntegrationTest {
         val clubId = IntegrationFixtures.insertClub().also { clubIds.add(it) }
         return IntegrationFixtures.insertRatingOption(clubId)
     }
+
+    private fun newMediaItem(posterUrl: String?) = IntegrationFixtures.insertMediaItem(posterUrl).also { mediaItemIds.add(it) }
 }

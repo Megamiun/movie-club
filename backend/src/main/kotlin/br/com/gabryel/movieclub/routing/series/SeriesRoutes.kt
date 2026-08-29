@@ -239,6 +239,7 @@ internal fun SeriesRow.toResponse() = SeriesResponse(
     imdbRating = imdbRating?.toPlainString(),
     creator = creator,
     posterS3Key = posterS3Key,
+    posterUrl = posterUrl,
 )
 
 private fun Translation.toResponse() = TranslationResponse(languageCode, countryCode, englishName, title)

@@ -149,6 +149,7 @@ export interface Movie {
   productionCountries: string[] | null
   imdbRating: string | null
   posterS3Key: string | null
+  posterUrl: string | null
   watchLink: string | null
 }
 
@@ -179,6 +180,7 @@ export interface Series {
   imdbRating: string | null
   creator: string | null
   posterS3Key: string | null
+  posterUrl: string | null
 }
 
 export interface Season {
