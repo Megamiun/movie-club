@@ -4,15 +4,22 @@ const IMAGE_WIDTH = 1080
 const IMAGE_HEIGHT = 1920
 const PADDING = 60
 const GAP = 24
+const MAX_ROW_GAP = 150
 const CORNER_RADIUS = 16
 const HEADER_HEIGHT = 96
 
 /** Renders a poster grid (no per-poster title/date text, no club branding -- just the month/year label at top and
- * the art) into a 1080x1920 PNG, Instagram Stories' own aspect ratio (9:16). Posters are laid out in a grid sized
- * to the number given, scaled down (preserving aspect) only if it wouldn't otherwise fit the space below the
- * header, and centered both vertically and horizontally within that space (including a short last row, which
- * centers on its own rather than trailing left-aligned). Each poster is cover-fit (cropped, not stretched) into
- * its tile, same as the on-screen `PosterCard`'s own `object-fit: cover`. */
+ * the art) into a 1080x1920 PNG, Instagram Stories' own aspect ratio (9:16). Posters keep a consistent size and
+ * outer margin (`PADDING`) regardless of how many there are; what changes is the *gap between rows* -- a sparse
+ * grid (few rows relative to the available height) grows that gap (up to `MAX_ROW_GAP`) to use up the leftover
+ * space instead of leaving it as blank margin above/below, so the frame reads consistently full whether a month
+ * has 4 picks or 10. The cap matters most for a grid with very few rows (e.g. 2): uncapped, it would dump the
+ * *entire* leftover into one absurdly wide gap instead of spreading it out -- whatever the cap leaves on the table
+ * becomes symmetric top/bottom margin instead, same as the original centering behavior. Only falls back to
+ * shrinking the tiles themselves (preserving aspect) if the grid doesn't fit *even at* the base gap. Both
+ * directions center what's left over (a short last row centers on its own rather than trailing left-aligned).
+ * Each poster is cover-fit (cropped, not stretched) into its tile, same as the on-screen `PosterCard`'s own
+ * `object-fit: cover`. */
 export async function generateMonthShareImage(posterUrls: string[], label: string): Promise<Blob> {
   if (posterUrls.length === 0) {
     throw new Error('Nothing with a poster to share this month')
@@ -42,13 +49,24 @@ export async function generateMonthShareImage(posterUrls: string[], label: strin
   let tileWidth = (availableWidth - GAP * (columns - 1)) / columns
   let tileHeight = tileWidth * 1.5
   const rows = Math.ceil(images.length / columns)
-  let gridHeight = rows * tileHeight + (rows - 1) * GAP
+  const naturalGridHeight = rows * tileHeight + (rows - 1) * GAP
 
-  if (gridHeight > availableHeight) {
-    const scale = availableHeight / gridHeight
+  let rowGap = GAP
+  let gridHeight = naturalGridHeight
+  if (naturalGridHeight > availableHeight) {
+    // Doesn't fit even at the base gap -- shrink the tiles (and gap) proportionally instead.
+    const scale = availableHeight / naturalGridHeight
     tileWidth *= scale
     tileHeight *= scale
+    rowGap *= scale
     gridHeight = availableHeight
+  } else if (rows > 1) {
+    // Room to spare -- grow the row gap to absorb it rather than leaving blank margin top/bottom. Capped so a
+    // grid with very few rows (e.g. 2) doesn't dump the *entire* leftover into a single, absurdly wide gap --
+    // whatever growth the cap leaves on the table still ends up as symmetric top/bottom margin via `gridTop` below.
+    const leftover = availableHeight - naturalGridHeight
+    rowGap = GAP + Math.min(leftover / (rows - 1), MAX_ROW_GAP - GAP)
+    gridHeight = rows * tileHeight + (rows - 1) * rowGap
   }
 
   const gridWidth = columns * tileWidth + (columns - 1) * GAP
@@ -62,7 +80,7 @@ export async function generateMonthShareImage(posterUrls: string[], label: strin
     const rowWidth = itemsInRow * tileWidth + (itemsInRow - 1) * GAP
     const rowLeft = gridLeft + (gridWidth - rowWidth) / 2
     const x = rowLeft + col * (tileWidth + GAP)
-    const y = gridTop + row * (tileHeight + GAP)
+    const y = gridTop + row * (tileHeight + rowGap)
     drawPoster(ctx, img, x, y, tileWidth, tileHeight)
   })
 

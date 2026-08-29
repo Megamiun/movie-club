@@ -29,12 +29,20 @@
   - Follow-up (user review): generated real samples at 4/5/8/10 posters (same `generateMonthShareImage`, published
     as an Artifact gallery so they could actually be viewed) to check the grid at different counts. 4/5/10 fill the
     frame well; 8 (3 columns × a short 3-row grid) reads sparse -- large empty bars top and bottom, since the grid
-    only ever scales *down* to fit, never up to fill unused space. Not yet fixed -- flagged for a follow-up pass if
-    wanted (e.g. widening which counts land on 2 vs. 3 columns, or scaling small grids up toward the canvas size).
+    only ever scales *down* to fit, never up to fill unused space.
   - Follow-up (user feedback): added the "Month Year" label back at the top after all (`generateMonthShareImage`
     now takes a required `label` param, drawn in a reserved header band before the poster grid, which now sizes
     itself to the remaining space below the header rather than the full canvas). Re-verified the same four sample
     counts render correctly with the header in place.
+  - Follow-up (user feedback: "make borders more consistent... use the spacing between items to fill space too"):
+    fixed the item-8 sparseness by growing the *gap between rows* to absorb leftover vertical space, instead of
+    leaving it as blank margin -- outer padding (`PADDING`) stays fixed regardless of poster count, so the frame
+    reads consistently full-bleed. Capped at `MAX_ROW_GAP` (150px) so a grid with very few rows (e.g. 2) doesn't
+    dump the *entire* leftover into one absurdly wide gap between them -- confirmed uncapped 4-poster looked broken
+    (a single ~300px gap splitting the grid in two) before adding the cap; whatever the cap leaves on the table
+    still becomes symmetric top/bottom margin, same as the original centering. Only falls back to shrinking the
+    tiles themselves (already-existing behavior) if the grid doesn't fit even at the base gap. Re-verified all four
+    sample counts (4/5/8/10) look consistent now; the Artifact gallery was updated with the new renders.
 
 - [x] Fix tabs not being scrollable on mobile when there are too many to fit -- the club nav tabs (`ClubLayout`,
   now 7 with the Calendar tab added this session), and the year tabs on both `MeetingsPage` and `CalendarPage`, all

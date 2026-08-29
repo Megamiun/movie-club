@@ -520,10 +520,16 @@ enforces those automatically. This section is for conventions ktlint can't check
     the header sizes itself to the remaining space, same centering rules as before. Uses the Web Share API when
     available (hands the image straight to the phone's OS share sheet — Instagram, Messages, etc.) and falls back
     to a plain file download otherwise. This can only ever produce a downloadable/shareable image, not post
-    directly into Instagram's own Stories composer — that needs Instagram's own app/API, out of scope here. Sample
-    exports at a few different poster counts showed the grid fills the frame well most of the time, but a count
-    that lands on 3 columns with a short last row (e.g. 8) reads sparse — large empty bars top and bottom, since
-    the grid only ever scales *down* to fit, never up to fill unused space; not yet addressed
+    directly into Instagram's own Stories composer — that needs Instagram's own app/API, out of scope here. The
+    outer margin (`PADDING`) stays fixed regardless of poster count; what varies is the *gap between rows* — a
+    sparse grid (few rows relative to the available height) grows that gap to soak up leftover vertical space
+    instead of leaving it as blank margin, capped (`MAX_ROW_GAP`) so a grid with very few rows (e.g. 2) doesn't
+    dump the entire leftover into one absurdly wide gap; whatever the cap leaves on the table becomes symmetric
+    top/bottom margin instead. Only falls back to shrinking the tiles themselves if the grid doesn't fit even at
+    the base gap. This came out of reviewing real sample exports at a few different poster counts (published as an
+    Artifact gallery so they could actually be viewed) — first pass had no row-gap growth at all, so a count
+    landing on a short last row (e.g. 8, 3 columns × 3 rows) read sparse; the fix above was tuned by eye against
+    the same samples until 4/5/8/10 all looked consistent
   - TMDB's own CDN sends no CORS headers, so a poster loaded directly from `image.tmdb.org` taints the canvas and
     silently breaks `toBlob`/`toDataURL` entirely. Routed instead through a new backend proxy,
     `GET /media-items/image-proxy?url=...` (`routing/mediaitem/MediaItemRoutes.kt`, backed by a new
