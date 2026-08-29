@@ -733,9 +733,16 @@ const MovieRow = memo(function MovieRow({
         <MemberBadge member={club.members.find((m) => m.memberId === movie.chosenById)} />
       </TableCell>
       <TableCell>
-        <ImdbLink imdbId={movie.imdbId} variant="text">
+        <Link
+          component={RouterLink}
+          to={`/meetings/${meetingId}`}
+          underline="hover"
+          color="inherit"
+          onClick={(e) => e.stopPropagation()}
+        >
           {resolveTitle(movie, club)}
-        </ImdbLink>
+        </Link>
+        <ImdbLink imdbId={movie.imdbId} />
         {error && (
           <Typography variant="caption" color="error" sx={{ display: 'block' }}>
             {error}
@@ -844,13 +851,16 @@ const EpisodeRow = memo(function EpisodeRow({
         {series ? <MemberBadge member={club.members.find((m) => m.memberId === series.chosenById)} /> : '—'}
       </TableCell>
       <TableCell>
-        {episode.imdbId ? (
-          <ImdbLink imdbId={episode.imdbId} variant="text">
-            {label}
-          </ImdbLink>
-        ) : (
-          <span>{label}</span>
-        )}
+        <Link
+          component={RouterLink}
+          to={`/meetings/${meetingId}`}
+          underline="hover"
+          color="inherit"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {label}
+        </Link>
+        {episode.imdbId && <ImdbLink imdbId={episode.imdbId} />}
         {error && (
           <Typography variant="caption" color="error" sx={{ display: 'block' }}>
             {error}

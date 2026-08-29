@@ -12,8 +12,16 @@
     `localStorage`-persisted preference, so anyone who wants episodes visible can turn the toggle back on and it
     sticks.
 - [ ] Remove date header, put it into the movie line
-- [ ] When clicking movie name, open meeting details
-- [ ] Add link to imdb as a link icon after title
+- [x] When clicking movie name, open meeting details
+- [x] Add link to imdb as a link icon after title
+  - Companion changes, same rows: the meetings table's title cell used to wrap the whole title in the IMDB link
+    itself (`<ImdbLink variant="text">`), so clicking the name only ever opened IMDB. Split it: the title is now a
+    plain `RouterLink` to `/meetings/{meetingId}` (same route the date-header link already used), with `ImdbLink`'s
+    icon variant placed right after it as its own separate click target -- both `stopPropagation` on click, same as
+    the existing director-name IMDB link already did, so neither fights the row's own drag-and-drop listeners.
+    Applies to both `MovieRow` and `EpisodeRow`. Verified in a real browser: clicking a title navigates to the
+    meeting detail page (`Meeting — {date}` heading); clicking the IMDB icon opens IMDB in a new tab without
+    navigating the current page.
 - [x] Add poster and all details into the meeting details page
   - The meeting detail page's Movie section already showed director/runtime/genre/country/rating -- the poster was
     the one missing piece, and there was no `posterUrl` anywhere on the `Movie`/`Series` API response to render (the
