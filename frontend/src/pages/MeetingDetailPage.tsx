@@ -1,5 +1,6 @@
+import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { Alert, Autocomplete, Box, Button, Divider, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Autocomplete, Box, Button, Divider, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { useState } from 'react'
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
 import { meetingsApi } from '../api/meetings'
@@ -45,6 +46,7 @@ export function MeetingDetailPage() {
   const [newDate, setNewDate] = useState('')
   const [otherMeetingId, setOtherMeetingId] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
+  const [addChoice, setAddChoice] = useState<'movie' | 'series' | null>(null)
 
   const otherMeetings = meeting && clubMeetings ? orderMeetingsByProximity(clubMeetings, meeting.date, meeting.id) : []
 
@@ -118,6 +120,22 @@ export function MeetingDetailPage() {
               </Alert>
             )}
 
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', my: 2 }}>
+              <AddIcon fontSize="small" color="action" />
+              <Typography variant="body2" color="text.secondary">
+                Add:
+              </Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={addChoice}
+                onChange={(_, value) => setAddChoice(value)}
+              >
+                <ToggleButton value="movie">Movie</ToggleButton>
+                <ToggleButton value="series">Series</ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
+
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center', my: 2 }}>
               <TextField
                 label="New date"
@@ -158,6 +176,7 @@ export function MeetingDetailPage() {
               scales={scales ?? []}
               members={club?.members ?? []}
               languagePrefs={languagePrefs}
+              showAddForm={addChoice === 'movie'}
             />
             <Divider sx={{ my: 3 }} />
             <EpisodeSection
@@ -165,6 +184,7 @@ export function MeetingDetailPage() {
               clubId={meeting.clubId}
               scales={scales ?? []}
               languagePrefs={languagePrefs}
+              showAddForm={addChoice === 'series'}
             />
           </>
         )}

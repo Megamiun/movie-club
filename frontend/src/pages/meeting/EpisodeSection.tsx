@@ -33,11 +33,13 @@ export function EpisodeSection({
   clubId,
   scales,
   languagePrefs,
+  showAddForm,
 }: {
   meetingId: string
   clubId: string
   scales: RatingScale[]
   languagePrefs: LanguagePreferences
+  showAddForm: boolean
 }) {
   const { data: episodes, loading, error, reload, silentReload } = useAsync(() => episodesApi.listForMeeting(meetingId), [meetingId])
   const { data: suggestions, reload: reloadSuggestions, silentReload: silentReloadSuggestions } = useAsync(() => episodesApi.nextSuggestions(clubId), [clubId])
@@ -113,24 +115,26 @@ export function EpisodeSection({
         </Stack>
       )}
 
-      <Box component="form" onSubmit={handleAssign} sx={{ mt: 2 }}>
-        {submitError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {submitError}
-          </Alert>
-        )}
-        <Stack direction="row" spacing={1}>
-          <EpisodeSearchAutocomplete
-            clubId={clubId}
-            value={selectedEpisode}
-            onChange={setSelectedEpisode}
-            languagePrefs={languagePrefs}
-          />
-          <Button type="submit" variant="contained">
-            Assign to this meeting
-          </Button>
-        </Stack>
-      </Box>
+      {showAddForm && (
+        <Box component="form" onSubmit={handleAssign} sx={{ mt: 2 }}>
+          {submitError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {submitError}
+            </Alert>
+          )}
+          <Stack direction="row" spacing={1}>
+            <EpisodeSearchAutocomplete
+              clubId={clubId}
+              value={selectedEpisode}
+              onChange={setSelectedEpisode}
+              languagePrefs={languagePrefs}
+            />
+            <Button type="submit" variant="contained">
+              Assign to this meeting
+            </Button>
+          </Stack>
+        </Box>
+      )}
     </Box>
   )
 }

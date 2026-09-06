@@ -42,12 +42,14 @@ export function MovieSection({
   scales,
   members,
   languagePrefs,
+  showAddForm,
 }: {
   meetingId: string
   clubId: string
   scales: RatingScale[]
   members: ClubMember[]
   languagePrefs: LanguagePreferences
+  showAddForm: boolean
 }) {
   const { data: movies, loading, error, reload, silentReload } = useAsync(() => moviesApi.list(meetingId), [meetingId])
   useSmartPolling(silentReload, 15000)
@@ -99,54 +101,56 @@ export function MovieSection({
         </Stack>
       </AsyncState>
 
-      <Box component="form" onSubmit={handleAdd} sx={{ mt: 2 }}>
-        {submitError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {submitError}
-          </Alert>
-        )}
-        <ToggleButtonGroup
-          size="small"
-          exclusive
-          value={addMode}
-          onChange={(_, mode) => mode && setAddMode(mode)}
-          sx={{ mb: 1 }}
-        >
-          <ToggleButton value="search">Search by title</ToggleButton>
-          <ToggleButton value="imdb">IMDB URL/ID</ToggleButton>
-        </ToggleButtonGroup>
-        <Stack spacing={1}>
-          {addMode === 'search' ? (
-            <TmdbSearchAutocomplete
-              search={moviesApi.search}
-              value={selectedResult}
-              onChange={setSelectedResult}
-              label="Movie title"
-            />
-          ) : (
-            <TextField
-              label="IMDB URL or tt id"
-              size="small"
-              value={imdbUrlOrId}
-              onChange={(e) => setImdbUrlOrId(e.target.value)}
-              required
-              fullWidth
-            />
+      {showAddForm && (
+        <Box component="form" onSubmit={handleAdd} sx={{ mt: 2 }}>
+          {submitError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {submitError}
+            </Alert>
           )}
-          <Stack direction="row" spacing={1}>
-            <TextField
-              label="Watch link (optional)"
-              size="small"
-              value={watchLink}
-              onChange={(e) => setWatchLink(e.target.value)}
-              fullWidth
-            />
-            <Button type="submit" variant="contained">
-              Add
-            </Button>
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            value={addMode}
+            onChange={(_, mode) => mode && setAddMode(mode)}
+            sx={{ mb: 1 }}
+          >
+            <ToggleButton value="search">Search by title</ToggleButton>
+            <ToggleButton value="imdb">IMDB URL/ID</ToggleButton>
+          </ToggleButtonGroup>
+          <Stack spacing={1}>
+            {addMode === 'search' ? (
+              <TmdbSearchAutocomplete
+                search={moviesApi.search}
+                value={selectedResult}
+                onChange={setSelectedResult}
+                label="Movie title"
+              />
+            ) : (
+              <TextField
+                label="IMDB URL or tt id"
+                size="small"
+                value={imdbUrlOrId}
+                onChange={(e) => setImdbUrlOrId(e.target.value)}
+                required
+                fullWidth
+              />
+            )}
+            <Stack direction="row" spacing={1}>
+              <TextField
+                label="Watch link (optional)"
+                size="small"
+                value={watchLink}
+                onChange={(e) => setWatchLink(e.target.value)}
+                fullWidth
+              />
+              <Button type="submit" variant="contained">
+                Add
+              </Button>
+            </Stack>
           </Stack>
-        </Stack>
-      </Box>
+        </Box>
+      )}
     </Box>
   )
 }

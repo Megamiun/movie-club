@@ -275,6 +275,11 @@ enforces those automatically. This section is for conventions ktlint can't check
 - A club-level "Movies" tab (`MoviesPage`) lets a member search TMDB independent of any specific meeting, then add
   the result straight to a chosen meeting or to their watchlist — a thin UI composing `movieService.searchMovies`,
   `addMovieByTmdbId`, and `WatchlistService.addEntry`, no new backend endpoint
+- `MeetingDetailPage`'s Movies/Episodes sections don't show their add-movie/assign-episode forms by default — an
+  "Add: Movie / Series" `ToggleButtonGroup` above both sections controls a `showAddForm` prop on `MovieSection`/
+  `EpisodeSection`, so only the chosen one's form renders (re-clicking the active choice collapses it). Purely a
+  visibility toggle on top of each section's pre-existing add logic, not a new flow — the Episodes section's
+  "Up next" quick-add suggestion chips are exempt, staying always visible as a compact shortcut
 
 ### Series → Season → Episode
 

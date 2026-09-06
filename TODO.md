@@ -59,7 +59,19 @@
     one `Stack direction="row"`, cramped even on a phone-width screen. Now the primary field is its own row, with
     watch-link + Add on the row below it. The edit-details form's own watch-link field was already inside a
     `flexWrap` row, so it wasn't touched.
-- [ ] On the meeting page, add an "Add" button that lets you choose movie or series and then follow that specific flow
+- [x] On the meeting page, add an "Add" button that lets you choose movie or series and then follow that specific flow
+  - The Movies/Episodes sections' own add-movie and assign-episode forms used to be always visible under their
+    headings, taking up space even when nothing was being added. Added a small "Add: Movie / Series" toggle
+    (`MeetingDetailPage`, a `ToggleButtonGroup`) above both sections; `MovieSection`/`EpisodeSection` each gained a
+    `showAddForm` prop and now only render their existing add form when the matching choice is selected (clicking
+    the same choice again collapses it, same exclusive-toggle-that-can-deselect pattern `MediaTypeFilterButtons`
+    doesn't use but `ToggleButtonGroup` supports natively). Neither section's own list/lookup logic changed — this
+    is purely about *when* the existing forms show, not a new add flow. The Episodes section's "Up next" quick-add
+    chips stay always visible regardless, since they're a compact one-click shortcut, not form clutter.
+  - Verified in a real browser: neither form shows by default, clicking "Movie" reveals only the movie form,
+    clicking "Series" swaps to the episode form, clicking the active choice again collapses it. Confirmed the
+    underlying flow still works end-to-end through the new toggle (searched and added a real movie via TMDB,
+    appeared in the Movies list).
 - [x] Check the export/share link on desktop
   - Verified with a real Playwright run against a desktop-shaped browser context (no `navigator.share`/`canShare`,
     same as an actual desktop browser lacking the file-sharing Web Share API): clicking a month's share icon
