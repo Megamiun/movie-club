@@ -36,7 +36,12 @@
     watch-link + Add on the row below it. The edit-details form's own watch-link field was already inside a
     `flexWrap` row, so it wasn't touched.
 - [ ] On the meeting page, add an "Add" button that lets you choose movie or series and then follow that specific flow
-- [ ] Check the export/share link on desktop
+- [x] Check the export/share link on desktop
+  - Verified with a real Playwright run against a desktop-shaped browser context (no `navigator.share`/`canShare`,
+    same as an actual desktop browser lacking the file-sharing Web Share API): clicking a month's share icon
+    correctly falls through to the plain-download path and produces a real, correctly-named
+    (`{club name}-{month}.png`) 1080x1920 PNG with the month header and poster grid intact — no bug found, this
+    was purely a verification pass.
 - [x] Improve merge-meeting functionality: show the 4 closest, followed by all others in order.
   - Show dates, not ids
   - `MeetingDetailPage`'s Swap/Merge "Other meeting ID" text box (a raw UUID paste field) is now an `Autocomplete`
