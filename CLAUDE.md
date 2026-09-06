@@ -260,8 +260,13 @@ enforces those automatically. This section is for conventions ktlint can't check
   losing its reviews/custom title/watch link — it repoints the *same* `MeetingMovies` row's `meeting_id` rather than
   deleting and re-adding, reusing the same `MovieRepository.updateMeeting` primitive `MeetingService.mergeMeetings`
   already used for merging a whole meeting's movies at once. Both meetings must belong to the same club, and the
-  movie can't already be picked at the target. The meetings table (`MeetingsPage`) exposes this as native HTML5
-  drag-and-drop — dragging a movie/episode row and dropping it anywhere within a different meeting's block
+  movie can't already be picked at the target. The meetings table (`MeetingsPage`) exposes this as `@dnd-kit`
+  drag-and-drop (`useDraggable`/`useDroppable`, same library the Watchlist board uses) — dragging a movie/episode
+  row and dropping it anywhere within a different meeting's block. The drag `attributes`/`listeners` live on a
+  dedicated leading icon column (`DragIndicatorIcon`) rather than the whole `TableRow`, matching the Watchlist
+  card's own handle — `useDraggable`'s `setNodeRef` still marks the whole row (dnd-kit's node vs. listeners split:
+  the node is what gets measured/hit-tested, only the pointer listeners that start a drag need to live on the
+  smaller handle)
 - A club-level "Movies" tab (`MoviesPage`) lets a member search TMDB independent of any specific meeting, then add
   the result straight to a chosen meeting or to their watchlist — a thin UI composing `movieService.searchMovies`,
   `addMovieByTmdbId`, and `WatchlistService.addEntry`, no new backend endpoint

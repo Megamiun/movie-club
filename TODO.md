@@ -11,8 +11,21 @@
 - [ ] Add member photos (avatars), and try out designs for using them — not a movie/series poster
 - [ ] Check how the quality/sentiment rating looks with the full description shown instead of the acronym it
   currently falls back to on phones (`RatingDisplayContext`'s fill-content setting)
-- [ ] Add a drag-and-drop icon/handle instead of dragging from anywhere on the row — same ask as the existing
-  stretch goal below ("Consider using a drag handle on phone, instead of the whole line")
+- [x] Add a drag-and-drop icon/handle instead of dragging from anywhere on the row — same ask as the existing
+  item below ("Consider using a drag handle on phone, instead of the whole line"); done together.
+  - Watchlist cards already had a dedicated `DragIndicatorIcon` handle (`{...attributes} {...listeners}` on just
+    that icon, not the whole `Paper`), so this was really just the Meetings table: `MovieRow`/`EpisodeRow` had
+    `{...attributes} {...listeners}` spread on the whole `TableRow`, so the entire row (including e.g. empty space
+    in cells with nothing in them) was a drag source, `cursor: grab` and all. Moved the drag `attributes`/
+    `listeners` onto a new leading icon-only column (`DragIndicatorIcon`, matching Watchlist's own pattern) instead
+    — `useDraggable`'s `setNodeRef` stays on the row itself (dnd-kit's own documented handle pattern: the node
+    marks the draggable region for hit-testing, only the pointer-listeners need to live on the smaller handle).
+    `columnCount` bumped from `10 + members` to `11 + members`; the two places that render a full-width message
+    row ahead of the Date column (`MeetingDropRow`, the first-episode-group series-label row) got a matching
+    leading blank cell and their `colSpan` dropped by one more to match. Verified in a real browser: the handle
+    renders as its own narrow column on every row, and clicking a movie/episode title still navigates to the
+    meeting detail page (the click handler's `stopPropagation` was never dependent on where the drag listeners
+    lived, so this kept working unchanged).
 - [ ] Remove the Movies and Series tabs — their search-and-add capability moves into the meeting "Add" button
   (below) and into the Watchlist's own add flow instead
 - [ ] Allow adding a movie straight from someone else's Watchlist onto a meeting (today this only works from your
@@ -47,7 +60,7 @@
     actually mounts regardless of when that happens. Confirmed via Playwright: a debug log showed `el = null` on
     the only effect run before the fix, and the grid genuinely never left its 1-column fallback.
 
-- [ ] Consider using a drag handle on phone, instead of the whole line
+- [x] Consider using a drag handle on phone, instead of the whole line — done together with the item above.
 - [ ] Make the rating box size dynamic (currently a fixed 34x18).
 
 - [ ] Validate how simple we can make minimum metrics, such as response time and status code rates.

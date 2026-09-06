@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add'
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import TuneIcon from '@mui/icons-material/Tune'
 import {
@@ -244,7 +245,7 @@ export function MeetingsPage() {
     }
   }
 
-  const columnCount = 10 + club.members.length
+  const columnCount = 11 + club.members.length
   const { sorted, years, currentYear, effectiveYear, itemsForYear: meetingsForYear, setSelectedYear } = useYearTabs(meetings ?? [])
   const seasonNumbers = useSeasonNumbers(sorted.flatMap((meeting) => meeting.episodes.map((pick) => pick.episode.seasonId)))
 
@@ -315,6 +316,7 @@ export function MeetingsPage() {
                 <Table size="small" sx={{ '& .MuiTableCell-root': { py: 0.35, px: 1, fontSize: '0.8125rem' } }}>
                   <TableHead>
                     <TableRow sx={{ '& .MuiTableCell-root': { py: 0.5, fontWeight: 600, fontSize: '0.75rem', color: 'text.secondary', bgcolor: 'action.hover' } }}>
+                      <TableCell width={28} />
                       <TableCell width={90}>Date</TableCell>
                       <TableCell width={36}>By</TableCell>
                       <TableCell>Title</TableCell>
@@ -482,12 +484,13 @@ function MeetingDropRow({
       ref={rowRef}
       sx={{ '& td': { bgcolor: isHovered ? 'action.selected' : 'action.hover', fontWeight: 600 } }}
     >
+      <TableCell width={28} />
       <TableCell>
         <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover" color="inherit">
           {meeting.date}
         </Link>
       </TableCell>
-      <TableCell colSpan={columnCount - 1}>
+      <TableCell colSpan={columnCount - 2}>
         <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 400 }}>
           {meeting.assignedMemberId ? memberName(club.members, meeting.assignedMemberId) : 'Shared / merged'}
           {!hasAnyPicks && ' · Nothing picked yet'}
@@ -547,8 +550,9 @@ const MeetingRows = memo(function MeetingRows({
             ref={(el: HTMLTableRowElement | null) => registerRow(meeting.id, el)}
             sx={{ borderTop: '2px solid', borderTopColor: 'divider', bgcolor: isHovered ? 'action.selected' : undefined }}
           >
+            <TableCell width={28} sx={{ border: 0, pb: 0 }} />
             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>{meeting.date}</TableCell>
-            <TableCell colSpan={columnCount - 1} sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
+            <TableCell colSpan={columnCount - 2} sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
               {resolveTitle(visibleEpisodeGroups[0].series!, club)}
             </TableCell>
           </TableRow>
@@ -731,18 +735,24 @@ const MovieRow = memo(function MovieRow({
   return (
     <TableRow
       ref={rowRef}
-      {...attributes}
-      {...listeners}
       sx={{
-        cursor: 'grab',
         opacity: isDragging ? 0.4 : 1,
-        touchAction: 'none',
         ...(blockHeader && {
           '& td': { borderTop: '2px solid', borderTopColor: 'divider' },
           bgcolor: blockHeader.isHovered ? 'action.selected' : undefined,
         }),
       }}
     >
+      <TableCell sx={{ p: 0 }}>
+        <Box
+          {...attributes}
+          {...listeners}
+          sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', touchAction: 'none', color: 'text.disabled' }}
+          title="Drag to move"
+        >
+          <DragIndicatorIcon fontSize="small" />
+        </Box>
+      </TableCell>
       <TableCell sx={{ fontWeight: 600 }}>{blockHeader?.date}</TableCell>
       <TableCell>
         <MemberBadge member={club.members.find((m) => m.memberId === movie.chosenById)} />
@@ -862,18 +872,24 @@ const EpisodeRow = memo(function EpisodeRow({
   return (
     <TableRow
       ref={rowRef}
-      {...attributes}
-      {...listeners}
       sx={{
-        cursor: 'grab',
         opacity: isDragging ? 0.4 : 1,
-        touchAction: 'none',
         ...(blockHeader && {
           '& td': { borderTop: '2px solid', borderTopColor: 'divider' },
           bgcolor: blockHeader.isHovered ? 'action.selected' : undefined,
         }),
       }}
     >
+      <TableCell sx={{ p: 0 }}>
+        <Box
+          {...attributes}
+          {...listeners}
+          sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', touchAction: 'none', color: 'text.disabled' }}
+          title="Drag to move"
+        >
+          <DragIndicatorIcon fontSize="small" />
+        </Box>
+      </TableCell>
       <TableCell sx={{ fontWeight: 600 }}>{blockHeader?.date}</TableCell>
       <TableCell>
         {series ? <MemberBadge member={club.members.find((m) => m.memberId === series.chosenById)} /> : '—'}
