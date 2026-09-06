@@ -474,6 +474,16 @@ enforces those automatically. This section is for conventions ktlint can't check
   drawn when both quality and sentiment are set. The box's own dashed outline (in the member's own club color) is
   always shown regardless, though, even for a fully unrated cell — it's the click target, not a rating indicator,
   so there's still something to click even when nothing's been rated yet
+- The box's width isn't a fixed guess (it used to be two hardcoded constants, 34px compact / 136px description) —
+  it's computed from the widest content the *scale itself* could ever produce: digit count of `scale.options.length`
+  for `Number` mode, the longest actual option label for `Description` (still 1 character on small screens, per the
+  mobile-acronym finding above), floored at 1 for `No text`/empty. `calc(${maxContentLength * 2}ch + 20px)` — `ch`
+  rather than a raw px count, so the box also scales with the viewer's browser font-size/zoom. Every
+  `InlineRatingEditor` in the table reads the same `scales`/`fillWith`, so every cell computes the identical width
+  independently — no shared-parent measurement needed for cells to stay consistent with each other. Deliberately
+  sized to the scale's worst case, not the specific option a given cell shows: a club with a long custom label (or
+  more than 9 options in a scale) needs the box wide enough to never truncate that content anywhere it could
+  appear, even in cells currently showing something shorter
 - Saving a rating in the Meetings table, and the table more generally, doesn't reload-and-flash the whole page.
   `useAsync` exposes a `silentReload` alongside `reload` — same refetch, but never sets `loading`, so the
   `AsyncState` wrapper never unmounts the table for it (no spinner, no lost scroll position, no closed popovers).

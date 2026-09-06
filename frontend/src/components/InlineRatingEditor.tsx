@@ -57,7 +57,20 @@ export function InlineRatingEditor({
     return isSmallScreen ? option.label.charAt(0) : option.label
   }
 
-  const isCompact = fillWith !== 'description' || isSmallScreen
+  // Sized to the *widest content this scale could ever show*, not whichever option this particular cell happens to
+  // have -- every InlineRatingEditor in the table reads the same `scales`/`fillWith`, so they all compute the same
+  // number here independently, which is what keeps every cell in a column the same width without lifting this into
+  // a shared parent. A scale with more than 9 options needs 2 digits for its top rank (`number` mode); a longer
+  // custom label needs more room in `description` mode. `none` never renders text, so it falls back to the `1`
+  // floor purely to keep the box a sane non-zero size.
+  const maxOptionContentLength = (scale: RatingScale | undefined): number => {
+    if (!scale || fillWith === 'none') return 0
+    if (fillWith === 'number') return String(scale.options.length).length
+    if (isSmallScreen) return 1
+    return Math.max(...scale.options.map((o) => o.label.length))
+  }
+  const maxContentLength = Math.max(1, maxOptionContentLength(quality), maxOptionContentLength(sentiment))
+  const boxWidth = `calc(${maxContentLength * 2}ch + 20px)`
 
   const textColorFor = (option: RatingOption | undefined) => {
     if (!option) return undefined
@@ -74,7 +87,7 @@ export function InlineRatingEditor({
           onClick={editable ? (e) => setAnchorEl(e.currentTarget) : undefined}
           sx={{
             display: 'flex',
-            width: isCompact ? 34 : 136,
+            width: boxWidth,
             height: 20,
             borderRadius: 0.5,
             overflow: 'hidden',

@@ -113,7 +113,24 @@
     the only effect run before the fix, and the grid genuinely never left its 1-column fallback.
 
 - [x] Consider using a drag handle on phone, instead of the whole line — done together with the item above.
-- [ ] Make the rating box size dynamic (currently a fixed 34x18).
+- [x] Make the rating box size dynamic (currently a fixed 34x18).
+  - Clarified with the user first: not fixing a truncation bug (tested a double-digit rank, "11", in the old fixed
+    34px box — it rendered fully, no clipping), but sizing the box to the *widest content the current scale could
+    ever show*, applied consistently to every cell, rather than the two guessed constants (34/136) that only
+    happened to fit the seeded default scales.
+  - `InlineRatingEditor` now computes `maxContentLength` from `quality`/`sentiment`'s own option data — number of
+    digits in `scale.options.length` for `number` mode, longest actual label for `description` mode (still 1 char
+    on small screens, preserving the earlier acronym-fallback finding), floored at 1 for `none`/empty — and sizes
+    the box to `calc(${maxContentLength * 2}ch + 20px)`. Every `InlineRatingEditor` instance in the table reads
+    the same `scales`/`fillWith`, so they all compute the same width independently — cells stay consistent
+    without lifting anything into a shared parent. Using `ch` (font-relative) instead of a raw px guess also means
+    the box now scales with the user's browser font-size/zoom, which a raw pixel constant never did.
+  - Verified in a real browser across scenarios: default 6-option scales render effectively unchanged in `number`/
+    `none` modes; a scale temporarily bumped to 11 options widens just enough to fit "10"/"11" without clipping;
+    `description` mode now sizes to the longest real label instead of a flat 136px (visibly wider when a scale has
+    a long label like "Excepcional!", intentionally — the box no longer ellipsis-truncates a label that doesn't
+    fit); mobile stayed unaffected (small-screen still collapses `description` to 1 character, matching the
+    earlier "check the acronym fallback" finding).
 
 - [ ] Validate how simple we can make minimum metrics, such as response time and status code rates.
     - If simple/cheap, let's do it
