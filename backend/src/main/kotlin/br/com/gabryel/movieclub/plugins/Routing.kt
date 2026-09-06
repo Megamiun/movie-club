@@ -26,6 +26,7 @@ import io.ktor.server.application.Application
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 
 fun Application.configureRouting(
     jwtService: JwtService,
@@ -40,10 +41,18 @@ fun Application.configureRouting(
     importService: ImportService,
     adminService: AdminService,
     tmdbClient: TmdbClient,
+    meterRegistry: PrometheusMeterRegistry,
 ) {
     routing {
         get("/health") {
             call.respondText("OK")
+        }
+
+        // Deliberately unauthenticated, like /health above -- request-rate/timing metrics aren't user data, and
+        // this is a single-operator instance with no monitoring stack to route auth through yet. Prometheus text
+        // format either way (`registry.scrape()`), scrapable directly once something's actually watching it.
+        get("/metrics") {
+            call.respondText(meterRegistry.scrape())
         }
 
         authRoutes(jwtService, memberService)

@@ -132,8 +132,21 @@
     fit); mobile stayed unaffected (small-screen still collapses `description` to 1 character, matching the
     earlier "check the acronym fallback" finding).
 
-- [ ] Validate how simple we can make minimum metrics, such as response time and status code rates.
-    - If simple/cheap, let's do it
+- [x] Validate how simple we can make minimum metrics, such as response time and status code rates.
+  - If simple/cheap, let's do it
+  - Turned out genuinely cheap: Ktor's own `MicrometerMetrics` plugin (`ktor-server-metrics-micrometer`) plus a
+    `PrometheusMeterRegistry` (`io.micrometer:micrometer-registry-prometheus:1.16.0`) gives per-route request
+    count, status code, and response-time percentiles out of the box — no app code needed to compute any of it,
+    just install the plugin and expose `registry.scrape()` at a new unauthenticated `GET /metrics` (same posture
+    as the existing `/health`; there's no monitoring stack yet to route auth through, and request-rate/timing
+    isn't user data). JVM metrics (heap, GC, class loading) come along for free with the same registry.
+  - Verified against the real running app: logged in through a real browser session, then confirmed `/metrics`
+    recorded `ktor_http_server_requests_seconds{method="POST",route="/auth/login",status="200",...}` and the
+    `GET /clubs` calls (both the 401 before login and the 200 after) with real response-time quantiles, plus the
+    JVM/process metrics sections.
+  - Nothing is scraping this yet (no Prometheus/Grafana in this project's infra) — this is the minimum useful
+    building block (structured, aggregatable metrics available on request) rather than a full observability setup,
+    matching "minimum" in the ask.
 
 - [ ] Member-color and language-preference PATCHes raise the same "one action per click" question the movie/episode
   rating endpoints already answered (a per-field PATCH rather than a full overwrite) — still unresolved.

@@ -82,6 +82,12 @@ enforces those automatically. This section is for conventions ktlint can't check
   limit) would otherwise silently look identical to a not-found. `OmdbClient` deliberately does the opposite —
   every call is wrapped in `runCatching { }.getOrNull()`, since an IMDB rating is optional and must never block a
   movie/series add.
+- `GET /metrics` (`plugins/Metrics.kt`, wired alongside `/health` in `Routing.kt`) exposes Prometheus-format
+  request metrics via Ktor's `MicrometerMetrics` plugin + a `PrometheusMeterRegistry` — per-route request count,
+  status code, and response-time percentiles, plus JVM/process metrics, entirely from the plugin/registry with no
+  app code computing any of it. Deliberately unauthenticated like `/health`, since there's no monitoring stack
+  routing auth through yet and this isn't user data. Nothing scrapes it yet (no Prometheus/Grafana in this
+  project's infra) — this is the minimum useful building block, not a full observability setup.
 
 ## Domain Model
 

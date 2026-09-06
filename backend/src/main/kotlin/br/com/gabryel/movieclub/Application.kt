@@ -16,6 +16,7 @@ import br.com.gabryel.movieclub.plugins.configureCORS
 import br.com.gabryel.movieclub.plugins.configureCallLogging
 import br.com.gabryel.movieclub.plugins.configureDatabase
 import br.com.gabryel.movieclub.plugins.configureErrors
+import br.com.gabryel.movieclub.plugins.configureMetrics
 import br.com.gabryel.movieclub.plugins.configureRouting
 import br.com.gabryel.movieclub.plugins.configureSerialization
 import br.com.gabryel.movieclub.service.AdminService
@@ -34,6 +35,8 @@ import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import io.ktor.server.application.Application
 import io.ktor.server.netty.EngineMain
+import io.micrometer.prometheusmetrics.PrometheusConfig
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 
 fun main(args: Array<String>): Unit = EngineMain.main(args)
 
@@ -122,12 +125,14 @@ fun Application.module() {
         ratingScaleRepository,
     )
     val adminService = AdminService(memberRepository, mediaItemRepository)
+    val meterRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
 
     configureCallLogging()
     configureSerialization()
     configureCORS()
     configureErrors()
     configureAuthentication(jwtService)
+    configureMetrics(meterRegistry)
     configureRouting(
         jwtService,
         memberService,
@@ -141,5 +146,6 @@ fun Application.module() {
         importService,
         adminService,
         tmdbClient,
+        meterRegistry,
     )
 }
