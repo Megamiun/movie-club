@@ -9,8 +9,14 @@
     one. Verified in a real browser: with today = 2026-09-06 and a mostly-2025/2026/2027 seeded schedule, the
     picker orders 2026-09-05, 2026-09-12, 2026-08-29, 2026-09-19 first, then 2025-01-05 onward.
 - [ ] Add member photos (avatars), and try out designs for using them — not a movie/series poster
-- [ ] Check how the quality/sentiment rating looks with the full description shown instead of the acronym it
+- [x] Check how the quality/sentiment rating looks with the full description shown instead of the acronym it
   currently falls back to on phones (`RatingDisplayContext`'s fill-content setting)
+  - Checked by temporarily disabling `InlineRatingEditor`'s small-screen truncation and screenshotting a real
+    390px-wide session with real rated 2025 data, then reverting. Verdict: keep the existing acronym fallback —
+    showing the full label forces each rating box to its full 136px width (`isCompact` false), and on a 390px
+    phone that's wide enough that only the *first* member's rating column fits on screen at all; every other
+    member's column scrolls off entirely, which defeats the point of a table meant for comparing everyone's
+    ratings at a glance. The single-letter fallback was already the right call; no code change made.
 - [x] Add a drag-and-drop icon/handle instead of dragging from anywhere on the row — same ask as the existing
   item below ("Consider using a drag handle on phone, instead of the whole line"); done together.
   - Watchlist cards already had a dedicated `DragIndicatorIcon` handle (`{...attributes} {...listeners}` on just
