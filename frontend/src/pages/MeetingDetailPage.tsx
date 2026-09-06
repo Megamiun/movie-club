@@ -9,24 +9,9 @@ import { AsyncState } from '../components/AsyncState'
 import { useAsync } from '../hooks/useAsync'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import { memberName } from '../utils/members'
-import type { MeetingWithPicks } from '../api/types'
+import { orderMeetingsByProximity } from '../utils/meetings'
 import { MovieSection } from './meeting/MovieSection'
 import { EpisodeSection } from './meeting/EpisodeSection'
-
-/** Orders a club's other meetings for the swap/merge picker: the 4 closest by date (either direction) first, since
- * those are by far the most likely target, then everyone else chronologically -- replaces having to know/paste a
- * raw meeting id. */
-function orderMeetingsByProximity(all: MeetingWithPicks[], current: MeetingWithPicks): MeetingWithPicks[] {
-  const others = all.filter((m) => m.id !== current.id)
-  const currentTime = new Date(current.date).getTime()
-  const byDistance = [...others].sort(
-    (a, b) => Math.abs(new Date(a.date).getTime() - currentTime) - Math.abs(new Date(b.date).getTime() - currentTime),
-  )
-  const closest = byDistance.slice(0, 4)
-  const closestIds = new Set(closest.map((m) => m.id))
-  const rest = others.filter((m) => !closestIds.has(m.id)).sort((a, b) => a.date.localeCompare(b.date))
-  return [...closest, ...rest]
-}
 
 export function MeetingDetailPage() {
   const { meetingId } = useParams<{ meetingId: string }>()
@@ -61,7 +46,7 @@ export function MeetingDetailPage() {
   const [otherMeetingId, setOtherMeetingId] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
 
-  const otherMeetings = meeting && clubMeetings ? orderMeetingsByProximity(clubMeetings, meeting) : []
+  const otherMeetings = meeting && clubMeetings ? orderMeetingsByProximity(clubMeetings, meeting.date, meeting.id) : []
 
   const handlePostpone = async () => {
     if (!newDate || !meetingId) return

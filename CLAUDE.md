@@ -393,7 +393,10 @@ enforces those automatically. This section is for conventions ktlint can't check
   dedicated backend "move" endpoint; the frontend just composes the existing add + delete calls (e.g. add the movie
   to the meeting via its `imdb_id`, then delete the watchlist entry only once that succeeds, so a rejected add
   — e.g. "already added to this meeting" — leaves the watchlist entry untouched instead of losing it). Owner-only
-  in the watchlist-to-meeting direction, same as editing/deleting an entry
+  in the watchlist-to-meeting direction, same as editing/deleting an entry. The target-meeting picker is an
+  `Autocomplete` ordered by `orderMeetingsByProximity` (`frontend/src/utils/meetings.ts`, shared with the meeting
+  detail page's swap/merge picker — see Schedule Model above), anchored to today's date rather than a specific
+  meeting since there's no "current meeting" context on the Watchlist page to measure against
 
 ### RatingScale
 

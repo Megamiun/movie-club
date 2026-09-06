@@ -1,6 +1,13 @@
 # TODO
 
-- [ ] Improve the meeting-picker used when moving a Watchlist movie to a meeting
+- [x] Improve the meeting-picker used when moving a Watchlist movie to a meeting
+  - Same complaint as the swap/merge picker above (a long flat list of every meeting, nothing prioritized) —
+    `WatchlistCard`'s "Move to meeting" control was a plain `<Select>` listing every club meeting in ascending
+    date order. Extracted the swap/merge fix's ordering logic into a shared `orderMeetingsByProximity`
+    (`frontend/src/utils/meetings.ts`) and reused it here anchored to *today* (there's no "current meeting" to
+    measure against on the Watchlist), then swapped the plain `Select` for an `Autocomplete` like the swap/merge
+    one. Verified in a real browser: with today = 2026-09-06 and a mostly-2025/2026/2027 seeded schedule, the
+    picker orders 2026-09-05, 2026-09-12, 2026-08-29, 2026-09-19 first, then 2025-01-05 onward.
 - [ ] Add member photos (avatars), and try out designs for using them — not a movie/series poster
 - [ ] Check how the quality/sentiment rating looks with the full description shown instead of the acronym it
   currently falls back to on phones (`RatingDisplayContext`'s fill-content setting)

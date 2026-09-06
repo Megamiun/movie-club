@@ -4,7 +4,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import EventIcon from '@mui/icons-material/Event'
-import { Alert, Box, Button, Chip, IconButton, MenuItem, Paper, Select, Stack, Typography } from '@mui/material'
+import { Alert, Autocomplete, Box, Button, Chip, IconButton, Paper, Stack, TextField, Typography } from '@mui/material'
 import {
   DndContext,
   PointerSensor,
@@ -31,6 +31,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
+import { orderMeetingsByProximity } from '../utils/meetings'
 import { ratingLabel } from '../utils/rating'
 import { resolveTitle, type LanguagePreferences } from '../utils/title'
 
@@ -312,6 +313,7 @@ function WatchlistCard({
 
   const rating = ratingLabel(entry)
   const canMoveToMeeting = isOwner && entry.type === 'MOVIE' && meetings.length > 0
+  const orderedMeetings = orderMeetingsByProximity(meetings, new Date().toISOString().slice(0, 10))
   // A watchlist entry has no Movie/Series pick of its own, so no customTitle/displayTitlePreference/
   // displayLanguageCode to read -- its title always resolves as if ORIGINAL (see CLAUDE.md's WatchlistEntry
   // section and the backend's WatchlistEntryRow doc comment for why).
@@ -381,22 +383,16 @@ function WatchlistCard({
       </Stack>
       {canMoveToMeeting && (
         <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mt: 1 }}>
-          <Select
+          <Autocomplete
             size="small"
-            displayEmpty
-            value={targetMeetingId}
-            onChange={(e) => setTargetMeetingId(e.target.value)}
+            options={orderedMeetings}
+            getOptionLabel={(m) => m.date}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            value={orderedMeetings.find((m) => m.id === targetMeetingId) ?? null}
+            onChange={(_, option) => setTargetMeetingId(option?.id ?? '')}
+            renderInput={(params) => <TextField {...params} label="Move to meeting" />}
             sx={{ minWidth: 0, flexGrow: 1 }}
-          >
-            <MenuItem value="">
-              <em>Move to meeting…</em>
-            </MenuItem>
-            {meetings.map((meeting) => (
-              <MenuItem key={meeting.id} value={meeting.id}>
-                {meeting.date}
-              </MenuItem>
-            ))}
-          </Select>
+          />
           <IconButton size="small" onClick={handleMoveToMeeting} disabled={!targetMeetingId} title="Move to meeting">
             <EventIcon fontSize="small" />
           </IconButton>
