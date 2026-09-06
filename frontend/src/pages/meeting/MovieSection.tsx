@@ -115,7 +115,7 @@ export function MovieSection({
           <ToggleButton value="search">Search by title</ToggleButton>
           <ToggleButton value="imdb">IMDB URL/ID</ToggleButton>
         </ToggleButtonGroup>
-        <Stack direction="row" spacing={1}>
+        <Stack spacing={1}>
           {addMode === 'search' ? (
             <TmdbSearchAutocomplete
               search={moviesApi.search}
@@ -133,16 +133,18 @@ export function MovieSection({
               fullWidth
             />
           )}
-          <TextField
-            label="Watch link (optional)"
-            size="small"
-            value={watchLink}
-            onChange={(e) => setWatchLink(e.target.value)}
-            fullWidth
-          />
-          <Button type="submit" variant="contained">
-            Add
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <TextField
+              label="Watch link (optional)"
+              size="small"
+              value={watchLink}
+              onChange={(e) => setWatchLink(e.target.value)}
+              fullWidth
+            />
+            <Button type="submit" variant="contained">
+              Add
+            </Button>
+          </Stack>
         </Stack>
       </Box>
     </Box>

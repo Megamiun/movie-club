@@ -10,7 +10,11 @@
   (below) and into the Watchlist's own add flow instead
 - [ ] Allow adding a movie straight from someone else's Watchlist onto a meeting (today this only works from your
   own Watchlist)
-- [ ] Put the watch-link input on its own line below (currently cramped next to another field in the add/edit form)
+- [x] Put the watch-link input on its own line below (currently cramped next to another field in the add/edit form)
+  - `MovieSection`'s add-movie form had the title/IMDB-id field, the watch-link field, and the Add button all in
+    one `Stack direction="row"`, cramped even on a phone-width screen. Now the primary field is its own row, with
+    watch-link + Add on the row below it. The edit-details form's own watch-link field was already inside a
+    `flexWrap` row, so it wasn't touched.
 - [ ] On the meeting page, add an "Add" button that lets you choose movie or series and then follow that specific flow
 - [ ] Check the export/share link on desktop
 - [x] Improve merge-meeting functionality: show the 4 closest, followed by all others in order.
