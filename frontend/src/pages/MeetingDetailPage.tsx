@@ -1,5 +1,5 @@
 import DeleteIcon from '@mui/icons-material/Delete'
-import { Alert, Box, Button, Divider, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Autocomplete, Box, Button, Divider, Stack, TextField, Typography } from '@mui/material'
 import { useState } from 'react'
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
 import { meetingsApi } from '../api/meetings'
@@ -9,8 +9,24 @@ import { AsyncState } from '../components/AsyncState'
 import { useAsync } from '../hooks/useAsync'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import { memberName } from '../utils/members'
+import type { MeetingWithPicks } from '../api/types'
 import { MovieSection } from './meeting/MovieSection'
 import { EpisodeSection } from './meeting/EpisodeSection'
+
+/** Orders a club's other meetings for the swap/merge picker: the 4 closest by date (either direction) first, since
+ * those are by far the most likely target, then everyone else chronologically -- replaces having to know/paste a
+ * raw meeting id. */
+function orderMeetingsByProximity(all: MeetingWithPicks[], current: MeetingWithPicks): MeetingWithPicks[] {
+  const others = all.filter((m) => m.id !== current.id)
+  const currentTime = new Date(current.date).getTime()
+  const byDistance = [...others].sort(
+    (a, b) => Math.abs(new Date(a.date).getTime() - currentTime) - Math.abs(new Date(b.date).getTime() - currentTime),
+  )
+  const closest = byDistance.slice(0, 4)
+  const closestIds = new Set(closest.map((m) => m.id))
+  const rest = others.filter((m) => !closestIds.has(m.id)).sort((a, b) => a.date.localeCompare(b.date))
+  return [...closest, ...rest]
+}
 
 export function MeetingDetailPage() {
   const { meetingId } = useParams<{ meetingId: string }>()
@@ -24,11 +40,16 @@ export function MeetingDetailPage() {
     () => (meeting ? clubsApi.getRatingScales(meeting.clubId) : Promise.resolve([])),
     [meeting?.clubId],
   )
+  const { data: clubMeetings, silentReload: silentReloadClubMeetings } = useAsync(
+    () => (meeting ? meetingsApi.list(meeting.clubId) : Promise.resolve([])),
+    [meeting?.clubId],
+  )
 
   useSmartPolling(() => {
     silentReload()
     silentReloadClub()
     silentReloadScales()
+    silentReloadClubMeetings()
   }, 15000)
 
   const languagePrefs = {
@@ -39,6 +60,8 @@ export function MeetingDetailPage() {
   const [newDate, setNewDate] = useState('')
   const [otherMeetingId, setOtherMeetingId] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
+
+  const otherMeetings = meeting && clubMeetings ? orderMeetingsByProximity(clubMeetings, meeting) : []
 
   const handlePostpone = async () => {
     if (!newDate || !meetingId) return
@@ -57,6 +80,7 @@ export function MeetingDetailPage() {
     setActionError(null)
     try {
       await meetingsApi.swap(meetingId, otherMeetingId)
+      setOtherMeetingId('')
       reload()
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -68,6 +92,7 @@ export function MeetingDetailPage() {
     setActionError(null)
     try {
       await meetingsApi.merge(meetingId, otherMeetingId)
+      setOtherMeetingId('')
       reload()
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -120,11 +145,15 @@ export function MeetingDetailPage() {
               <Button size="small" variant="outlined" onClick={handlePostpone}>
                 Postpone
               </Button>
-              <TextField
-                label="Other meeting ID"
+              <Autocomplete
                 size="small"
-                value={otherMeetingId}
-                onChange={(e) => setOtherMeetingId(e.target.value)}
+                options={otherMeetings}
+                getOptionLabel={(m) => m.date}
+                isOptionEqualToValue={(a, b) => a.id === b.id}
+                value={otherMeetings.find((m) => m.id === otherMeetingId) ?? null}
+                onChange={(_, option) => setOtherMeetingId(option?.id ?? '')}
+                renderInput={(params) => <TextField {...params} label="Other meeting" />}
+                sx={{ minWidth: 160 }}
               />
               <Button size="small" variant="outlined" onClick={handleSwap}>
                 Swap assignment

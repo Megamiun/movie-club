@@ -538,6 +538,15 @@ enforces those automatically. This section is for conventions ktlint can't check
   episode cards fall back to their parent series' poster (an episode has no poster of its own). Uses the same
   `MediaTypeFilterButtons` toggle as the Meetings table, but defaults to movies-only (not movies-and-episodes-both)
   since a mixed poster grid by default is less useful than the table's row-based view
+  - The on-screen grid itself (a fixed 120px card, unlike the share image's own dynamically-sized tiles) rebalances
+    its row breaks rather than plain CSS `flex-wrap`ping: a month's cards all stay on one row if they fit, and
+    otherwise split as evenly as possible across however many rows that takes (7 cards at a 4-per-row width becomes
+    4+3, not a lopsided 4+3-vs-5+2 depending on where the wrap happens to land) — `balancedColumns`, driven by a
+    `useContainerWidth` hook measuring the grid's own width via `ResizeObserver`. That hook uses a callback ref
+    rather than an object ref + mount-effect deliberately: the grid only renders once `meetings` finishes loading
+    (behind the page's own `AsyncState`), so an effect with `[]` deps checking `ref.current` once would find it
+    still null at the one moment it runs and never attach the observer at all — a callback ref instead fires
+    exactly when the element actually mounts, whenever that is.
   - Each month heading has a share icon that renders that month's poster grid, with the "Month Year" label in a
     reserved header band at the top (no club name/branding — just the month) into a 1080x1920 PNG, Instagram
     Stories' own 9:16 aspect ratio, entirely client-side via `<canvas>` (`utils/monthShareImage.ts`). The grid below
@@ -565,6 +574,11 @@ enforces those automatically. This section is for conventions ktlint can't check
   `scrollable` variant with auto scroll buttons — the default non-scrollable variant has no horizontal
   scroll/swipe support at all once tabs overflow their container, which made tabs past the fold unreachable on a
   narrow phone screen once the club nav grew past what fits (7 tabs as of the Calendar tab above)
+- `MeetingDetailPage`'s Swap/Merge actions pick their target meeting through an `Autocomplete` listing every other
+  meeting in the club by its date, not a raw meeting-id text box (the original form) — `orderMeetingsByProximity`
+  sorts the 4 closest by date (either direction) to the current meeting first, since that's overwhelmingly the
+  likely target for a swap/postpone-adjacent merge, then everyone else chronologically. Fetches the club's full
+  meeting list once via its own `useAsync`, folded into the page's existing 15s poll.
 
 ### Key scenarios
 

@@ -9,6 +9,7 @@ import type { MeetingEpisodePick, MeetingMoviePick, MeetingWithPicks } from '../
 import { AsyncState } from '../components/AsyncState'
 import { MediaTypeFilterButtons, type MediaTypeFilters } from '../components/MediaTypeFilterButtons'
 import { useAsync } from '../hooks/useAsync'
+import { useContainerWidth } from '../hooks/useContainerWidth'
 import { useSeasonNumbers } from '../hooks/useSeasonNumbers'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import { useYearTabs } from '../hooks/useYearTabs'
@@ -18,6 +19,22 @@ import { generateMonthShareImage } from '../utils/monthShareImage'
 import { resolveTitle } from '../utils/title'
 
 const MONTH_FORMATTER = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' })
+
+const POSTER_CARD_WIDTH = 120
+const POSTER_GRID_GAP = 16 // matches the Box's `gap: 2` MUI spacing below
+
+/** How many fixed-width poster cards fit per row at the given container width, then spreads the month's cards
+ * evenly across however many rows that takes -- e.g. 7 cards at a 5-per-row width becomes 4+3 instead of a
+ * naturally-wrapped 5+2, and a count that already fits in one row is never broken up at all. Returns `null` while
+ * the container hasn't been measured yet, so the caller can fall back to plain CSS wrapping for that first paint
+ * instead of flashing a single column. */
+function balancedColumns(count: number, containerWidth: number): number | null {
+  if (count === 0 || containerWidth <= 0) return null
+  const maxPerRow = Math.max(1, Math.floor((containerWidth + POSTER_GRID_GAP) / (POSTER_CARD_WIDTH + POSTER_GRID_GAP)))
+  if (count <= maxPerRow) return count
+  const rows = Math.ceil(count / maxPerRow)
+  return Math.ceil(count / rows)
+}
 
 /** Which pick types the poster grid shows -- same independent show/hide toggle as the Meetings table (each can be
  * on/off on its own), not an either/or picker. A personal display preference, `localStorage`-persisted like the
@@ -53,6 +70,7 @@ export function CalendarPage() {
   const [mediaFilters, setMediaFilters] = useState(loadCalendarMediaFilters)
   const [sharingMonth, setSharingMonth] = useState<string | null>(null)
   const [shareError, setShareError] = useState<string | null>(null)
+  const [gridRef, gridWidth] = useContainerWidth<HTMLDivElement>()
 
   useEffect(() => {
     localStorage.setItem(CALENDAR_MEDIA_FILTERS_KEY, JSON.stringify(mediaFilters))
@@ -130,32 +148,41 @@ export function CalendarPage() {
               ))}
             </Tabs>
 
-            {months.map(({ month, meetings: monthMeetings }) => {
-              const cards = monthMeetings.flatMap((meeting) => cardsFor(meeting, club, seasonNumbers, mediaFilters))
-              if (cards.length === 0) return null
-              return (
-                <Box key={month} sx={{ mb: 4 }}>
-                  <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                    <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
-                      {MONTH_FORMATTER.format(new Date(`${month}-01T00:00:00`))}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleShare(month, cards)}
-                      disabled={sharingMonth === month}
-                      title="Share this month as an image"
+            <Box ref={gridRef}>
+              {months.map(({ month, meetings: monthMeetings }) => {
+                const cards = monthMeetings.flatMap((meeting) => cardsFor(meeting, club, seasonNumbers, mediaFilters))
+                if (cards.length === 0) return null
+                const columns = balancedColumns(cards.length, gridWidth)
+                return (
+                  <Box key={month} sx={{ mb: 4 }}>
+                    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                      <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+                        {MONTH_FORMATTER.format(new Date(`${month}-01T00:00:00`))}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleShare(month, cards)}
+                        disabled={sharingMonth === month}
+                        title="Share this month as an image"
+                      >
+                        {sharingMonth === month ? <CircularProgress size={16} /> : <IosShareIcon fontSize="small" />}
+                      </IconButton>
+                    </Stack>
+                    <Box
+                      sx={
+                        columns
+                          ? { display: 'grid', gridTemplateColumns: `repeat(${columns}, ${POSTER_CARD_WIDTH}px)`, gap: 2 }
+                          : { display: 'flex', flexWrap: 'wrap', gap: 2 }
+                      }
                     >
-                      {sharingMonth === month ? <CircularProgress size={16} /> : <IosShareIcon fontSize="small" />}
-                    </IconButton>
-                  </Stack>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                    {cards.map((card) => (
-                      <PosterCard key={card.key} card={card} />
-                    ))}
+                      {cards.map((card) => (
+                        <PosterCard key={card.key} card={card} />
+                      ))}
+                    </Box>
                   </Box>
-                </Box>
-              )
-            })}
+                )
+              })}
+            </Box>
           </>
         )}
       </AsyncState>

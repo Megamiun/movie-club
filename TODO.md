@@ -13,9 +13,28 @@
 - [ ] Put the watch-link input on its own line below (currently cramped next to another field in the add/edit form)
 - [ ] On the meeting page, add an "Add" button that lets you choose movie or series and then follow that specific flow
 - [ ] Check the export/share link on desktop
-- [ ] Improve merge-meeting functionality: show the 4 closest, followed by all others in order.
+- [x] Improve merge-meeting functionality: show the 4 closest, followed by all others in order.
   - Show dates, not ids
-- [ ] Do smarter calendar visualization, try to arrange movies in a more consistent manner(Preferentially all in a line, but if breaking into multiple lines, try to make them better distributed)
+  - `MeetingDetailPage`'s Swap/Merge "Other meeting ID" text box (a raw UUID paste field) is now an `Autocomplete`
+    listing every other meeting in the club by its date, ordered via `orderMeetingsByProximity`: the 4 closest by
+    date (either direction) first, then everyone else chronologically. Verified in a real browser (Playwright)
+    against seeded data: opening the picker for the 2027-12-25 meeting lists 12-18/12-11/12-04/11-27 first, then
+    2025-01-05 onward in order.
+- [x] Do smarter calendar visualization, try to arrange movies in a more consistent manner(Preferentially all in a line, but if breaking into multiple lines, try to make them better distributed)
+  - `CalendarPage`'s poster grid used to be a plain CSS `flex-wrap`, so a month's cards broke unevenly wherever the
+    container happened to run out of room (e.g. 7 cards at 5-per-row read as a sparse 5+2). Fixed by measuring the
+    grid's container width (new `useContainerWidth` hook) and switching to a CSS grid with a computed column count
+    (`balancedColumns`): if all cards fit in one row they stay in one row, otherwise rows are split as evenly as
+    possible (7 at a 5-max width becomes 4+3). Card size itself is unchanged (fixed 120px), per this session's own
+    call to rebalance rows only, live grid only (not the separate share-image export, which already has its own
+    tuned row-gap logic for the same sparse-row problem).
+  - Real bug found and fixed while verifying this: `useContainerWidth`'s first version used an object ref plus a
+    `useEffect` with `[]` deps to attach the `ResizeObserver`. Since the grid container only renders once
+    `meetings` finishes loading (behind an `AsyncState`/`sorted.length === 0` conditional), the effect's one-shot
+    check of `ref.current` ran while that element didn't exist yet, so the observer was silently never attached
+    and `gridWidth` stayed `0` forever. Fixed by switching to a callback ref, which fires exactly when the element
+    actually mounts regardless of when that happens. Confirmed via Playwright: a debug log showed `el = null` on
+    the only effect run before the fix, and the grid genuinely never left its 1-column fallback.
 
 - [ ] Consider using a drag handle on phone, instead of the whole line
 - [ ] Make the rating box size dynamic (currently a fixed 34x18).
