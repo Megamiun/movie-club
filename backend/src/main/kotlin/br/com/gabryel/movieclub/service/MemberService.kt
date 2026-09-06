@@ -9,9 +9,17 @@ import br.com.gabryel.movieclub.exception.ConflictException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.UnauthorizedException
 import br.com.gabryel.movieclub.service.auth.PasswordService
+import br.com.gabryel.movieclub.service.storage.S3StorageClient
 import kotlin.uuid.Uuid
 
-class MemberService(private val memberRepository: MemberRepository, private val passwordService: PasswordService) {
+private val ALLOWED_PHOTO_CONTENT_TYPES = setOf("image/jpeg", "image/png", "image/webp")
+private const val MAX_PHOTO_BYTES = 5 * 1024 * 1024
+
+class MemberService(
+    private val memberRepository: MemberRepository,
+    private val passwordService: PasswordService,
+    private val storageClient: S3StorageClient,
+) {
     fun search(query: String): List<MemberRow> {
         if (query.isBlank()) return emptyList()
         return memberRepository.search(query.trim())
@@ -46,4 +54,18 @@ class MemberService(private val memberRepository: MemberRepository, private val 
 
         return member
     }
+
+    /** Self-service only, unlike a club's per-membership `color` (which any club admin can also edit) -- a photo
+     * is a global Member fact, not scoped to any one club, so there's no natural "which club's admin" to extend
+     * edit rights to the way there is for color. */
+    fun uploadPhoto(memberId: Uuid, actingMemberId: Uuid, bytes: ByteArray, contentType: String): RegisteredMember {
+        if (memberId != actingMemberId) throw ForbiddenException("Only the member themselves can change their own photo")
+        if (contentType !in ALLOWED_PHOTO_CONTENT_TYPES) throw BadRequestException("Unsupported image type: $contentType")
+        if (bytes.size > MAX_PHOTO_BYTES) throw BadRequestException("Photo must be under ${MAX_PHOTO_BYTES / (1024 * 1024)}MB")
+
+        val key = storageClient.upload("member-photos/$memberId", bytes, contentType)
+        return memberRepository.updatePhoto(memberId, key)
+    }
+
+    fun photoUrl(photoS3Key: String?): String? = photoS3Key?.let { storageClient.publicUrlFor(it) }
 }

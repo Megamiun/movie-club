@@ -37,6 +37,7 @@ class ClubServiceTest {
     private val seriesRepository = mockk<SeriesRepository>()
     private val seasonRepository = mockk<SeasonRepository>()
     private val episodeRepository = mockk<EpisodeRepository>()
+    private val memberService = mockk<MemberService>(relaxed = true)
     private val clubService = ClubService(
         clubRepository,
         ratingScaleRepository,
@@ -45,6 +46,7 @@ class ClubServiceTest {
         seriesRepository,
         seasonRepository,
         episodeRepository,
+        memberService,
     )
 
     private val clubId = Uuid.random()

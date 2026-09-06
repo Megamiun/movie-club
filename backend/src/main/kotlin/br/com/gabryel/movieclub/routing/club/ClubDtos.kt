@@ -20,6 +20,7 @@ internal data class ClubMemberResponse(
     val role: String,
     val rotationOrder: Int,
     val color: String?,
+    val photoUrl: String?,
 )
 
 @Serializable

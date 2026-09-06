@@ -16,6 +16,7 @@ import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.ClubRow
 import br.com.gabryel.movieclub.db.repositories.dto.RatingOptionRow
+import br.com.gabryel.movieclub.db.repositories.dto.RegisteredMember
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
@@ -38,6 +39,7 @@ data class ClubMemberDetail(
     val role: ClubRole,
     val rotationOrder: Int,
     val color: String? = null,
+    val photoUrl: String? = null,
 )
 
 data class RatingScaleWithOptions(
@@ -71,6 +73,7 @@ class ClubService(
     private val seriesRepository: SeriesRepository,
     private val seasonRepository: SeasonRepository,
     private val episodeRepository: EpisodeRepository,
+    private val memberService: MemberService,
 ) {
     fun requireMembership(clubId: Uuid, memberId: Uuid): ClubMembershipRow =
         clubRepository.findMembership(clubId, memberId)
@@ -271,9 +274,16 @@ class ClubService(
     private fun ClubRow.toDetail(members: List<ClubMemberDetail>) =
         ClubDetail(id, name, preferredLanguages, ignoredLanguages, createdAt, members)
 
-    private fun ClubMembershipRow.toDetail() =
-        ClubMemberDetail(memberId, resolveMemberName(memberId), role, rotationOrder, color)
-
-    private fun resolveMemberName(memberId: Uuid): String =
-        memberRepository.findById(memberId)?.displayName ?: memberId.toString()
+    private fun ClubMembershipRow.toDetail(): ClubMemberDetail {
+        val member = memberRepository.findById(memberId)
+        val photoS3Key = (member as? RegisteredMember)?.photoS3Key
+        return ClubMemberDetail(
+            memberId,
+            member?.displayName ?: memberId.toString(),
+            role,
+            rotationOrder,
+            color,
+            memberService.photoUrl(photoS3Key),
+        )
+    }
 }

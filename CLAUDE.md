@@ -142,6 +142,33 @@ enforces those automatically. This section is for conventions ktlint can't check
   management actions. Reuses the existing `MediaItem` "universal handle" table wholesale (`MediaItemRepository.listAll`)
   rather than separately unioning the `Movies`/`Series` catalog tables, since MediaItem already dedupes both types
   into one row per TMDB item
+- Has an optional `photo_s3_key` — global (on `members` itself), unlike `color`, since a photo is identity, not
+  club-specific styling; there's no "which club's admin" to extend edit rights to the way color has, so upload is
+  self-service only (`MemberService.uploadPhoto`, `POST /members/{memberId}/photo`, multipart, one file field,
+  `memberId == actingMemberId` or 403). Validates content-type (jpeg/png/webp) and a 5MB cap before handing off to
+  `S3StorageClient` (`service/storage/`) — the first real use of the S3 upload this app's schema has had unused
+  columns for since `poster_s3_key` above (Movie/Series posters still never touch S3, served straight from TMDB's
+  CDN). Stored key is `member-photos/{memberId}/{random}`; `photoUrl` is resolved from it at read time
+  (`MemberService.photoUrl`, threaded through `MemberResponse`/`ClubMemberResponse`/`MemberSummaryResponse`) via
+  `S3StorageClient.publicUrlFor` rather than stored directly, so the bucket/CDN domain can change independently
+  of stored data. `S3StorageClient` lazily creates its bucket and sets a public-read bucket policy on first use
+  (needs to load directly in an `<img src>`) — a real deployment with S3's modern "Block Public Access" default
+  enabled will reject that policy call, a deliberate account-level guard this app doesn't try to work around;
+  only matters once real AWS credentials are actually configured, which they aren't yet (blank in `.env.example`)
+  - Local dev needed something to actually upload to (no real AWS creds, and posters never having used S3 meant
+    nothing to reuse) — `docker-compose.yml`'s `minio` service (`docker compose up -d minio`) runs a local
+    S3-compatible store; `S3StorageClient`'s `endpointUrl` param (env `S3_ENDPOINT_URL`) switches it to
+    path-style addressing for this (MinIO has no per-bucket subdomain the way real S3 does), and `publicBaseUrl`
+    (env `S3_PUBLIC_BASE_URL`) overrides the browser-facing URL shape to match (`base/bucket/key` instead of
+    `bucket.s3.region.amazonaws.com/key`). Both blank/unset for a real deployment
+  - Frontend: whether a photo actually *replaces* `MemberBadge`'s colored initials is a personal toggle
+    (`MemberPhotoContext`, `localStorage`-persisted, same pattern as `RatingDisplayContext`), not automatic —
+    defaults off, since initials render uniformly everywhere already while photos are opt-in per member, and
+    defaulting "on" would look inconsistent (some cells photo, some initials) before every member has one. `Avatar`
+    only needs `src` set conditionally on that toggle; a broken/missing URL falls back to the existing
+    initials automatically (MUI's own `<img>`-error fallback within `Avatar`, no extra code needed for that part).
+    Uploading happens by clicking the viewer's own avatar in the nav bar (`AppLayout`'s `OwnPhotoUploader`) — no
+    separate profile page exists yet, and a photo is the only account fact that's ever user-editable there
 
 ### Meeting
 

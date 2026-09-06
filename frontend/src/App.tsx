@@ -3,6 +3,7 @@ import { ThemeProvider } from '@mui/material/styles'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { RequireAuth } from './auth/RequireAuth'
+import { MemberPhotoProvider } from './settings/MemberPhotoContext'
 import { RatingDisplayProvider } from './settings/RatingDisplayContext'
 import { AppLayout } from './layout/AppLayout'
 import { ClubLayout } from './layout/ClubLayout'
@@ -28,39 +29,41 @@ function App() {
       <CssBaseline />
       <BrowserRouter>
         <AuthProvider>
-          <RatingDisplayProvider>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+          <MemberPhotoProvider>
+            <RatingDisplayProvider>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
 
-              <Route
-                element={
-                  <RequireAuth>
-                    <AppLayout />
-                  </RequireAuth>
-                }
-              >
-                <Route index element={<Navigate to="/clubs" replace />} />
-                <Route path="/clubs" element={<ClubsPage />} />
-                <Route path="/invite" element={<InvitePage />} />
-                <Route path="/admin" element={<AdminPage />} />
-                <Route path="/meetings/:meetingId" element={<MeetingDetailPage />} />
-                <Route path="/series/:seriesId" element={<SeriesDetailPage />} />
-                <Route path="/seasons/:seasonId" element={<SeasonDetailPage />} />
+                <Route
+                  element={
+                    <RequireAuth>
+                      <AppLayout />
+                    </RequireAuth>
+                  }
+                >
+                  <Route index element={<Navigate to="/clubs" replace />} />
+                  <Route path="/clubs" element={<ClubsPage />} />
+                  <Route path="/invite" element={<InvitePage />} />
+                  <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/meetings/:meetingId" element={<MeetingDetailPage />} />
+                  <Route path="/series/:seriesId" element={<SeriesDetailPage />} />
+                  <Route path="/seasons/:seasonId" element={<SeasonDetailPage />} />
 
-                <Route path="/clubs/:clubId" element={<ClubLayout />}>
-                  <Route index element={<MeetingsPage />} />
-                  <Route path="series" element={<SeriesListPage />} />
-                  <Route path="watchlist" element={<WatchlistPage />} />
-                  <Route path="calendar" element={<CalendarPage />} />
-                  <Route path="import" element={<ImportPage />} />
-                  <Route path="overview" element={<ClubOverviewPage />} />
+                  <Route path="/clubs/:clubId" element={<ClubLayout />}>
+                    <Route index element={<MeetingsPage />} />
+                    <Route path="series" element={<SeriesListPage />} />
+                    <Route path="watchlist" element={<WatchlistPage />} />
+                    <Route path="calendar" element={<CalendarPage />} />
+                    <Route path="import" element={<ImportPage />} />
+                    <Route path="overview" element={<ClubOverviewPage />} />
+                  </Route>
                 </Route>
-              </Route>
 
-              <Route path="*" element={<Navigate to="/clubs" replace />} />
-            </Routes>
-          </RatingDisplayProvider>
+                <Route path="*" element={<Navigate to="/clubs" replace />} />
+              </Routes>
+            </RatingDisplayProvider>
+          </MemberPhotoProvider>
         </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>

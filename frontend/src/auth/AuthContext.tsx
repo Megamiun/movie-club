@@ -13,6 +13,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>
   register: (inviteToken: string, name: string, username: string, password: string) => Promise<void>
   logout: () => void
+  updateMember: (member: Member) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -59,6 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         applySession(response)
       },
       logout: () => applySession(null),
+      updateMember: (updated) => {
+        const stored = loadSession()
+        if (stored) {
+          applySession({ ...stored, member: updated })
+        } else {
+          setMember(updated)
+        }
+      },
     }),
     [member],
   )

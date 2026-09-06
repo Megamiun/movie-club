@@ -23,6 +23,7 @@ data class RegisteredMember(
     val username: String,
     val passwordHash: String,
     val isSiteAdmin: Boolean = false,
+    val photoS3Key: String? = null,
 ) : MemberRow() {
     override val displayName: String get() = name
 }

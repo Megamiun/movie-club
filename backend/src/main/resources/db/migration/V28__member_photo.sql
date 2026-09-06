@@ -1,0 +1,1 @@
+ALTER TABLE members ADD COLUMN photo_s3_key VARCHAR(512);

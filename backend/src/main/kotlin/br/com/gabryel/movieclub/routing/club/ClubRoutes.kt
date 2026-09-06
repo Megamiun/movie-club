@@ -172,7 +172,7 @@ private fun ClubDetail.toDetailResponse() = ClubDetailResponse(
 )
 
 private fun ClubMemberDetail.toResponse() =
-    ClubMemberResponse(memberId.toString(), name, role.name, rotationOrder, color)
+    ClubMemberResponse(memberId.toString(), name, role.name, rotationOrder, color, photoUrl)
 
 private fun String.toClubRoleOrBadRequest() = ClubRole.entries
     .find { it.name == this } ?: throw BadRequestException("Invalid role: $this")

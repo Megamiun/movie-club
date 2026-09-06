@@ -32,6 +32,7 @@ import br.com.gabryel.movieclub.service.auth.Argon2PasswordService
 import br.com.gabryel.movieclub.service.auth.JwtService
 import br.com.gabryel.movieclub.service.csvimport.ImportService
 import br.com.gabryel.movieclub.service.omdb.OmdbClient
+import br.com.gabryel.movieclub.service.storage.S3StorageClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import io.ktor.server.application.Application
 import io.ktor.server.netty.EngineMain
@@ -51,8 +52,16 @@ fun Application.module() {
 
     configureDatabase()
 
+    val s3StorageClient = S3StorageClient(
+        accessKeyId = config.propertyOrNull("aws.accessKeyId")?.getString().orEmpty(),
+        secretAccessKey = config.propertyOrNull("aws.secretAccessKey")?.getString().orEmpty(),
+        region = config.property("aws.region").getString(),
+        bucketName = config.propertyOrNull("aws.bucketName")?.getString().orEmpty(),
+        endpointUrl = config.propertyOrNull("aws.endpointUrl")?.getString(),
+        publicBaseUrl = config.propertyOrNull("aws.publicBaseUrl")?.getString(),
+    )
     val memberRepository = ExposedMemberRepository()
-    val memberService = MemberService(memberRepository, Argon2PasswordService())
+    val memberService = MemberService(memberRepository, Argon2PasswordService(), s3StorageClient)
     val ratingScaleRepository = ExposedRatingScaleRepository()
     val meetingRepository = ExposedMeetingRepository()
     val movieRepository = ExposedMovieRepository()
@@ -68,6 +77,7 @@ fun Application.module() {
         seriesRepository,
         seasonRepository,
         episodeRepository,
+        memberService,
     )
     val mediaItemRepository = ExposedMediaItemRepository()
     val personRepository = ExposedPersonRepository()

@@ -17,6 +17,8 @@ import br.com.gabryel.movieclub.db.tables.Members
 import br.com.gabryel.movieclub.db.tables.RatingOptions
 import br.com.gabryel.movieclub.db.tables.RatingScales
 import br.com.gabryel.movieclub.service.ClubService
+import br.com.gabryel.movieclub.service.MemberService
+import io.mockk.mockk
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -66,6 +68,7 @@ class ClubRepositoryIntegrationTest {
             ExposedSeriesRepository(),
             ExposedSeasonRepository(),
             ExposedEpisodeRepository(),
+            mockk<MemberService>(relaxed = true),
         )
 
         val club = clubService.createClub(TEST_CLUB_NAME, creatorId)
@@ -93,6 +96,7 @@ class ClubRepositoryIntegrationTest {
             ExposedSeriesRepository(),
             ExposedSeasonRepository(),
             ExposedEpisodeRepository(),
+            mockk<MemberService>(relaxed = true),
         )
 
         assertFailsWith<IllegalStateException> { clubService.createClub(TEST_CLUB_NAME, creatorId) }

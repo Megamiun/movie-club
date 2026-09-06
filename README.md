@@ -45,13 +45,15 @@ below to create one, or register through an invite token (see [docs/flows.md](do
 
 ## Local development (hot reload)
 
-Running backend and frontend directly gives you hot reload; only the database needs Docker.
+Running backend and frontend directly gives you hot reload; only the database (and, if you're testing member
+photo uploads, a local S3-compatible store) need Docker.
 
 ```bash
 cp .env.example .env
 # fill in TMDB_API_KEY / TMDB_ACCESS_TOKEN
 
 docker compose up -d db
+docker compose up -d minio  # only needed for member photo uploads -- see CLAUDE.md's Member section
 ```
 
 **Backend** (http://localhost:8080):

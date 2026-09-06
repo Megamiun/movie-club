@@ -8,7 +8,38 @@
     measure against on the Watchlist), then swapped the plain `Select` for an `Autocomplete` like the swap/merge
     one. Verified in a real browser: with today = 2026-09-06 and a mostly-2025/2026/2027 seeded schedule, the
     picker orders 2026-09-05, 2026-09-12, 2026-08-29, 2026-09-19 first, then 2025-01-05 onward.
-- [ ] Add member photos (avatars), and try out designs for using them — not a movie/series poster
+- [x] Add member photos (avatars), and try out designs for using them — not a movie/series poster
+  - Clarified with the user first: photos come from a real upload (not a pasted URL), and where they show up is
+    controlled by a personal toggle rather than baked into `MemberBadge` unconditionally.
+  - `Member` gained `photoS3Key` (global, not per-club, unlike `color` — a photo is identity, not club-specific
+    styling) plus `S3StorageClient` (`service/storage/`), the first real use of the S3 upload this app's schema
+    has had unused columns for since `poster_s3_key` (see CLAUDE.md's MediaItem section — posters still never
+    touch S3, served straight from TMDB's CDN). Upload is self-service only
+    (`MemberService.uploadPhoto` — `memberId == actingMemberId` or 403), validates content-type
+    (jpeg/png/webp) and a 5MB size cap, and stores under `member-photos/{memberId}/{random}` via a new
+    `POST /members/{memberId}/photo` (multipart, one file field). `S3StorageClient` lazily creates the bucket
+    and sets a public-read bucket policy on first use, since a photo needs to load directly in an `<img src>`.
+  - Local dev needed an actual S3-compatible store to test against (no real AWS creds configured, and posters
+    never having used S3 meant there was nothing to reuse) — added a `minio` service to `docker-compose.yml`
+    (`docker compose up -d minio`), with `S3_ENDPOINT_URL`/`S3_PUBLIC_BASE_URL` env vars (new, optional — unset
+    for a real deployment, which talks to real AWS S3 with its default endpoint/virtual-hosted URLs instead).
+  - Frontend: `photoUrl` threaded through `Member`/`ClubMember`/`MemberSummary` and their backend responses. A
+    new `MemberPhotoContext` (`localStorage`-persisted, same pattern as `RatingDisplayContext`) holds a
+    `showPhotos` toggle, defaulting *off* — initials are uniform everywhere already, while photos are opt-in per
+    member, so defaulting "on" would look inconsistent (some cells photo, some initials) until every member has
+    uploaded one. `MemberBadge` passes `photoUrl` to MUI's `Avatar` only when `showPhotos` is on; a broken/missing
+    URL falls back to the existing colored-initials rendering automatically (`Avatar`'s own `<img>`-error
+    fallback). Upload itself happens by clicking the viewer's own avatar in the nav bar (`AppLayout`'s new
+    `OwnPhotoUploader`) — there's no separate profile page yet, and a photo is the only account fact that's ever
+    user-editable here. A new `PersonIcon`/`PersonOutlineOutlined` toggle button next to the theme toggle switches
+    `showPhotos` globally.
+  - Verified end-to-end against the real running app (not mocked): started MinIO, uploaded a real PNG via `curl`
+    first to confirm the backend chain (bucket auto-create, public-read policy, key construction) before touching
+    the UI, then downloaded the resulting URL anonymously (no auth header) and got the exact same bytes back,
+    confirming the bucket policy actually works. In the browser: uploaded a photo via the nav avatar, confirmed
+    it rendered as a real `<img>` immediately (no reload), enabled the "show photos" toggle, and confirmed the
+    meetings table's `MemberBadge` cells switched from colored initials to real `<img>` elements (29 of them) —
+    while a member with no uploaded photo correctly kept showing their colored initials.
 - [x] Check how the quality/sentiment rating looks with the full description shown instead of the acronym it
   currently falls back to on phones (`RatingDisplayContext`'s fill-content setting)
   - Checked by temporarily disabling `InlineRatingEditor`'s small-screen truncation and screenshotting a real

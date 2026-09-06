@@ -8,6 +8,7 @@ import br.com.gabryel.movieclub.exception.ConflictException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.UnauthorizedException
 import br.com.gabryel.movieclub.service.auth.PasswordService
+import br.com.gabryel.movieclub.service.storage.S3StorageClient
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -19,7 +20,8 @@ import kotlin.uuid.Uuid
 class MemberServiceTest {
     private val memberRepository = mockk<MemberRepository>()
     private val passwordService = mockk<PasswordService>()
-    private val memberService = MemberService(memberRepository, passwordService)
+    private val storageClient = mockk<S3StorageClient>()
+    private val memberService = MemberService(memberRepository, passwordService, storageClient)
 
     @Test
     fun `search returns empty list for blank query without hitting the repository`() {
@@ -118,6 +120,62 @@ class MemberServiceTest {
         every { passwordService.verify("hashed", "pass") } returns true
 
         assertEquals(member, memberService.login(member.email, "pass"))
+    }
+
+    @Test
+    fun `uploadPhoto throws ForbiddenException when acting member is not the target member`() {
+        val memberId = Uuid.random()
+        val actingMemberId = Uuid.random()
+
+        assertFailsWith<ForbiddenException> {
+            memberService.uploadPhoto(memberId, actingMemberId, byteArrayOf(1, 2, 3), "image/jpeg")
+        }
+        verify(exactly = 0) { storageClient.upload(any(), any(), any()) }
+    }
+
+    @Test
+    fun `uploadPhoto throws BadRequestException for an unsupported content type`() {
+        val memberId = Uuid.random()
+
+        assertFailsWith<BadRequestException> {
+            memberService.uploadPhoto(memberId, memberId, byteArrayOf(1, 2, 3), "application/pdf")
+        }
+        verify(exactly = 0) { storageClient.upload(any(), any(), any()) }
+    }
+
+    @Test
+    fun `uploadPhoto throws BadRequestException when the file is too large`() {
+        val memberId = Uuid.random()
+        val tooLarge = ByteArray(5 * 1024 * 1024 + 1)
+
+        assertFailsWith<BadRequestException> {
+            memberService.uploadPhoto(memberId, memberId, tooLarge, "image/jpeg")
+        }
+        verify(exactly = 0) { storageClient.upload(any(), any(), any()) }
+    }
+
+    @Test
+    fun `uploadPhoto stores the photo and persists the resulting key`() {
+        val memberId = Uuid.random()
+        val bytes = byteArrayOf(1, 2, 3)
+        val updated = registeredMember(id = memberId)
+        every { storageClient.upload("member-photos/$memberId", bytes, "image/jpeg") } returns "member-photos/$memberId/abc"
+        every { memberRepository.updatePhoto(memberId, "member-photos/$memberId/abc") } returns updated
+
+        assertEquals(updated, memberService.uploadPhoto(memberId, memberId, bytes, "image/jpeg"))
+    }
+
+    @Test
+    fun `photoUrl resolves through the storage client when a key is set`() {
+        every { storageClient.publicUrlFor("some-key") } returns "https://cdn.example.com/some-key"
+
+        assertEquals("https://cdn.example.com/some-key", memberService.photoUrl("some-key"))
+    }
+
+    @Test
+    fun `photoUrl is null when there is no key`() {
+        assertEquals(null, memberService.photoUrl(null))
+        verify(exactly = 0) { storageClient.publicUrlFor(any()) }
     }
 
     private fun invitedMember(

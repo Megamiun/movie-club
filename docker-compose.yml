@@ -15,6 +15,25 @@ services:
       timeout: 5s
       retries: 5
 
+  # Local-dev-only S3-compatible store, for member photo uploads (see CLAUDE.md's Member section). A real
+  # deployment points AWS_* at real S3 instead and leaves S3_ENDPOINT_URL/S3_PUBLIC_BASE_URL unset.
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: .
@@ -29,12 +48,16 @@ services:
       TMDB_API_KEY: ${TMDB_API_KEY}
       TMDB_ACCESS_TOKEN: ${TMDB_ACCESS_TOKEN}
       OMDB_API_KEY: ${OMDB_API_KEY}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME:-movie-club-posters}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-http://localhost:9000}
     depends_on:
       db:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
   frontend:
@@ -49,3 +72,4 @@ services:
 
 volumes:
   db_data:
+  minio_data:

@@ -24,4 +24,6 @@ interface MemberRepository {
     fun invite(email: String): InvitedMember
 
     fun completeRegistration(id: Uuid, name: String, username: String, passwordHash: String): RegisteredMember
+
+    fun updatePhoto(id: Uuid, photoS3Key: String?): RegisteredMember
 }

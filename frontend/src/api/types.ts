@@ -4,6 +4,7 @@ export interface Member {
   username: string
   email: string
   isSiteAdmin: boolean
+  photoUrl: string | null
 }
 
 export interface AdminUser {
@@ -41,12 +42,14 @@ export interface ClubMember {
   role: string
   rotationOrder: number
   color: string | null
+  photoUrl: string | null
 }
 
 export interface MemberSummary {
   id: string
   name: string
   email: string
+  photoUrl: string | null
 }
 
 export interface TmdbSearchResult {

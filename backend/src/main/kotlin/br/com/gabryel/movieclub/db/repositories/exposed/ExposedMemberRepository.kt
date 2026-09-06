@@ -97,6 +97,18 @@ class ExposedMemberRepository : MemberRepository {
                 .single()
         }
 
+    override fun updatePhoto(id: Uuid, photoS3Key: String?): RegisteredMember = transaction {
+        Members.update({ Members.id eq id }) {
+            it[Members.photoS3Key] = photoS3Key
+        }
+        Members
+            .selectAll()
+            .where { Members.id eq id }
+            .mapNotNull(::toRow)
+            .filterIsInstance<RegisteredMember>()
+            .single()
+    }
+
     private fun toRow(row: ResultRow): MemberRow? {
         val id = row[Members.id].value
         val email = row[Members.email]
@@ -107,7 +119,7 @@ class ExposedMemberRepository : MemberRepository {
         return when {
             inviteToken != null -> InvitedMember(id, email, inviteToken)
             name != null && username != null && passwordHash != null ->
-                RegisteredMember(id, email, name, username, passwordHash, row[Members.isSiteAdmin])
+                RegisteredMember(id, email, name, username, passwordHash, row[Members.isSiteAdmin], row[Members.photoS3Key])
             else -> null
         }
     }
