@@ -60,6 +60,15 @@ enforces those automatically. This section is for conventions ktlint can't check
   MediaItem). Cross-entity orchestration — creating a MediaItem alongside a Movie catalog row, then linking them —
   happens in the service layer, which already composes multiple repositories plus TmdbClient/OmdbClient. Keeps each
   repository a simple, independently testable mapping onto its own table(s).
+- Reading a meeting's picks goes through one batched path, `MeetingService.loadPicks(meetings)`, shared by
+  `listMeetings` (a whole club) and `getMeeting` (a list of one) — not a per-meeting loop. It composes batched
+  `inList` lookups (`MovieRepository.listByMeetings`/`listReviewsByMovies`, `EpisodeRepository.listByMeetings`/
+  `listReviewsByEpisodes`/`findSeriesImdbIds`, `SeriesRepository.findByClubAndImdbIds`), each short-circuiting on an
+  empty input list before touching Exposed at all, so `GET /clubs/{clubId}/meetings` costs a fixed ~6 queries
+  regardless of club history instead of the old `O(meetings + movies + episodes×3)`. This matters more than the
+  usual N+1 does here because the endpoint is hit on every page load *and* every 10s poll tick (see the meetings
+  table's polling under RatingScale below). The regression this shape risks — a pick surfacing under the wrong
+  meeting once the fetch spans several at once — has its own `MeetingServiceTest` case.
 - `TmdbClient`'s ktor `HttpClient` sets `expectSuccess = true` plus an `HttpResponseValidator` that turns any non-2xx
   response into `UpstreamServiceException` (mapped to `502 Bad Gateway`, kept distinct from the app's own
   `UnauthorizedException` since a TMDB-side 401 means the server's own API key is misconfigured, not that the
@@ -437,8 +446,8 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Saving a rating in the Meetings table, and the table more generally, doesn't reload-and-flash the whole page.
   `useAsync` exposes a `silentReload` alongside `reload` — same refetch, but never sets `loading`, so the
   `AsyncState` wrapper never unmounts the table for it (no spinner, no lost scroll position, no closed popovers).
-  `MeetingsPage` uses it both as the `onChange` passed down into every pick row (so any mutation — a rating save,
-  a delete, a drag-and-drop move — patches state in place) and via `useSmartPolling` (`frontend/src/hooks/
+  `MeetingsPage` uses it both after a page-level mutation (a drag-and-drop move) and via `useSmartPolling`
+  (`frontend/src/hooks/
   useSmartPolling.ts` — pauses while the tab is hidden, fires immediately on return) every 10 seconds, so other
   members' concurrent changes show up without a manual refresh. A failed background poll is silently dropped rather
   than surfaced, since whatever's already on screen is still valid. `ClubOutletContext` (the club-detail fetch every
@@ -453,6 +462,21 @@ enforces those automatically. This section is for conventions ktlint can't check
   separately) — every page that reads them (`MeetingsPage`, `MeetingDetailPage`, `SeriesDetailPage`,
   `SeasonDetailPage`) folds their own scales fetch's `silentReload` into that same page's existing poll callback
   rather than a fifth separate polling mechanism
+- Saving an inline rating doesn't refetch at all, though — it's optimistic. `useAsync` also exposes a `setData`
+  functional setter, and `MeetingsPage.patchMovieReview`/`patchEpisodeReview` write the one changed review straight
+  into local state *before* the PATCH fires, rolling back only on failure; the 10s poll reconciles regardless, so
+  there's no reload on the success path. Before this, a one-cell change waited on two full round trips (the save,
+  then a `silentReload` refetching the club's entire meeting history) before showing anything, which read as
+  visibly slow. Two details this needs to get right:
+  - Rollback is a compare-and-swap (`matchesCurrent`), not an unconditional restore of the captured snapshot —
+    quality and sentiment fire as two independent, unsequenced PATCHes, so a failed save must no-op its rollback
+    once a newer save has already moved that cell away from what it wrote, instead of clobbering it
+  - Both helpers `findIndex` the target meeting and pick and replace just those two slots, rather than `.map()`ing
+    every meeting and pick in the club's history on every click — and `MeetingRows`/`MovieRow`/`EpisodeRow` are
+    `React.memo`'d, with `patchMovieReview`/`patchEpisodeReview` and a single lifted `registerRow(meetingId, el)`
+    wrapped in `useCallback`, so the referential equality that buys is not immediately thrown away by new prop
+    identities each render. `scales` still gets a fresh array reference on every poll, so rows do re-render on that
+    cadence either way
 - Light/dark theme: `theme.ts` already declared `colorSchemes: { light: true, dark: true }` (MUI's CSS-vars mode)
   plus `defaultColorScheme: 'light'` so a fresh visitor always starts light rather than following OS preference. A
   sun/moon `IconButton` in `AppLayout`'s nav bar calls MUI's own `useColorScheme().setMode(...)`, toggling directly
