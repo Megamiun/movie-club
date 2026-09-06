@@ -15,7 +15,6 @@ import { InvitePage } from './pages/InvitePage'
 import { LoginPage } from './pages/LoginPage'
 import { MeetingDetailPage } from './pages/MeetingDetailPage'
 import { MeetingsPage } from './pages/MeetingsPage'
-import { MoviesPage } from './pages/MoviesPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { SeasonDetailPage } from './pages/SeasonDetailPage'
 import { SeriesDetailPage } from './pages/SeriesDetailPage'
@@ -51,7 +50,6 @@ function App() {
 
                 <Route path="/clubs/:clubId" element={<ClubLayout />}>
                   <Route index element={<MeetingsPage />} />
-                  <Route path="movies" element={<MoviesPage />} />
                   <Route path="series" element={<SeriesListPage />} />
                   <Route path="watchlist" element={<WatchlistPage />} />
                   <Route path="calendar" element={<CalendarPage />} />

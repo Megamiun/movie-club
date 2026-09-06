@@ -272,9 +272,13 @@ enforces those automatically. This section is for conventions ktlint can't check
   card's own handle — `useDraggable`'s `setNodeRef` still marks the whole row (dnd-kit's node vs. listeners split:
   the node is what gets measured/hit-tested, only the pointer listeners that start a drag need to live on the
   smaller handle)
-- A club-level "Movies" tab (`MoviesPage`) lets a member search TMDB independent of any specific meeting, then add
-  the result straight to a chosen meeting or to their watchlist — a thin UI composing `movieService.searchMovies`,
-  `addMovieByTmdbId`, and `WatchlistService.addEntry`, no new backend endpoint
+- There's no standalone "search TMDB and add a movie without opening a meeting first" page — a club-level
+  `MoviesPage` briefly existed for this, but it was a thin, redundant wrapper (`movieService.searchMovies`,
+  `addMovieByTmdbId`, `WatchlistService.addEntry`, no dedicated backend endpoint of its own) once the meeting
+  detail page's own "Add" toggle (below) and the Watchlist's own add form covered the same two destinations. The
+  club-level Series tab (`SeriesListPage`) stays, though, deliberately — unlike Movies, it's also the only place
+  that lists a club's already-followed series and links into a series' own detail page, not just a search-and-add
+  form, so removing it would strand that browsing capability
 - `MeetingDetailPage`'s Movies/Episodes sections don't show their add-movie/assign-episode forms by default — an
   "Add: Movie / Series" `ToggleButtonGroup` above both sections controls a `showAddForm` prop on `MovieSection`/
   `EpisodeSection`, so only the chosen one's form renders (re-clicking the active choice collapses it). Purely a

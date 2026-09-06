@@ -32,8 +32,19 @@
     renders as its own narrow column on every row, and clicking a movie/episode title still navigates to the
     meeting detail page (the click handler's `stopPropagation` was never dependent on where the drag listeners
     lived, so this kept working unchanged).
-- [ ] Remove the Movies and Series tabs — their search-and-add capability moves into the meeting "Add" button
+- [x] Remove the Movies and Series tabs — their search-and-add capability moves into the meeting "Add" button
   (below) and into the Watchlist's own add flow instead
+  - Scoped down after a real snag found while planning this: the Series tab isn't just a search-and-add form like
+    Movies — it's also the *only* place in the app that lists a club's already-followed series and links into a
+    series' detail page (seasons/episodes, language settings, metadata refresh). Nothing else links to
+    `/series/:id`. Removing it outright would strand that browsing capability with nowhere to go, so per this
+    session's own decision: only `MoviesPage` (genuinely just a redundant search-and-add form — picks are already
+    visible via Meetings/Calendar, and its capability is now fully covered by the meeting page's own "Add" button
+    above and the Watchlist's existing add form) was removed. The Series tab stays.
+  - Deleted `MoviesPage.tsx`, its `movies` tab entry (`ClubLayout`) and route (`App.tsx`) — confirmed nothing else
+    referenced it. Visiting the old `/clubs/{id}/movies` URL now falls through to the app's existing catch-all
+    route (redirects to `/clubs`), not a new dead end. Verified in a real browser: club nav shows Meetings/Series/
+    Watchlist/Calendar/Import/Overview (6 tabs, Movies gone), the old URL redirects cleanly.
 - [x] Allow adding a movie straight from someone else's Watchlist onto a meeting (today this only works from your
   own Watchlist)
   - `WatchlistCard`'s "Move to meeting" picker was gated behind `isOwner`, matching the deliberate rule documented
