@@ -9,6 +9,7 @@ import br.com.gabryel.movieclub.db.repositories.MovieRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
 import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
+import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.db.repositories.dto.WatchlistEntryRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
@@ -28,6 +29,7 @@ class WatchlistService(
     private val seriesRepository: SeriesRepository,
     private val tmdbClient: TmdbClient,
     private val omdbClient: OmdbClient,
+    private val movieService: MovieService,
 ) {
     /** Adding is always by [tmdbId] -- there's no freeform title entry, since a MediaItem only ever exists from a
      * successful TMDB lookup (see [br.com.gabryel.movieclub.db.tables.MediaItems]). */
@@ -135,6 +137,24 @@ class WatchlistService(
     fun deleteEntry(entryId: Uuid, actingMemberId: Uuid) {
         val entry = requireOwnedEntry(entryId, actingMemberId)
         watchlistRepository.delete(entry.id)
+    }
+
+    /** Adds [entryId]'s movie straight to [meetingId], then removes the watchlist entry -- unlike [deleteEntry],
+     * deliberately *not* owner-restricted: any club member may schedule a movie sitting in someone else's
+     * Watchlist onto a meeting, the same way any member can already add a movie to a meeting from scratch. Done
+     * as one atomic service call (unlike the owner's own watchlist-to-meeting move, which the frontend still
+     * composes from separate add + delete calls) specifically because a non-owner's delete would otherwise hit
+     * [requireOwnedEntry]'s ownership check on the second call -- there's no clean way to compose this one from
+     * the existing per-call endpoints without either loosening [deleteEntry] itself (dropping the ownership
+     * check for every caller, not just this flow) or adding a bypass flag a client could otherwise abuse. */
+    suspend fun moveEntryToMeeting(entryId: Uuid, meetingId: Uuid, actingMemberId: Uuid): MovieRow {
+        val entry = watchlistRepository.findById(entryId) ?: throw NotFoundException("Watchlist entry not found")
+        clubService.requireMembership(entry.clubId, actingMemberId)
+        if (entry.type != MOVIE) throw BadRequestException("Only movies can be moved to a meeting")
+
+        val movie = movieService.addMovie(meetingId, actingMemberId, entry.imdbId)
+        watchlistRepository.delete(entry.id)
+        return movie
     }
 
     private fun requireOwnedEntry(entryId: Uuid, actingMemberId: Uuid): WatchlistEntryRow {

@@ -303,8 +303,7 @@ function WatchlistCard({
     if (!targetMeetingId) return
     setError(null)
     try {
-      await moviesApi.add(targetMeetingId, entry.imdbId)
-      await watchlistApi.remove(entry.id)
+      await watchlistApi.moveToMeeting(entry.id, targetMeetingId)
       onChange()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -312,7 +311,10 @@ function WatchlistCard({
   }
 
   const rating = ratingLabel(entry)
-  const canMoveToMeeting = isOwner && entry.type === 'MOVIE' && meetings.length > 0
+  // Not owner-restricted, unlike editing/deleting an entry -- any club member may schedule a movie sitting in
+  // someone else's Watchlist onto a meeting, the same way any member can already add a movie to a meeting from
+  // scratch (see WatchlistService.moveEntryToMeeting).
+  const canMoveToMeeting = entry.type === 'MOVIE' && meetings.length > 0
   const orderedMeetings = orderMeetingsByProximity(meetings, new Date().toISOString().slice(0, 10))
   // A watchlist entry has no Movie/Series pick of its own, so no customTitle/displayTitlePreference/
   // displayLanguageCode to read -- its title always resolves as if ORIGINAL (see CLAUDE.md's WatchlistEntry

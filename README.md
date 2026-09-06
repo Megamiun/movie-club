@@ -57,9 +57,10 @@ docker compose up -d db
 **Backend** (http://localhost:8080):
 
 ```bash
-set -a && source .env && set +a
 ./gradlew :backend:run
 ```
+
+(`:backend:run` loads `.env` itself if one exists at the repo root — no need to `source` it into your shell first.)
 
 **Frontend** (http://localhost:5173, proxies to the backend via `VITE_API_BASE_URL`):
 

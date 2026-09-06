@@ -69,6 +69,11 @@ enforces those automatically. This section is for conventions ktlint can't check
   usual N+1 does here because the endpoint is hit on every page load *and* every 10s poll tick (see the meetings
   table's polling under RatingScale below). The regression this shape risks — a pick surfacing under the wrong
   meeting once the fetch spans several at once — has its own `MeetingServiceTest` case.
+- `backend/build.gradle.kts`'s `run` task loads the repo-root `.env` itself (parsed as plain `KEY=VALUE` lines,
+  comments/blanks skipped) and sets it as the `JavaExec`'s environment, rather than requiring
+  `set -a && source .env && set +a` before every invocation — the app reads config via `System.getenv()` and never
+  parses `.env` on its own, so those variables have to land in the environment somehow before `run` starts. A
+  no-op when `.env` doesn't exist (Docker Compose/CI set real env vars directly), so this doesn't affect those.
 - `TmdbClient`'s ktor `HttpClient` sets `expectSuccess = true` plus an `HttpResponseValidator` that turns any non-2xx
   response into `UpstreamServiceException` (mapped to `502 Bad Gateway`, kept distinct from the app's own
   `UnauthorizedException` since a TMDB-side 401 means the server's own API key is misconfigured, not that the
@@ -394,14 +399,23 @@ enforces those automatically. This section is for conventions ktlint can't check
 - No freeform field on an entry — `notes` existed briefly but was removed (V27 migration) once the board layout
   shipped, since per-card free text didn't fit it and it was the last remaining editable field besides
   position/deletion
-- Movies only (not Series) can be moved between a meeting pick and the watchlist, in either direction — there's no
-  dedicated backend "move" endpoint; the frontend just composes the existing add + delete calls (e.g. add the movie
-  to the meeting via its `imdb_id`, then delete the watchlist entry only once that succeeds, so a rejected add
-  — e.g. "already added to this meeting" — leaves the watchlist entry untouched instead of losing it). Owner-only
-  in the watchlist-to-meeting direction, same as editing/deleting an entry. The target-meeting picker is an
-  `Autocomplete` ordered by `orderMeetingsByProximity` (`frontend/src/utils/meetings.ts`, shared with the meeting
-  detail page's swap/merge picker — see Schedule Model above), anchored to today's date rather than a specific
-  meeting since there's no "current meeting" context on the Watchlist page to measure against
+- Movies only (not Series) can be moved between a meeting pick and the watchlist, in either direction, but the two
+  directions work differently. Meeting-to-watchlist (`MovieSection.handleMoveToWatchlist`) has no dedicated backend
+  endpoint — the frontend composes the existing add + delete calls (add to the watchlist via the movie's `tmdbId`,
+  then delete the meeting pick only once that succeeds, so a rejected add leaves the pick untouched), same-member
+  only since a pick's own owner is doing the moving.
+  Watchlist-to-meeting is a dedicated atomic call instead, `WatchlistService.moveEntryToMeeting` (`POST
+  /watchlist/{entryId}/move-to-meeting/{meetingId}`, injects `MovieService` — a Service depending on another
+  Service, same pattern `MovieService` already uses for `ClubService` — to reuse `addMovie`) and, deliberately,
+  *not* owner-restricted: any club member may schedule a movie sitting in someone else's Watchlist onto a meeting,
+  the same as any member can already add a brand-new movie to a meeting from scratch. This needed its own endpoint
+  rather than the same add-then-delete composition the other direction uses, specifically because the *delete*
+  half (`deleteEntry` → `requireOwnedEntry`) is still, and should stay, owner-only for a raw delete — a non-owner's
+  composed move would add the movie fine, then 403 on the delete, leaving the movie duplicated in both the meeting
+  and the original owner's watchlist. The target-meeting picker is an `Autocomplete` ordered by
+  `orderMeetingsByProximity` (`frontend/src/utils/meetings.ts`, shared with the meeting detail page's swap/merge
+  picker — see Schedule Model above), anchored to today's date rather than a specific meeting since there's no
+  "current meeting" context on the Watchlist page to measure against
 
 ### RatingScale
 

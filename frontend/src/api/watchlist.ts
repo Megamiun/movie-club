@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { WatchlistEntry } from './types'
+import type { Movie, WatchlistEntry } from './types'
 
 export const watchlistApi = {
   list: (clubId: string) => api.get<WatchlistEntry[]>(`/clubs/${clubId}/watchlist`),
@@ -11,4 +11,7 @@ export const watchlistApi = {
     api.post<WatchlistEntry>(`/watchlist/${entryId}/move`, { direction }),
 
   remove: (entryId: string) => api.delete<void>(`/watchlist/${entryId}`),
+
+  moveToMeeting: (entryId: string, meetingId: string) =>
+    api.post<Movie>(`/watchlist/${entryId}/move-to-meeting/${meetingId}`),
 }

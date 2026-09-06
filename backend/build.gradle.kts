@@ -83,3 +83,21 @@ dependencies {
 tasks.withType<ShadowJar> {
     mergeServiceFiles()
 }
+
+// Local dev only: `run` needs DATABASE_URL/TMDB_API_KEY/etc. as real environment variables (the app reads them via
+// System.getenv(), never parses .env itself), which previously meant remembering to prefix every invocation with
+// `set -a && source .env && set +a`. Loads the same root-level .env here instead, so a bare `./gradlew :backend:run`
+// works on its own. Silently does nothing when .env is absent (Docker Compose/CI set real env vars directly, no
+// file to load) rather than failing the task.
+tasks.named<JavaExec>("run") {
+    val envFile = rootProject.file(".env")
+    if (envFile.exists()) {
+        envFile.readLines()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("#") }
+            .forEach { line ->
+                val (key, value) = line.split("=", limit = 2)
+                environment(key, value)
+            }
+    }
+}

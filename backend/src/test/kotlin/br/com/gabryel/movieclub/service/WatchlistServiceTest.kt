@@ -11,6 +11,7 @@ import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
 import br.com.gabryel.movieclub.db.repositories.dto.CatalogTitleInfo
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
+import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.db.repositories.dto.WatchlistEntryRow
 import br.com.gabryel.movieclub.exception.BadRequestException
@@ -39,8 +40,17 @@ class WatchlistServiceTest {
     private val seriesRepository = mockk<SeriesRepository>()
     private val tmdbClient = mockk<TmdbClient>()
     private val omdbClient = mockk<OmdbClient>()
-    private val watchlistService =
-        WatchlistService(watchlistRepository, clubService, mediaItemRepository, movieRepository, seriesRepository, tmdbClient, omdbClient)
+    private val movieService = mockk<MovieService>()
+    private val watchlistService = WatchlistService(
+        watchlistRepository,
+        clubService,
+        mediaItemRepository,
+        movieRepository,
+        seriesRepository,
+        tmdbClient,
+        omdbClient,
+        movieService,
+    )
 
     private val clubId = Uuid.random()
     private val memberId = Uuid.random()
@@ -165,6 +175,46 @@ class WatchlistServiceTest {
         every { watchlistRepository.findById(entryId) } returns null
 
         assertFailsWith<NotFoundException> { watchlistService.deleteEntry(entryId, memberId) }
+    }
+
+    @Test
+    fun `moveEntryToMeeting adds the movie to the meeting and deletes the entry, even when acting member isn't the owner`(): Unit =
+        runBlocking {
+            val entryId = Uuid.random()
+            val meetingId = Uuid.random()
+            val ownerId = Uuid.random()
+            val movieEntry = entry(id = entryId, memberId = ownerId, type = MOVIE)
+            val createdMovie = mockk<MovieRow>()
+
+            every { watchlistRepository.findById(entryId) } returns movieEntry
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+            coEvery { movieService.addMovie(meetingId, memberId, movieEntry.imdbId) } returns createdMovie
+            every { watchlistRepository.delete(entryId) } returns Unit
+
+            val result = watchlistService.moveEntryToMeeting(entryId, meetingId, memberId)
+
+            assertEquals(createdMovie, result)
+            verify { watchlistRepository.delete(entryId) }
+        }
+
+    @Test
+    fun `moveEntryToMeeting throws BadRequestException for a series entry`(): Unit = runBlocking {
+        val entryId = Uuid.random()
+        val seriesEntry = entry(id = entryId, type = SERIES)
+
+        every { watchlistRepository.findById(entryId) } returns seriesEntry
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+        assertFailsWith<BadRequestException> { watchlistService.moveEntryToMeeting(entryId, Uuid.random(), memberId) }
+        verify(exactly = 0) { watchlistRepository.delete(any()) }
+    }
+
+    @Test
+    fun `moveEntryToMeeting throws NotFoundException when entry is missing`(): Unit = runBlocking {
+        val entryId = Uuid.random()
+        every { watchlistRepository.findById(entryId) } returns null
+
+        assertFailsWith<NotFoundException> { watchlistService.moveEntryToMeeting(entryId, Uuid.random(), memberId) }
     }
 
     @Test

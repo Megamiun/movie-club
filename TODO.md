@@ -34,8 +34,26 @@
     lived, so this kept working unchanged).
 - [ ] Remove the Movies and Series tabs — their search-and-add capability moves into the meeting "Add" button
   (below) and into the Watchlist's own add flow instead
-- [ ] Allow adding a movie straight from someone else's Watchlist onto a meeting (today this only works from your
+- [x] Allow adding a movie straight from someone else's Watchlist onto a meeting (today this only works from your
   own Watchlist)
+  - `WatchlistCard`'s "Move to meeting" picker was gated behind `isOwner`, matching the deliberate rule documented
+    in CLAUDE.md ("owner-only in the watchlist-to-meeting direction"). That rule now only applies to outright
+    deleting an entry — moving one to a meeting is open to any club member, the same way any member can already
+    add a brand-new movie to a meeting from scratch.
+  - This needed a real backend change, not just dropping the frontend's `isOwner` check: the existing move
+    composed two separate calls (`moviesApi.add` then `watchlistApi.remove`), and `remove`'s backend
+    (`WatchlistService.deleteEntry` → `requireOwnedEntry`) is still, and should stay, owner-only for a raw delete.
+    A non-owner's move would have added the movie fine, then hit a 403 on the delete half, leaving the movie
+    duplicated in both the meeting and the original owner's watchlist. Added a new atomic
+    `WatchlistService.moveEntryToMeeting` (backed by a new `POST /watchlist/{entryId}/move-to-meeting/{meetingId}`,
+    reusing `MovieService.addMovie` — a Service depending on another Service, same established pattern as
+    `MovieService` already depending on `ClubService`) that checks only club membership, not ownership, and does
+    the add-then-delete as one call. New `WatchlistServiceTest` cases cover the non-owner-succeeds path, the
+    series-type rejection, and the missing-entry case.
+  - Verified against the real running app: inserted a watchlist entry owned by one member (camila) directly, then
+    used a *different* logged-in member's (admin's) session to move it to a meeting through the UI — confirmed via
+    the database that the watchlist entry was deleted and the movie landed on the target meeting attributed to the
+    acting member (admin), not the original owner.
 - [x] Put the watch-link input on its own line below (currently cramped next to another field in the add/edit form)
   - `MovieSection`'s add-movie form had the title/IMDB-id field, the watch-link field, and the Add button all in
     one `Stack direction="row"`, cramped even on a phone-width screen. Now the primary field is its own row, with

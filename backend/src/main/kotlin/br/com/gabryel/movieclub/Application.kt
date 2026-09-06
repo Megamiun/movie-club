@@ -105,6 +105,7 @@ fun Application.module() {
         seriesRepository,
         tmdbClient,
         omdbClient,
+        movieService,
     )
     val importService = ImportService(
         clubService,

@@ -4,6 +4,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import br.com.gabryel.movieclub.db.repositories.dto.WatchlistEntryRow
 import br.com.gabryel.movieclub.routing.actingMemberId
 import br.com.gabryel.movieclub.routing.movie.TranslationResponse
+import br.com.gabryel.movieclub.routing.movie.toResponse
 import br.com.gabryel.movieclub.routing.toMediaItemTypeOrBadRequest
 import br.com.gabryel.movieclub.routing.toMoveDirectionOrBadRequest
 import br.com.gabryel.movieclub.routing.uuidPathParam
@@ -49,6 +50,15 @@ fun Route.watchlistRoutes(watchlistService: WatchlistService) {
         delete("/watchlist/{entryId}") {
             watchlistService.deleteEntry(call.uuidPathParam("entryId"), call.actingMemberId())
             call.respond(NoContent)
+        }
+
+        post("/watchlist/{entryId}/move-to-meeting/{meetingId}") {
+            val movie = watchlistService.moveEntryToMeeting(
+                call.uuidPathParam("entryId"),
+                call.uuidPathParam("meetingId"),
+                call.actingMemberId(),
+            )
+            call.respond(Created, movie.toResponse())
         }
     }
 }
