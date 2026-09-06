@@ -153,14 +153,29 @@
 
 - [ ] Rating-save code-review leftovers (the optimistic-update work itself shipped — see CLAUDE.md's RatingScale
   section; these are the lower-stakes findings from reviewing it, deliberately not folded in blind):
-    - Duplicate `patchMovieReview`/`patchEpisodeReview` (~17 lines each, differ only by collection/id field) —
-      a shared generic helper would remove the duplication.
-    - The capture-previous/optimistic-patch/rollback dance is hand-inlined separately in `MovieRow.handleSaveRating`
-      and `EpisodeRow.handleSaveRating`, and `RatingForm.tsx`'s 4 call sites use a completely different,
-      non-optimistic pattern — worth its own pass to extract one reusable optimistic-save hook.
-    - `previous` is looked up via a second `pick.reviews.find(...)` scan in `handleSaveRating`, duplicating the
-      `review` lookup already computed a few lines below for the same member's cell in the same render pass —
-      trivial, bounded by club member count.
+  - [x] Duplicate `patchMovieReview`/`patchEpisodeReview` (~17 lines each, differ only by collection/id field) —
+    a shared generic helper would remove the duplication.
+    - Extracted a shared `patchPickReview` (`MeetingsPage.tsx`) that takes the collection/pick-id/review
+      differences as accessor callbacks (`getPicks`/`withPicks`/`matchPick`/`getReviews`/`withReviews`/
+      `createIfMissing`) instead of duplicating the `findIndex`/`matchesCurrent`/`upsertReview` wiring twice.
+      `patchMovieReview`/`patchEpisodeReview` are now thin call sites supplying just those accessors.
+  - [x] `previous` is looked up via a second `pick.reviews.find(...)` scan in `handleSaveRating`, duplicating the
+    `review` lookup already computed a few lines below for the same member's cell in the same render pass —
+    trivial, bounded by club member count.
+    - The real duplication was actually between `handleSaveQuality` and `handleSaveSentiment` themselves — each
+      ran its own separate `pick.reviews.find(r => r.memberId === myMemberId)` for the *same* review. Both
+      `MovieRow`/`EpisodeRow` now compute `myReview` once and both handlers read from it.
+  - [ ] The capture-previous/optimistic-patch/rollback dance is hand-inlined separately in
+    `MovieRow.handleSaveRating`/`EpisodeRow.handleSaveRating`, and `RatingForm.tsx`'s 4 call sites use a
+    completely different, non-optimistic pattern — worth its own pass to extract one reusable optimistic-save
+    hook. Deliberately not attempted here: `RatingForm.tsx`'s 4 call sites (Series/Season/Episode/MovieSection's
+    combined `rate` endpoint) have a genuinely different shape than the split quality/sentiment PATCH pattern
+    used here, and generalizing across both risks introducing a regression in code this pass didn't otherwise
+    touch. Left as its own follow-up.
+  - Verified in a real browser after the refactor: opened admin's own rating box for an already-rated movie
+    ("The Artifice Girl"), changed the quality rating, confirmed the `PATCH .../review/quality` call succeeded
+    (200) and the box updated immediately without a page reload, then changed it back to its original value and
+    confirmed via the database that the original rating was restored exactly.
 
 # Stretch goals (only start after asked)
 

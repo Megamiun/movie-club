@@ -524,6 +524,13 @@ enforces those automatically. This section is for conventions ktlint can't check
     wrapped in `useCallback`, so the referential equality that buys is not immediately thrown away by new prop
     identities each render. `scales` still gets a fresh array reference on every poll, so rows do re-render on that
     cadence either way
+  - `patchMovieReview`/`patchEpisodeReview` are thin wrappers around a shared `patchPickReview` — the two were
+    identical apart from which collection (`movies`/`episodes`) and pick-id field they read/wrote, so
+    `patchPickReview` takes those as accessor callbacks (`getPicks`/`withPicks`/`matchPick`/`getReviews`/
+    `withReviews`/`createIfMissing`) instead of duplicating the `findIndex`/`matchesCurrent`/`upsertReview` wiring
+    twice. `MovieRow`/`EpisodeRow` each compute a single `myReview` (the viewer's own review for that pick) once,
+    shared by both `handleSaveQuality`/`handleSaveSentiment` — they used to each run their own separate
+    `pick.reviews.find(...)` for the same review
 - Light/dark theme: `theme.ts` already declared `colorSchemes: { light: true, dark: true }` (MUI's CSS-vars mode)
   plus `defaultColorScheme: 'light'` so a fresh visitor always starts light rather than following OS preference. A
   sun/moon `IconButton` in `AppLayout`'s nav bar calls MUI's own `useColorScheme().setMode(...)`, toggling directly

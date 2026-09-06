@@ -145,50 +145,28 @@ export function MeetingsPage() {
     meetingId: string, movieId: string, memberId: string, quality: string | null | undefined, sentiment: string | null | undefined,
     onlyIfCurrent?: { quality?: string | null; sentiment?: string | null },
   ) => {
-    updateMeetings((prev) => {
-      if (!prev) return prev
-      const meetingIndex = prev.findIndex((m) => m.id === meetingId)
-      if (meetingIndex === -1) return prev
-      const meeting = prev[meetingIndex]
-      const pickIndex = meeting.movies.findIndex((p) => p.movie.id === movieId)
-      if (pickIndex === -1 || !matchesCurrent(meeting.movies[pickIndex].reviews, memberId, onlyIfCurrent)) return prev
-
-      const nextMovies = [...meeting.movies]
-      nextMovies[pickIndex] = {
-        ...nextMovies[pickIndex],
-        reviews: upsertReview(nextMovies[pickIndex].reviews, memberId, quality, sentiment, () => ({
-          movieId, memberId, qualityOptionId: null, sentimentOptionId: null, comment: null,
-        })),
-      }
-      const next = [...prev]
-      next[meetingIndex] = { ...meeting, movies: nextMovies }
-      return next
-    })
+    updateMeetings((prev) => patchPickReview(prev, meetingId, memberId, quality, sentiment, onlyIfCurrent, {
+      getPicks: (m) => m.movies,
+      withPicks: (m, movies) => ({ ...m, movies }),
+      matchPick: (p) => p.movie.id === movieId,
+      getReviews: (p) => p.reviews,
+      withReviews: (p, reviews) => ({ ...p, reviews }),
+      createIfMissing: () => ({ movieId, memberId, qualityOptionId: null, sentimentOptionId: null, comment: null }),
+    }))
   }, [updateMeetings])
 
   const patchEpisodeReview = useCallback((
     meetingId: string, episodeId: string, memberId: string, quality: string | null | undefined, sentiment: string | null | undefined,
     onlyIfCurrent?: { quality?: string | null; sentiment?: string | null },
   ) => {
-    updateMeetings((prev) => {
-      if (!prev) return prev
-      const meetingIndex = prev.findIndex((m) => m.id === meetingId)
-      if (meetingIndex === -1) return prev
-      const meeting = prev[meetingIndex]
-      const pickIndex = meeting.episodes.findIndex((p) => p.episode.id === episodeId)
-      if (pickIndex === -1 || !matchesCurrent(meeting.episodes[pickIndex].reviews, memberId, onlyIfCurrent)) return prev
-
-      const nextEpisodes = [...meeting.episodes]
-      nextEpisodes[pickIndex] = {
-        ...nextEpisodes[pickIndex],
-        reviews: upsertReview(nextEpisodes[pickIndex].reviews, memberId, quality, sentiment, () => ({
-          episodeId, memberId, qualityOptionId: null, sentimentOptionId: null, comment: null,
-        })),
-      }
-      const next = [...prev]
-      next[meetingIndex] = { ...meeting, episodes: nextEpisodes }
-      return next
-    })
+    updateMeetings((prev) => patchPickReview(prev, meetingId, memberId, quality, sentiment, onlyIfCurrent, {
+      getPicks: (m) => m.episodes,
+      withPicks: (m, episodes) => ({ ...m, episodes }),
+      matchPick: (p) => p.episode.id === episodeId,
+      getReviews: (p) => p.reviews,
+      withReviews: (p, reviews) => ({ ...p, reviews }),
+      createIfMissing: () => ({ episodeId, memberId, qualityOptionId: null, sentimentOptionId: null, comment: null }),
+    }))
   }, [updateMeetings])
 
   // PointerSensor (mouse/trackpad) needs some movement before a drag starts, so a plain click on a rating cell,
@@ -657,6 +635,41 @@ function upsertReview<R extends { memberId: string; qualityOptionId: string | nu
   })
 }
 
+/** Shared shell for `patchMovieReview`/`patchEpisodeReview` -- both were identical apart from which collection
+ * (`movies`/`episodes`) and pick-id field they read/write, so this takes those as accessor callbacks instead of
+ * duplicating the `findIndex`/`matchesCurrent`/`upsertReview` wiring twice. */
+function patchPickReview<P, R extends { memberId: string; qualityOptionId: string | null; sentimentOptionId: string | null }>(
+  prev: MeetingWithPicks[] | null,
+  meetingId: string,
+  memberId: string,
+  quality: string | null | undefined,
+  sentiment: string | null | undefined,
+  onlyIfCurrent: { quality?: string | null; sentiment?: string | null } | undefined,
+  accessors: {
+    getPicks: (meeting: MeetingWithPicks) => P[]
+    withPicks: (meeting: MeetingWithPicks, picks: P[]) => MeetingWithPicks
+    matchPick: (pick: P) => boolean
+    getReviews: (pick: P) => R[]
+    withReviews: (pick: P, reviews: R[]) => P
+    createIfMissing: () => R
+  },
+): MeetingWithPicks[] | null {
+  if (!prev) return prev
+  const meetingIndex = prev.findIndex((m) => m.id === meetingId)
+  if (meetingIndex === -1) return prev
+  const meeting = prev[meetingIndex]
+  const picks = accessors.getPicks(meeting)
+  const pickIndex = picks.findIndex(accessors.matchPick)
+  if (pickIndex === -1 || !matchesCurrent(accessors.getReviews(picks[pickIndex]), memberId, onlyIfCurrent)) return prev
+
+  const nextPicks = [...picks]
+  const nextReviews = upsertReview(accessors.getReviews(nextPicks[pickIndex]), memberId, quality, sentiment, accessors.createIfMissing)
+  nextPicks[pickIndex] = accessors.withReviews(nextPicks[pickIndex], nextReviews)
+  const next = [...prev]
+  next[meetingIndex] = accessors.withPicks(meeting, nextPicks)
+  return next
+}
+
 function groupEpisodesBySeries(episodes: MeetingEpisodePick[]) {
   const order: (string | null)[] = []
   const bySeriesId = new Map<string | null, { series: Series | null; picks: MeetingEpisodePick[] }>()
@@ -700,6 +713,10 @@ const MovieRow = memo(function MovieRow({
   const { attributes, listeners, setNodeRef: setDraggableRef, isDragging } = useDraggable({ id: movie.id, data: dragData })
   const { setNodeRef: setDroppableRef } = useDroppable({ id: `drop-${meetingId}-movie-${movie.id}`, data: { meetingId } satisfies MeetingDropData })
   const rowRef = useForkRef(setDraggableRef, setDroppableRef, registerRow)
+  // Computed once and shared by both handlers below, rather than each re-scanning `pick.reviews` for the same
+  // member's own review -- the row already renders every member's review via its own per-cell `find()` further
+  // down, but that one can't be reused here since it runs per member in a loop, not once for `myMemberId` alone.
+  const myReview = pick.reviews.find((r) => r.memberId === myMemberId)
 
   // Optimistic: patches the review locally before the request even fires, so the box updates instantly instead of
   // waiting on a save-then-refetch round trip. Only ever called for the viewer's own column (see `editable` below),
@@ -708,7 +725,7 @@ const MovieRow = memo(function MovieRow({
   // call touches the other field or `comment`, so there's nothing to echo back to avoid clobbering them.
   const handleSaveQuality = async (optionId: string | null) => {
     if (!myMemberId) return
-    const previous = pick.reviews.find((r) => r.memberId === myMemberId)?.qualityOptionId ?? null
+    const previous = myReview?.qualityOptionId ?? null
     setError(null)
     onRate(meetingId, movie.id, myMemberId, optionId, undefined)
     try {
@@ -721,7 +738,7 @@ const MovieRow = memo(function MovieRow({
 
   const handleSaveSentiment = async (optionId: string | null) => {
     if (!myMemberId) return
-    const previous = pick.reviews.find((r) => r.memberId === myMemberId)?.sentimentOptionId ?? null
+    const previous = myReview?.sentimentOptionId ?? null
     setError(null)
     onRate(meetingId, movie.id, myMemberId, undefined, optionId)
     try {
@@ -838,11 +855,13 @@ const EpisodeRow = memo(function EpisodeRow({
   const { attributes, listeners, setNodeRef: setDraggableRef, isDragging } = useDraggable({ id: episode.id, data: dragData })
   const { setNodeRef: setDroppableRef } = useDroppable({ id: `drop-${meetingId}-episode-${episode.id}`, data: { meetingId } satisfies MeetingDropData })
   const rowRef = useForkRef(setDraggableRef, setDroppableRef, registerRow)
+  // See `MovieRow`'s own `myReview` above -- shared by both handlers below instead of each re-scanning `pick.reviews`.
+  const myReview = pick.reviews.find((r) => r.memberId === myMemberId)
 
   // Optimistic -- see `MovieRow.handleSaveQuality`/`handleSaveSentiment` above for the rationale; same shape.
   const handleSaveQuality = async (optionId: string | null) => {
     if (!myMemberId) return
-    const previous = pick.reviews.find((r) => r.memberId === myMemberId)?.qualityOptionId ?? null
+    const previous = myReview?.qualityOptionId ?? null
     setError(null)
     onRate(meetingId, episode.id, myMemberId, optionId, undefined)
     try {
@@ -855,7 +874,7 @@ const EpisodeRow = memo(function EpisodeRow({
 
   const handleSaveSentiment = async (optionId: string | null) => {
     if (!myMemberId) return
-    const previous = pick.reviews.find((r) => r.memberId === myMemberId)?.sentimentOptionId ?? null
+    const previous = myReview?.sentimentOptionId ?? null
     setError(null)
     onRate(meetingId, episode.id, myMemberId, undefined, optionId)
     try {
