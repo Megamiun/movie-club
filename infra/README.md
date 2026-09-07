@@ -95,6 +95,7 @@ OIDC-assumed role, not SSH, so there's no private key to store:
 | `EC2_INSTANCE_ID`            | `terraform output -raw ec2_instance_id`                |
 | `API_BASE_URL`               | `https://api.<domain_name>`                            |
 | `CLOUDFRONT_DISTRIBUTION_ID` | `terraform output -raw cloudfront_distribution_id`     |
+| `S3_FRONTEND_BUCKET`         | `terraform output -raw s3_frontend_bucket`             |
 
 Also make sure `github_repository` in `terraform.tfvars` is set (`"owner/repo"`) -- the OIDC trust policy only
 allows the role to be assumed from a push to *this exact repo's* `main` branch, nothing broader.
