@@ -2,12 +2,6 @@
 # Vite build output (frontend/dist) is synced here by GitHub Actions on every deploy.
 resource "aws_s3_bucket" "frontend" {
   bucket = "${var.project_name}-frontend"
-
-  # Without this, Terraform refuses to delete the bucket while it still holds objects (S3's own BucketNotEmpty
-  # error) -- confirmed live the first time this bucket needed replacing (the project_name rename). Safe to
-  # auto-empty on destroy specifically because everything in it is regenerable build output, re-synced by
-  # deploy-frontend.yml on the next deploy -- never treat this as a template for a bucket holding real data.
-  force_destroy = true
 }
 
 data "aws_caller_identity" "current" {}
