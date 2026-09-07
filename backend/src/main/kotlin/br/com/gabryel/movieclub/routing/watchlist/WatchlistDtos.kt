@@ -11,7 +11,7 @@ internal data class AddWatchlistEntryRequest(
 
 @Serializable
 internal data class MoveWatchlistEntryRequest(
-    val direction: String,
+    val targetPosition: Int,
 )
 
 @Serializable

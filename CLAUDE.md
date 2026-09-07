@@ -439,13 +439,16 @@ enforces those automatically. This section is for conventions ktlint can't check
   lookup both dropped the type filter; `V29__watchlist_mixed_position.sql` renumbered every pre-existing row per
   member, movies keeping their relative order first, series after). Each member's section still gets its own
   `DndContext`, so a card can never be dragged into a different member's section — entries are personal,
-  ownership isn't reassignable. Reordering swaps an entry with whichever one is immediately adjacent in that
-  same list; any club member may reorder any list (a shared, collaboratively prioritized list — not owner-only,
-  even though it's now someone else's list); deleting an entry stays owner-only
-  (`WatchlistService.requireOwnedEntry`). Drag-and-drop (`@dnd-kit`, `rectSortingStrategy` for the grid layout)
-  is the only way to reorder now — the up/down icon buttons this used to offer alongside it were dropped.
-  Dragging further than one slot still just replays the same adjacent-swap `POST /watchlist/{id}/move` call once
-  per step, reusing the existing primitive rather than adding a "set exact position" endpoint. Adding an entry
+  ownership isn't reassignable. `POST /watchlist/{id}/move` takes a target index directly
+  (`WatchlistService.moveEntry(entryId, actingMemberId, targetPosition)`, clamped to the list's bounds) and shifts
+  every sibling between the entry's old and new position in one call — replaced an earlier adjacent-swap-only
+  version (`MoveDirection` UP/DOWN) that made the frontend replay one call per slot crossed to drag an entry any
+  real distance, the same "these ids, in this order, become positions 0..N-1" idiom
+  `ClubService.assignContiguousPositions` already uses for rating-option reorder. Any club member may reorder any
+  list (a shared, collaboratively prioritized list — not owner-only, even though it's now someone else's list);
+  deleting an entry stays owner-only (`WatchlistService.requireOwnedEntry`). Drag-and-drop (`@dnd-kit`,
+  `rectSortingStrategy` for the grid layout) is the only way to reorder now — the up/down icon buttons this used
+  to offer alongside it were dropped. Adding an entry
   is one form (a Movie/Series toggle picking which `TmdbSearchAutocomplete` to search, same toggle pattern as
   the meeting detail page's own Add button) inside the viewer's own section, not two separate type-specific forms
 - No freeform field on an entry — `notes` existed briefly but was removed (V27 migration) once the board layout

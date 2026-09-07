@@ -133,7 +133,7 @@ class WatchlistServiceTest {
         every { watchlistRepository.updatePosition(entryId, 0) } returns current.copy(position = 0)
         every { watchlistRepository.updatePosition(otherId, 1) } returns other.copy(position = 1)
 
-        watchlistService.moveEntry(entryId, memberId, MoveDirection.UP)
+        watchlistService.moveEntry(entryId, memberId, 0)
 
         verify { watchlistRepository.updatePosition(entryId, 0) }
         verify { watchlistRepository.updatePosition(otherId, 1) }
@@ -153,10 +153,30 @@ class WatchlistServiceTest {
         every { watchlistRepository.updatePosition(entryId, 0) } returns current.copy(position = 0)
         every { watchlistRepository.updatePosition(otherId, 1) } returns other.copy(position = 1)
 
-        watchlistService.moveEntry(entryId, memberId, MoveDirection.UP)
+        watchlistService.moveEntry(entryId, memberId, 0)
 
         verify { watchlistRepository.updatePosition(entryId, 0) }
         verify { watchlistRepository.updatePosition(otherId, 1) }
+    }
+
+    @Test
+    fun `moveEntry shifts every sibling in between in one call, not just the adjacent one`() {
+        val entryId = Uuid.random()
+        val ownerId = Uuid.random()
+        val current = entry(id = entryId, memberId = ownerId, position = 0)
+        val second = entry(id = Uuid.random(), memberId = ownerId, position = 1)
+        val third = entry(id = Uuid.random(), memberId = ownerId, position = 2)
+
+        every { watchlistRepository.findById(entryId) } returns current
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { watchlistRepository.listByClub(clubId) } returns listOf(current, second, third)
+        every { watchlistRepository.updatePosition(any(), any()) } answers { current }
+
+        watchlistService.moveEntry(entryId, memberId, 2)
+
+        verify { watchlistRepository.updatePosition(second.id, 0) }
+        verify { watchlistRepository.updatePosition(third.id, 1) }
+        verify { watchlistRepository.updatePosition(entryId, 2) }
     }
 
     @Test
@@ -170,13 +190,13 @@ class WatchlistServiceTest {
         every { clubService.requireMembership(clubId, memberId) } returns membership()
         every { watchlistRepository.listByClub(clubId) } returns listOf(otherMembersEntry, current)
 
-        watchlistService.moveEntry(entryId, memberId, MoveDirection.UP)
+        watchlistService.moveEntry(entryId, memberId, 0)
 
         verify(exactly = 0) { watchlistRepository.updatePosition(any(), any()) }
     }
 
     @Test
-    fun `moveEntry is a no-op at the edge of the list`() {
+    fun `moveEntry clamps an out-of-bounds target position instead of failing`() {
         val entryId = Uuid.random()
         val current = entry(id = entryId, position = 0)
 
@@ -184,7 +204,7 @@ class WatchlistServiceTest {
         every { clubService.requireMembership(clubId, memberId) } returns membership()
         every { watchlistRepository.listByClub(clubId) } returns listOf(current)
 
-        watchlistService.moveEntry(entryId, memberId, MoveDirection.UP)
+        watchlistService.moveEntry(entryId, memberId, 5)
 
         verify(exactly = 0) { watchlistRepository.updatePosition(any(), any()) }
     }

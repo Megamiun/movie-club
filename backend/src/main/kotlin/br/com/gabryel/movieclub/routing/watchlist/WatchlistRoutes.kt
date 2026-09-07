@@ -6,7 +6,6 @@ import br.com.gabryel.movieclub.routing.actingMemberId
 import br.com.gabryel.movieclub.routing.movie.TranslationResponse
 import br.com.gabryel.movieclub.routing.movie.toResponse
 import br.com.gabryel.movieclub.routing.toMediaItemTypeOrBadRequest
-import br.com.gabryel.movieclub.routing.toMoveDirectionOrBadRequest
 import br.com.gabryel.movieclub.routing.uuidPathParam
 import br.com.gabryel.movieclub.service.WatchlistService
 import io.ktor.http.HttpStatusCode.Companion.Created
@@ -42,7 +41,7 @@ fun Route.watchlistRoutes(watchlistService: WatchlistService) {
             val entry = watchlistService.moveEntry(
                 call.uuidPathParam("entryId"),
                 call.actingMemberId(),
-                body.direction.toMoveDirectionOrBadRequest(),
+                body.targetPosition,
             )
             call.respond(entry.toResponse())
         }

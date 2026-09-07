@@ -19,8 +19,6 @@ import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import br.com.gabryel.movieclub.service.tmdb.toTmdbPosterUrl
 import kotlin.uuid.Uuid
 
-enum class MoveDirection { UP, DOWN }
-
 class WatchlistService(
     private val watchlistRepository: WatchlistRepository,
     private val clubService: ClubService,
@@ -112,25 +110,33 @@ class WatchlistService(
         return enrichCatalogTitles(watchlistRepository.listByClub(clubId))
     }
 
-    /** Swaps [entryId] with whichever entry is immediately adjacent to it within its own owner's list -- among
-     * entries of the same [WatchlistEntryRow.memberId] only (movies and series share one mixed, ordered list per
-     * member, not separate ones by type -- see `WatchlistPage`). A no-op at either edge of that list. Unlike
-     * [deleteEntry], any club member may reorder -- reordering was already documented as not owner-restricted
-     * before per-member lists existed (a shared, collaboratively prioritized list), and that's preserved here
-     * even though it now means reordering someone else's own list. */
-    fun moveEntry(entryId: Uuid, actingMemberId: Uuid, direction: MoveDirection): WatchlistEntryRow {
+    /** Moves [entryId] directly to [targetPosition] (a 0-based index into its own owner's list, clamped to that
+     * list's bounds) in one call -- among entries of the same [WatchlistEntryRow.memberId] only (movies and series
+     * share one mixed, ordered list per member, not separate ones by type -- see `WatchlistPage`). Every sibling
+     * between the entry's old and new position shifts by one slot to make room, the same "these ids, in this
+     * order, become positions 0..N-1" idiom `ClubService.assignContiguousPositions` already uses for rating-option
+     * reorder -- replaced an earlier adjacent-only swap (`MoveDirection` UP/DOWN) that made the frontend replay one
+     * call per slot to drag an entry any real distance. Unlike [deleteEntry], any club member may reorder --
+     * reordering was already documented as not owner-restricted before per-member lists existed (a shared,
+     * collaboratively prioritized list), and that's preserved here even though it now means reordering someone
+     * else's own list. */
+    fun moveEntry(entryId: Uuid, actingMemberId: Uuid, targetPosition: Int): WatchlistEntryRow {
         val entry = watchlistRepository.findById(entryId) ?: throw NotFoundException("Watchlist entry not found")
         clubService.requireMembership(entry.clubId, actingMemberId)
 
         val siblings = watchlistRepository.listByClub(entry.clubId)
             .filter { it.memberId == entry.memberId }
             .sortedBy { it.position }
-        val index = siblings.indexOfFirst { it.id == entryId }
-        val targetIndex = if (direction == MoveDirection.UP) index - 1 else index + 1
-        val target = siblings.getOrNull(targetIndex) ?: return entry
+            .toMutableList()
 
-        watchlistRepository.updatePosition(entry.id, target.position)
-        watchlistRepository.updatePosition(target.id, entry.position)
+        val currentIndex = siblings.indexOfFirst { it.id == entryId }
+        val newIndex = targetPosition.coerceIn(0, siblings.lastIndex)
+        if (currentIndex != newIndex) {
+            siblings.add(newIndex, siblings.removeAt(currentIndex))
+            siblings.forEachIndexed { index, sibling ->
+                if (sibling.position != index) watchlistRepository.updatePosition(sibling.id, index)
+            }
+        }
         return enrichCatalogTitle(watchlistRepository.findById(entryId)!!)
     }
 

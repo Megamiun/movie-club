@@ -4,7 +4,6 @@ import br.com.gabryel.movieclub.db.DisplayTitlePreference
 import br.com.gabryel.movieclub.db.MediaItemType
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.UnauthorizedException
-import br.com.gabryel.movieclub.service.MoveDirection
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
@@ -32,7 +31,3 @@ internal fun String.toDisplayTitlePreferenceOrBadRequest(): DisplayTitlePreferen
 internal fun String.toMediaItemTypeOrBadRequest(): MediaItemType =
     MediaItemType.entries.find { it.name == this }
         ?: throw BadRequestException("Invalid media item type: $this")
-
-internal fun String.toMoveDirectionOrBadRequest(): MoveDirection =
-    MoveDirection.entries.find { it.name == this }
-        ?: throw BadRequestException("Invalid move direction: $this")

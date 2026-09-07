@@ -118,25 +118,21 @@ function WatchlistMemberSection({
   const [dragError, setDragError] = useState<string | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
-  /** The backend only supports swapping with an *adjacent* sibling within this member's own list (see
-   * `WatchlistService.moveEntry`) -- dropping further away just replays that same swap one step at a time until
-   * the dragged entry reaches where it was dropped, rather than adding a "set exact position" endpoint. Each
-   * section gets its own `DndContext`, so a card can never even be dropped into a different member's section in
-   * the first place -- entries are personal, ownership isn't reassignable. `rectSortingStrategy` (not
-   * `verticalListSortingStrategy`) since cards now wrap into a grid, not a single column. */
+  /** One call moves the dragged entry straight to its dropped index -- `WatchlistService.moveEntry` shifts every
+   * sibling in between to make room server-side, rather than the frontend replaying an adjacent-swap call once per
+   * slot crossed. Each section gets its own `DndContext`, so a card can never even be dropped into a different
+   * member's section in the first place -- entries are personal, ownership isn't reassignable.
+   * `rectSortingStrategy` (not `verticalListSortingStrategy`) since cards now wrap into a grid, not a single
+   * column. */
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    const oldIndex = entries.findIndex((entry) => entry.id === active.id)
     const newIndex = entries.findIndex((entry) => entry.id === over.id)
-    if (oldIndex === -1 || newIndex === -1) return
+    if (newIndex === -1) return
 
-    const direction = newIndex > oldIndex ? 'DOWN' : 'UP'
     setDragError(null)
     try {
-      for (let step = 0; step < Math.abs(newIndex - oldIndex); step++) {
-        await watchlistApi.move(active.id as string, direction)
-      }
+      await watchlistApi.move(active.id as string, newIndex)
       onChange()
     } catch (err) {
       setDragError(err instanceof ApiError ? err.message : 'Something went wrong')
