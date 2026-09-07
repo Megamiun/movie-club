@@ -430,7 +430,20 @@ enforces those automatically. This section is for conventions ktlint can't check
   up the entry's underlying Movie/Series *catalog* row for just those two fields; `WatchlistService` composes this
   onto every `WatchlistEntryRow` it returns. There's no per-entry `customTitle`/`displayTitlePreference`/
   `displayLanguageCode` at all (no storage for it, unlike Movie/Series picks), so an entry's title always resolves
-  as if `ORIGINAL` — genuinely per-entry overrides would need new columns on `WatchlistEntries` itself
+  as if `ORIGINAL` — genuinely per-entry overrides would need new columns on `WatchlistEntries` itself. This still
+  needs a real catalog row to exist, though (`originalLanguage`/`translations` live only there, never on MediaItem
+  itself) — `WatchlistService.fetchMovieMediaItem`/`fetchSeriesMediaItem` used to call `mediaItemRepository.findOrCreate`
+  directly, which creates *only* a MediaItem, never the Movie/Series catalog row alongside it. An item added
+  straight to the Watchlist (never picked to a meeting, or for a series, never added to the club's series list)
+  therefore had no catalog row at all, so `resolveTitle` (frontend `utils/title.ts`) always fell back to the raw
+  original title — the club's `ignoredLanguages`/`preferredLanguages` were silently never applied to it, a real,
+  previously-unnoticed bug. Fixed by delegating those two methods to `MovieService.findOrCreateCatalogMediaItem`/
+  `SeriesService.findOrCreateCatalogMediaItem` instead — the same TMDB-fetch-and-cache path `createFromTmdb` already
+  uses for a meeting pick/club series add, minus actually picking it to anything, so a Watchlist-only add gets the
+  identical catalog row (backed by `MovieRepository`/`SeriesRepository.findOrCreateCatalogEntry`, the same
+  find-or-create-and-refresh upsert `create` already used internally, now also exposed standalone). Entries added
+  *before* this fix still have no catalog row and won't retroactively gain one — only removing and re-adding, or
+  the same movie/series later getting picked to a meeting/added to the club's series list, backfills it
 - `WatchlistPage` is one full-width section per club member (`WatchlistMemberSection`) — viewer's own section
   first, everyone else after in the club's rotation order — each a CSS grid of poster cards
   (`grid-template-columns: repeat(auto-fill, minmax(150px, 1fr))`, so a row fits as many cards as its width

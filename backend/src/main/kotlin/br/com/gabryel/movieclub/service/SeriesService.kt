@@ -11,6 +11,7 @@ import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.PersonRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
+import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
@@ -72,9 +73,28 @@ class SeriesService(
         val imdbRating = omdbClient.getImdbRating(imdbId)
         val metadata = details.toMetadata(tmdbId).copy(imdbRating = imdbRating, creatorPersonId = resolveCreatorPersonId(details))
         val mediaItem = linkMediaItem(details, tmdbId, imdbId, metadata, imdbRating)
-        val series = seriesRepository.create(clubId, actingMemberId, imdbId, metadata, mediaItem)
+        val series = seriesRepository.create(clubId, actingMemberId, imdbId, metadata, mediaItem.id)
         runCatching { importSeasonsAndEpisodes(series.id, actingMemberId) }
         return series
+    }
+
+    /** Ensures a MediaItem *and* the shared Series catalog row exist for [tmdbId], without adding it to any club --
+     * used when adding straight to a Watchlist (`WatchlistService.fetchSeriesMediaItem`), same reasoning as
+     * [MovieService.findOrCreateCatalogMediaItem]: without a catalog row, `resolveTitle`'s language-preference
+     * logic had no `originalLanguage`/`translations` to work with for a series that had never been added to any
+     * club, so the club's language rules were silently never applied to it on the Watchlist. Deliberately doesn't
+     * call [importSeasonsAndEpisodes] the way [createFromTmdb] does -- a Watchlist entry isn't a followed series
+     * yet, just a MediaItem reference, so there's nothing to import seasons/episodes *for*. */
+    suspend fun findOrCreateCatalogMediaItem(tmdbId: Int): MediaItemRow {
+        val details = tmdbClient.getTvDetails(tmdbId)
+        val imdbId = details.externalIds?.imdbId
+            ?: throw BadRequestException("TMDB series $tmdbId has no linked IMDB id")
+
+        val imdbRating = omdbClient.getImdbRating(imdbId)
+        val metadata = details.toMetadata(tmdbId).copy(imdbRating = imdbRating, creatorPersonId = resolveCreatorPersonId(details))
+        val mediaItem = linkMediaItem(details, tmdbId, imdbId, metadata, imdbRating)
+        seriesRepository.findOrCreateCatalogEntry(imdbId, metadata, mediaItem.id)
+        return mediaItem
     }
 
     suspend fun refreshMetadata(seriesId: Uuid, actingMemberId: Uuid): SeriesRow {
@@ -87,7 +107,7 @@ class SeriesService(
         val metadata = details.toMetadata(summary.id).copy(imdbRating = imdbRating, creatorPersonId = resolveCreatorPersonId(details))
         val mediaItem = linkMediaItem(details, summary.id, series.imdbId, metadata, imdbRating)
 
-        return seriesRepository.updateTmdbMetadata(seriesId, metadata, mediaItem)
+        return seriesRepository.updateTmdbMetadata(seriesId, metadata, mediaItem.id)
     }
 
     /** Unlike [MovieService.resolveDirectorPersonId]/[EpisodeService.resolveDirectorPersonId], no IMDB id lookup
@@ -106,7 +126,7 @@ class SeriesService(
         imdbId: String,
         metadata: TmdbSeriesMetadata,
         imdbRating: BigDecimal?,
-    ): Uuid = mediaItemRepository.findOrCreate(
+    ): MediaItemRow = mediaItemRepository.findOrCreate(
         type = SERIES,
         imdbId = imdbId,
         title = details.originalName,
@@ -114,7 +134,7 @@ class SeriesService(
         year = details.year,
         posterUrl = details.posterPath?.toTmdbPosterUrl(),
         imdbRating = imdbRating,
-    ).id
+    )
 
     /** Bulk-imports every season/episode TMDB knows about for this series -- unlike [refreshMetadata] (which only
      * touches the series' own top-level fields), this populates the full Season/Episode catalog, including

@@ -48,6 +48,10 @@ class ExposedSeriesRepository : SeriesRepository {
         findById(pickId)!!
     }
 
+    override fun findOrCreateCatalogEntry(imdbId: String, metadata: TmdbSeriesMetadata, mediaItemId: Uuid?): Uuid = transaction {
+        findOrCreateSeries(imdbId, metadata, mediaItemId)
+    }
+
     override fun findById(id: Uuid): SeriesRow? = transaction {
         joined()
             .selectAll()

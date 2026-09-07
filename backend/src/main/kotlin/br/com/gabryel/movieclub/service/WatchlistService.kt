@@ -4,7 +4,6 @@ import br.com.gabryel.movieclub.db.MediaItemType
 import br.com.gabryel.movieclub.db.MediaItemType.EPISODE
 import br.com.gabryel.movieclub.db.MediaItemType.MOVIE
 import br.com.gabryel.movieclub.db.MediaItemType.SERIES
-import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
@@ -14,20 +13,17 @@ import br.com.gabryel.movieclub.db.repositories.dto.WatchlistEntryRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
-import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
-import br.com.gabryel.movieclub.service.tmdb.toTmdbPosterUrl
 import kotlin.uuid.Uuid
 
 class WatchlistService(
     private val watchlistRepository: WatchlistRepository,
     private val clubService: ClubService,
-    private val mediaItemRepository: MediaItemRepository,
     private val movieRepository: MovieRepository,
     private val seriesRepository: SeriesRepository,
     private val tmdbClient: TmdbClient,
-    private val omdbClient: OmdbClient,
     private val movieService: MovieService,
+    private val seriesService: SeriesService,
 ) {
     /** Adding is always by [tmdbId] -- there's no freeform title entry, since a MediaItem only ever exists from a
      * successful TMDB lookup (see [br.com.gabryel.movieclub.db.tables.MediaItems]). */
@@ -73,37 +69,15 @@ class WatchlistService(
         return enrichCatalogTitle(watchlistRepository.create(clubId, actingMemberId, mediaItem.id))
     }
 
-    private suspend fun fetchMovieMediaItem(tmdbId: Int): MediaItemRow {
-        val details = tmdbClient.getMovieDetails(tmdbId)
-        val imdbId = details.externalIds?.imdbId
-            ?: throw BadRequestException("TMDB movie $tmdbId has no linked IMDB id")
+    /** Delegates to [MovieService]/[SeriesService] instead of a bare `mediaItemRepository.findOrCreate` (the
+     * latter is all this used to do) so a Watchlist-only add also gets a real Movie/Series *catalog* row, not just
+     * a MediaItem -- without one, the entry had no `originalLanguage`/`translations` for [enrichCatalogTitles] to
+     * find, so `resolveTitle` (frontend `utils/title.ts`) always fell back to the raw original title, silently
+     * ignoring the club's language preferences entirely for anything added straight to the Watchlist rather than
+     * picked to a meeting/added to the club's series list first. */
+    private suspend fun fetchMovieMediaItem(tmdbId: Int): MediaItemRow = movieService.findOrCreateCatalogMediaItem(tmdbId)
 
-        return mediaItemRepository.findOrCreate(
-            type = MOVIE,
-            imdbId = imdbId,
-            title = details.originalTitle,
-            tmdbId = tmdbId.toString(),
-            year = details.year,
-            posterUrl = details.posterPath?.toTmdbPosterUrl(),
-            imdbRating = omdbClient.getImdbRating(imdbId),
-        )
-    }
-
-    private suspend fun fetchSeriesMediaItem(tmdbId: Int): MediaItemRow {
-        val details = tmdbClient.getTvDetails(tmdbId)
-        val imdbId = details.externalIds?.imdbId
-            ?: throw BadRequestException("TMDB series $tmdbId has no linked IMDB id")
-
-        return mediaItemRepository.findOrCreate(
-            type = SERIES,
-            imdbId = imdbId,
-            title = details.originalName,
-            tmdbId = tmdbId.toString(),
-            year = details.year,
-            posterUrl = details.posterPath?.toTmdbPosterUrl(),
-            imdbRating = omdbClient.getImdbRating(imdbId),
-        )
-    }
+    private suspend fun fetchSeriesMediaItem(tmdbId: Int): MediaItemRow = seriesService.findOrCreateCatalogMediaItem(tmdbId)
 
     fun listEntries(clubId: Uuid, actingMemberId: Uuid): List<WatchlistEntryRow> {
         clubService.requireMembership(clubId, actingMemberId)

@@ -50,6 +50,10 @@ class ExposedMovieRepository : MovieRepository {
         findById(pickId)!!
     }
 
+    override fun findOrCreateCatalogEntry(imdbId: String, metadata: TmdbMovieMetadata, mediaItemId: Uuid?): Uuid = transaction {
+        findOrCreateMovie(imdbId, metadata, mediaItemId)
+    }
+
     override fun findById(id: Uuid): MovieRow? = transaction {
         joined()
             .selectAll()

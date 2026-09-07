@@ -4,7 +4,6 @@ import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.MediaItemType
 import br.com.gabryel.movieclub.db.MediaItemType.MOVIE
 import br.com.gabryel.movieclub.db.MediaItemType.SERIES
-import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
@@ -17,10 +16,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.WatchlistEntryRow
 import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
-import br.com.gabryel.movieclub.service.omdb.OmdbClient
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
-import br.com.gabryel.movieclub.service.tmdb.TmdbExternalIds
-import br.com.gabryel.movieclub.service.tmdb.TmdbMovieDetails
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -35,28 +31,25 @@ import kotlin.uuid.Uuid
 class WatchlistServiceTest {
     private val watchlistRepository = mockk<WatchlistRepository>()
     private val clubService = mockk<ClubService>()
-    private val mediaItemRepository = mockk<MediaItemRepository>()
     private val movieRepository = mockk<MovieRepository>()
     private val seriesRepository = mockk<SeriesRepository>()
     private val tmdbClient = mockk<TmdbClient>()
-    private val omdbClient = mockk<OmdbClient>()
     private val movieService = mockk<MovieService>()
+    private val seriesService = mockk<SeriesService>()
     private val watchlistService = WatchlistService(
         watchlistRepository,
         clubService,
-        mediaItemRepository,
         movieRepository,
         seriesRepository,
         tmdbClient,
-        omdbClient,
         movieService,
+        seriesService,
     )
 
     private val clubId = Uuid.random()
     private val memberId = Uuid.random()
 
     init {
-        coEvery { omdbClient.getImdbRating(any()) } returns null
         every { watchlistRepository.findByClubMemberAndMediaItem(any(), any(), any()) } returns null
         every { movieRepository.findCatalogTitleInfoByMediaItemIds(any()) } returns emptyMap()
         every { seriesRepository.findCatalogTitleInfoByMediaItemIds(any()) } returns emptyMap()
@@ -70,18 +63,11 @@ class WatchlistServiceTest {
     }
 
     @Test
-    fun `addEntry resolves the movie through TMDB and creates an entry referencing its MediaItem`(): Unit =
+    fun `addEntry resolves the movie through MovieService and creates an entry referencing its MediaItem`(): Unit =
         runBlocking {
             every { clubService.requireMembership(clubId, memberId) } returns membership()
-            coEvery { tmdbClient.getMovieDetails(438631) } returns TmdbMovieDetails(
-                originalTitle = "Dune",
-                title = "Dune",
-                externalIds = TmdbExternalIds(imdbId = "tt1160419"),
-            )
             val item = mediaItem()
-            every {
-                mediaItemRepository.findOrCreate(MOVIE, "tt1160419", "Dune", "438631", null, null, null)
-            } returns item
+            coEvery { movieService.findOrCreateCatalogMediaItem(438631) } returns item
 
             val expected = entry(mediaItemId = item.id)
             every { watchlistRepository.create(clubId, memberId, item.id) } returns expected
@@ -89,19 +75,29 @@ class WatchlistServiceTest {
             assertEquals(expected, watchlistService.addEntry(clubId, memberId, MOVIE, "438631"))
         }
 
+    /** Guards against the actual bug this delegation was introduced to fix: a bare `mediaItemRepository.findOrCreate`
+     * (this used to call that directly) never creates the Series *catalog* row, so a series added straight to the
+     * Watchlist had no `originalLanguage`/`translations` for `resolveTitle` (frontend `utils/title.ts`) to work
+     * with -- the club's language preferences were silently never applied to it. Routing through
+     * `SeriesService.findOrCreateCatalogMediaItem` instead ensures that catalog row always exists. */
+    @Test
+    fun `addEntry resolves a series through SeriesService, not a bare MediaItem lookup`(): Unit = runBlocking {
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        val item = mediaItem().copy(type = SERIES)
+        coEvery { seriesService.findOrCreateCatalogMediaItem(1396) } returns item
+
+        val expected = entry(mediaItemId = item.id, type = SERIES)
+        every { watchlistRepository.create(clubId, memberId, item.id) } returns expected
+
+        assertEquals(expected, watchlistService.addEntry(clubId, memberId, SERIES, "1396"))
+    }
+
     @Test
     fun `addEntry throws BadRequestException when this member already has the media item in their watchlist`(): Unit =
         runBlocking {
             every { clubService.requireMembership(clubId, memberId) } returns membership()
-            coEvery { tmdbClient.getMovieDetails(438631) } returns TmdbMovieDetails(
-                originalTitle = "Dune",
-                title = "Dune",
-                externalIds = TmdbExternalIds(imdbId = "tt1160419"),
-            )
             val item = mediaItem()
-            every {
-                mediaItemRepository.findOrCreate(MOVIE, "tt1160419", "Dune", "438631", null, null, null)
-            } returns item
+            coEvery { movieService.findOrCreateCatalogMediaItem(438631) } returns item
             every { watchlistRepository.findByClubMemberAndMediaItem(clubId, memberId, item.id) } returns entry(mediaItemId = item.id)
 
             assertFailsWith<BadRequestException> { watchlistService.addEntry(clubId, memberId, MOVIE, "438631") }

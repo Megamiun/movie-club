@@ -10,6 +10,7 @@ import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
 import br.com.gabryel.movieclub.db.repositories.PersonRepository
+import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
@@ -76,7 +77,26 @@ class MovieService(
         val directorPersonId = resolveDirectorPersonId(details.director, details.directorTmdbId)
         val metadata = details.toMetadata(tmdbId).copy(imdbRating = imdbRating, directorPersonId = directorPersonId)
         val mediaItem = linkMediaItem(details, tmdbId, imdbId, metadata, imdbRating)
-        return movieRepository.create(meetingId, actingMemberId, imdbId, metadata, mediaItem, watchLink)
+        return movieRepository.create(meetingId, actingMemberId, imdbId, metadata, mediaItem.id, watchLink)
+    }
+
+    /** Ensures a MediaItem *and* the shared Movie catalog row exist for [tmdbId], without picking it to any
+     * meeting -- used when adding straight to a Watchlist (`WatchlistService.fetchMovieMediaItem`), so
+     * `resolveTitle`'s language-preference logic (frontend `utils/title.ts`) has real
+     * `originalLanguage`/`translations` to work with. Without this, a movie that had never been picked to a
+     * meeting had no catalog row at all (see [MovieRepository.findOrCreateCatalogEntry]'s comment), so the club's
+     * language rules were silently never applied to it on the Watchlist. */
+    suspend fun findOrCreateCatalogMediaItem(tmdbId: Int): MediaItemRow {
+        val details = tmdbClient.getMovieDetails(tmdbId)
+        val imdbId = details.externalIds?.imdbId
+            ?: throw BadRequestException("TMDB movie $tmdbId has no linked IMDB id")
+
+        val imdbRating = omdbClient.getImdbRating(imdbId)
+        val directorPersonId = resolveDirectorPersonId(details.director, details.directorTmdbId)
+        val metadata = details.toMetadata(tmdbId).copy(imdbRating = imdbRating, directorPersonId = directorPersonId)
+        val mediaItem = linkMediaItem(details, tmdbId, imdbId, metadata, imdbRating)
+        movieRepository.findOrCreateCatalogEntry(imdbId, metadata, mediaItem.id)
+        return mediaItem
     }
 
     suspend fun refreshMetadata(movieId: Uuid, actingMemberId: Uuid): MovieRow {
@@ -90,7 +110,7 @@ class MovieService(
         val metadata = details.toMetadata(summary.id).copy(imdbRating = imdbRating, directorPersonId = directorPersonId)
         val mediaItem = linkMediaItem(details, summary.id, movie.imdbId, metadata, imdbRating)
 
-        return movieRepository.updateTmdbMetadata(movieId, metadata, mediaItem)
+        return movieRepository.updateTmdbMetadata(movieId, metadata, mediaItem.id)
     }
 
     /** Resolves (find-or-creating) the [br.com.gabryel.movieclub.db.repositories.dto.PersonRow] for the credited
@@ -109,7 +129,7 @@ class MovieService(
         imdbId: String,
         metadata: TmdbMovieMetadata,
         imdbRating: BigDecimal?,
-    ): Uuid = mediaItemRepository.findOrCreate(
+    ): MediaItemRow = mediaItemRepository.findOrCreate(
         type = MOVIE,
         imdbId = imdbId,
         title = details.originalTitle,
@@ -117,7 +137,7 @@ class MovieService(
         year = details.year,
         posterUrl = details.posterPath?.toTmdbPosterUrl(),
         imdbRating = imdbRating,
-    ).id
+    )
 
     fun listMovies(meetingId: Uuid, actingMemberId: Uuid): List<MovieRow> {
         requireMeetingAccess(meetingId, actingMemberId)

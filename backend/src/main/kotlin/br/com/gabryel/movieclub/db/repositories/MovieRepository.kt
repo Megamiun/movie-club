@@ -17,6 +17,13 @@ interface MovieRepository {
         watchLink: String? = null,
     ): MovieRow
 
+    /** Ensures the shared, deduplicated catalog row for [imdbId] exists (creating it from [metadata] if missing,
+     * or refreshing an existing one) and links it to [mediaItemId] -- the same catalog upsert [create] uses
+     * internally for a per-meeting pick, exposed standalone for callers that need the catalog row's own cached
+     * TMDB fields (`originalLanguage`/`translations`, for title-language resolution) without picking the movie to
+     * any meeting, e.g. adding it straight to a Watchlist (see `WatchlistService`/`MovieService.findOrCreateCatalogMediaItem`). */
+    fun findOrCreateCatalogEntry(imdbId: String, metadata: TmdbMovieMetadata, mediaItemId: Uuid?): Uuid
+
     fun findById(id: Uuid): MovieRow?
 
     fun findByMeetingAndImdbId(meetingId: Uuid, imdbId: String): MovieRow?

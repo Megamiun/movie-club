@@ -113,12 +113,11 @@ fun Application.module() {
     val watchlistService = WatchlistService(
         watchlistRepository,
         clubService,
-        mediaItemRepository,
         movieRepository,
         seriesRepository,
         tmdbClient,
-        omdbClient,
         movieService,
+        seriesService,
     )
     val importService = ImportService(
         clubService,

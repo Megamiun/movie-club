@@ -10,6 +10,11 @@ import kotlin.uuid.Uuid
 interface SeriesRepository {
     fun create(clubId: Uuid, chosenById: Uuid, imdbId: String, metadata: TmdbSeriesMetadata, mediaItemId: Uuid? = null): SeriesRow
 
+    /** Same idea as [MovieRepository.findOrCreateCatalogEntry] -- ensures the shared, deduplicated Series catalog
+     * row exists/is refreshed, without picking it to any club (e.g. adding straight to a Watchlist, see
+     * `WatchlistService`/`SeriesService.findOrCreateCatalogMediaItem`). */
+    fun findOrCreateCatalogEntry(imdbId: String, metadata: TmdbSeriesMetadata, mediaItemId: Uuid?): Uuid
+
     fun findById(id: Uuid): SeriesRow?
 
     fun listByClub(clubId: Uuid): List<SeriesRow>
