@@ -66,7 +66,7 @@ enforces those automatically. This section is for conventions ktlint can't check
   `listReviewsByEpisodes`/`findSeriesImdbIds`, `SeriesRepository.findByClubAndImdbIds`), each short-circuiting on an
   empty input list before touching Exposed at all, so `GET /clubs/{clubId}/meetings` costs a fixed ~6 queries
   regardless of club history instead of the old `O(meetings + movies + episodes×3)`. This matters more than the
-  usual N+1 does here because the endpoint is hit on every page load *and* every 10s poll tick (see the meetings
+  usual N+1 does here because the endpoint is hit on every page load *and* every 5s poll tick (see the meetings
   table's polling under RatingScale below). The regression this shape risks — a pick surfacing under the wrong
   meeting once the fetch spans several at once — has its own `MeetingServiceTest` case.
 - `backend/build.gradle.kts`'s `run` task loads the repo-root `.env` itself (parsed as plain `KEY=VALUE` lines,
@@ -547,14 +547,14 @@ enforces those automatically. This section is for conventions ktlint can't check
   `AsyncState` wrapper never unmounts the table for it (no spinner, no lost scroll position, no closed popovers).
   `MeetingsPage` uses it both after a page-level mutation (a drag-and-drop move) and via `useSmartPolling`
   (`frontend/src/hooks/
-  useSmartPolling.ts` — pauses while the tab is hidden, fires immediately on return) every 10 seconds, so other
+  useSmartPolling.ts` — pauses while the tab is hidden, fires immediately on return) every 5 seconds, so other
   members' concurrent changes show up without a manual refresh. A failed background poll is silently dropped rather
   than surfaced, since whatever's already on screen is still valid. `ClubOutletContext` (the club-detail fetch every
   club-scoped page shares) exposes the same `silentReload` alongside `reload` — `ClubOverviewPage`'s member-color
   editor uses it specifically (a per-drag-commit save that shouldn't flash the entire Overview page — tabs, every
   other section — back to a spinner), while genuinely structural member changes (add/remove/role-change) still use
   the full `reload`, since those actually add/remove table rows. `ClubLayout` itself also `useSmartPolling`s its own
-  `club` fetch (15s) — the one piece of club-scoped state every nested page shares — so a language-preference edit
+  `club` fetch (7.5s) — the one piece of club-scoped state every nested page shares — so a language-preference edit
   (`LanguagePreferencesSection` calls the outlet's `silentReload` on save, same pattern as member color) or a rating
   scale's color/label edit propagates to any already-open Meetings/Series/Season/meeting-detail page too, not just
   the tab it was made from. Rating scales aren't part of `club`, though (`RatingScalesSection` fetches them
@@ -563,7 +563,7 @@ enforces those automatically. This section is for conventions ktlint can't check
   rather than a fifth separate polling mechanism
 - Saving an inline rating doesn't refetch at all, though — it's optimistic. `useAsync` also exposes a `setData`
   functional setter, and `MeetingsPage.patchMovieReview`/`patchEpisodeReview` write the one changed review straight
-  into local state *before* the PATCH fires, rolling back only on failure; the 10s poll reconciles regardless, so
+  into local state *before* the PATCH fires, rolling back only on failure; the 5s poll reconciles regardless, so
   there's no reload on the success path. Before this, a one-cell change waited on two full round trips (the save,
   then a `silentReload` refetching the club's entire meeting history) before showing anything, which read as
   visibly slow. Two details this needs to get right:
@@ -684,7 +684,7 @@ enforces those automatically. This section is for conventions ktlint can't check
   meeting in the club by its date, not a raw meeting-id text box (the original form) — `orderMeetingsByProximity`
   sorts the 4 closest by date (either direction) to the current meeting first, since that's overwhelmingly the
   likely target for a swap/postpone-adjacent merge, then everyone else chronologically. Fetches the club's full
-  meeting list once via its own `useAsync`, folded into the page's existing 15s poll.
+  meeting list once via its own `useAsync`, folded into the page's existing 7.5s poll.
 
 ### Key scenarios
 

@@ -52,7 +52,7 @@ export function SeasonDetailPage() {
     silentReload()
     silentReloadClub()
     silentReloadScales()
-  }, 15000)
+  }, 7500)
 
   const [episodeNumber, setEpisodeNumber] = useState('')
   const [episodeTitle, setEpisodeTitle] = useState('')

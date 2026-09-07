@@ -19,7 +19,7 @@ export function ClubLayout() {
   const { clubId } = useParams<{ clubId: string }>()
   const location = useLocation()
   const { data: club, loading, error, reload, silentReload } = useAsync(() => clubsApi.get(clubId!), [clubId])
-  useSmartPolling(silentReload, 15000)
+  useSmartPolling(silentReload, 7500)
 
   const activeTab = useMemo(() => {
     const suffix = location.pathname.split(`/clubs/${clubId}/`)[1] ?? ''

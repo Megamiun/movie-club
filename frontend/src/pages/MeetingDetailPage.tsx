@@ -36,7 +36,7 @@ export function MeetingDetailPage() {
     silentReloadClub()
     silentReloadScales()
     silentReloadClubMeetings()
-  }, 15000)
+  }, 7500)
 
   const languagePrefs = {
     preferredLanguages: club?.preferredLanguages ?? [],

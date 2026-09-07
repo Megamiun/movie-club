@@ -29,7 +29,7 @@ import { resolveTitle } from '../utils/title'
 export function SeriesListPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { data: series, loading, error, reload, silentReload } = useAsync(() => seriesApi.list(club.id), [club.id])
-  useSmartPolling(silentReload, 15000)
+  useSmartPolling(silentReload, 7500)
   const [addMode, setAddMode] = useState<'search' | 'imdb'>('search')
   const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
   const [imdbUrlOrId, setImdbUrlOrId] = useState('')

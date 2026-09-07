@@ -52,7 +52,7 @@ export function MovieSection({
   showAddForm: boolean
 }) {
   const { data: movies, loading, error, reload, silentReload } = useAsync(() => moviesApi.list(meetingId), [meetingId])
-  useSmartPolling(silentReload, 15000)
+  useSmartPolling(silentReload, 7500)
   const [addMode, setAddMode] = useState<'search' | 'imdb'>('search')
   const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
   const [imdbUrlOrId, setImdbUrlOrId] = useState('')
@@ -171,7 +171,7 @@ function MovieItem({
   onChange: () => void
 }) {
   const { data: reviews, reload: reloadReviews, silentReload: silentReloadReviews } = useAsync(() => moviesApi.listReviews(movie.id), [movie.id])
-  useSmartPolling(silentReloadReviews, 15000)
+  useSmartPolling(silentReloadReviews, 7500)
   const [customTitle, setCustomTitle] = useState(movie.customTitle ?? '')
   const [preference, setPreference] = useState<'ORIGINAL' | 'CUSTOM'>(
     movie.displayTitlePreference === 'CUSTOM' ? 'CUSTOM' : 'ORIGINAL',

@@ -122,7 +122,7 @@ export function MeetingsPage() {
   useSmartPolling(() => {
     silentReload()
     silentReloadScales()
-  }, 10_000)
+  }, 5_000)
 
   useEffect(() => {
     localStorage.setItem(MEETING_TYPE_FILTERS_KEY, JSON.stringify(typeFilters))

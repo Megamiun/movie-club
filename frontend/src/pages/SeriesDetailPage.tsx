@@ -32,7 +32,7 @@ export function SeriesDetailPage() {
     silentReloadSeasons()
     silentReloadClub()
     silentReloadScales()
-  }, 15000)
+  }, 7500)
 
   const [customTitle, setCustomTitle] = useState('')
   const [preference, setPreference] = useState<'ORIGINAL' | 'CUSTOM'>('ORIGINAL')

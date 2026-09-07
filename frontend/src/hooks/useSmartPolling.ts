@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react'
 
 /**
- * Periodically invokes [onPoll] every [intervalMs] (defaulting to 15 seconds), but automatically pauses
+ * Periodically invokes [onPoll] every [intervalMs] (defaulting to 7.5 seconds), but automatically pauses
  * polling when the browser tab is hidden or inactive (`document.hidden`), and immediately triggers a fresh
  * poll as soon as the user returns to the tab.
  */
-export function useSmartPolling(onPoll: () => void, intervalMs: number = 15000) {
+export function useSmartPolling(onPoll: () => void, intervalMs: number = 7500) {
   const savedOnPoll = useRef(onPoll)
 
   useEffect(() => {

@@ -57,7 +57,7 @@ export function WatchlistPage() {
   const { data: entries, loading, error, silentReload, setData } = useAsync(() => watchlistApi.list(club.id), [club.id])
   const { data: meetings } = useAsync(() => meetingsApi.list(club.id), [club.id])
 
-  useSmartPolling(silentReload, 15000)
+  useSmartPolling(silentReload, 7500)
   const sortedMeetings = [...(meetings ?? [])].sort((a, b) => a.date.localeCompare(b.date))
   const languagePrefs: LanguagePreferences = { preferredLanguages: club.preferredLanguages, ignoredLanguages: club.ignoredLanguages }
 

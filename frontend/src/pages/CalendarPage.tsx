@@ -66,7 +66,7 @@ interface PosterCardInfo {
 export function CalendarPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { data: meetings, loading, error, silentReload } = useAsync(() => meetingsApi.list(club.id), [club.id])
-  useSmartPolling(silentReload, 10_000)
+  useSmartPolling(silentReload, 5_000)
   const [mediaFilters, setMediaFilters] = useState(loadCalendarMediaFilters)
   const [sharingMonth, setSharingMonth] = useState<string | null>(null)
   const [shareError, setShareError] = useState<string | null>(null)

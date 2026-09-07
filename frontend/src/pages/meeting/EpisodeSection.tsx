@@ -46,7 +46,7 @@ export function EpisodeSection({
   useSmartPolling(() => {
     silentReload()
     silentReloadSuggestions()
-  }, 15000)
+  }, 7500)
   const seasonNumbers = useSeasonNumbers((episodes ?? []).map((episode) => episode.seasonId))
   const [selectedEpisode, setSelectedEpisode] = useState<EpisodeSearchResult | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
