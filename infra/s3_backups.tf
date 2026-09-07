@@ -5,6 +5,14 @@
 # meant to be read outside the EC2 instance's own IAM role (iam.tf) and whoever has direct AWS console/CLI access.
 resource "aws_s3_bucket" "backups" {
   bucket = "${var.project_name}-backups"
+
+  # Forces the terraform role's own S3 policy (github_oidc_terraform.tf's ManageOwnS3Buckets, scoped by
+  # var.project_name string interpolation rather than this bucket's own arn -- see that file's comment) to apply
+  # *before* this bucket is created. Without this, Terraform has no ordering constraint between the two at all
+  # (no attribute reference either direction), so it's free to fire CreateBucket before the policy update has
+  # actually taken effect -- which is exactly what happened the first time this bucket's name changed: CreateBucket
+  # got AccessDenied against the role's still-old policy, even on the same apply that was updating it.
+  depends_on = [aws_iam_role_policy.github_actions_terraform]
 }
 
 resource "aws_s3_bucket_public_access_block" "backups" {

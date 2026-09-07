@@ -2,6 +2,9 @@
 # Vite build output (frontend/dist) is synced here by GitHub Actions on every deploy.
 resource "aws_s3_bucket" "frontend" {
   bucket = "${var.project_name}-frontend"
+
+  # See s3_backups.tf's aws_s3_bucket.backups comment -- same bootstrap-ordering reason, same fix.
+  depends_on = [aws_iam_role_policy.github_actions_terraform]
 }
 
 data "aws_caller_identity" "current" {}
