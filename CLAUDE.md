@@ -451,7 +451,11 @@ enforces those automatically. This section is for conventions ktlint can't check
   list (a shared, collaboratively prioritized list — not owner-only, even though it's now someone else's list);
   deleting an entry stays owner-only (`WatchlistService.requireOwnedEntry`). Drag-and-drop (`@dnd-kit`,
   `rectSortingStrategy` for the grid layout) is the only way to reorder now — the up/down icon buttons this used
-  to offer alongside it were dropped. Adding an entry
+  to offer alongside it were dropped. Reordering is optimistic, like the Meetings table's inline rating save
+  above: `WatchlistPage` applies the new order to local state (via `useAsync`'s `setData`) the instant a drag ends,
+  rolling back only on a failed PATCH — dnd-kit's own drag transform is purely visual and resets the moment the
+  card is dropped, so without this the card visibly snapped back to its pre-drag position and only jumped to the
+  real spot once the request resolved. Adding an entry
   is one form (a Movie/Series toggle picking which `TmdbSearchAutocomplete` to search, same toggle pattern as
   the meeting detail page's own Add button) inside the viewer's own section, not two separate type-specific forms
 - No freeform field on an entry — `notes` existed briefly but was removed (V27 migration) once the board layout

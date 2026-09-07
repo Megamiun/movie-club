@@ -25,7 +25,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core'
-import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
@@ -54,7 +54,7 @@ import { resolveTitle, type LanguagePreferences } from '../utils/title'
 export function WatchlistPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { member } = useAuth()
-  const { data: entries, loading, error, silentReload } = useAsync(() => watchlistApi.list(club.id), [club.id])
+  const { data: entries, loading, error, silentReload, setData } = useAsync(() => watchlistApi.list(club.id), [club.id])
   const { data: meetings } = useAsync(() => meetingsApi.list(club.id), [club.id])
 
   useSmartPolling(silentReload, 15000)
@@ -88,6 +88,13 @@ export function WatchlistPage() {
               meetings={sortedMeetings}
               languagePrefs={languagePrefs}
               onChange={silentReload}
+              onReorder={(reordered) =>
+                setData((prev) =>
+                  prev == null
+                    ? prev
+                    : [...prev.filter((entry) => entry.memberId !== sectionMember.memberId), ...reordered],
+                )
+              }
             />
           ))}
         </Stack>
@@ -106,6 +113,7 @@ function WatchlistMemberSection({
   meetings,
   languagePrefs,
   onChange,
+  onReorder,
 }: {
   member: ClubMember
   entries: WatchlistEntry[]
@@ -114,6 +122,7 @@ function WatchlistMemberSection({
   meetings: Meeting[]
   languagePrefs: LanguagePreferences
   onChange: () => void
+  onReorder: (reordered: WatchlistEntry[]) => void
 }) {
   const [dragError, setDragError] = useState<string | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
@@ -123,18 +132,29 @@ function WatchlistMemberSection({
    * slot crossed. Each section gets its own `DndContext`, so a card can never even be dropped into a different
    * member's section in the first place -- entries are personal, ownership isn't reassignable.
    * `rectSortingStrategy` (not `verticalListSortingStrategy`) since cards now wrap into a grid, not a single
-   * column. */
+   * column.
+   *
+   * `onReorder` applies the new order to local state *before* the PATCH resolves -- dnd-kit's own drag transform
+   * is purely visual and resets the instant the card is dropped, so without this the card would snap back to its
+   * pre-drag position (still what `entries` says) and only jump to the real new spot once the request finishes,
+   * a visible flash-back-then-correct. Rolled back to the pre-drag order on failure, same optimistic/rollback
+   * shape as the Meetings table's inline rating save. */
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
+    const oldIndex = entries.findIndex((entry) => entry.id === active.id)
     const newIndex = entries.findIndex((entry) => entry.id === over.id)
-    if (newIndex === -1) return
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const previousOrder = entries
+    onReorder(arrayMove(entries, oldIndex, newIndex).map((entry, index) => ({ ...entry, position: index })))
 
     setDragError(null)
     try {
       await watchlistApi.move(active.id as string, newIndex)
       onChange()
     } catch (err) {
+      onReorder(previousOrder)
       setDragError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
   }
