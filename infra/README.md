@@ -83,7 +83,17 @@ either locally or via CI.
 ## Wiring up GitHub Actions after applying
 
 The workflows authenticate to AWS via OIDC (`infra/github_oidc.tf`) -- no AWS access keys stored in GitHub at
-all. After `terraform apply`, set these in the repo's Settings → Secrets and variables → Actions:
+all. After `terraform apply`, set these in the repo's Settings → Secrets and variables → Actions.
+
+**Repository-level, not Environment-level** -- GitHub has a second, similarly-named place to put these (Settings
+→ Environments → `production` → Environment variables), which is *not* what any of the values below mean.
+Environment-scoped variables are only visible to a job that explicitly declares that environment, and none of
+`terraform.yml`'s jobs declare one on `plan` (deliberately, see that job's own comment) -- setting these there
+instead breaks `plan` outright (`configure-aws-credentials` fails with "Could not load credentials from any
+providers", since the role ARN it needs resolves to empty). None of the values below are actual secrets in the
+first place (just ARNs/ids/names -- the real secrets go through SSM, never GitHub at all), so there's no reason
+they'd need Environment-level protection; the `production` Environment exists purely for its required-reviewer
+gate on `apply`/`deploy` jobs, not as a place to store configuration.
 
 **Variables** (not secret -- an IAM role ARN, an instance id, and resource ids aren't sensitive by themselves).
 No GitHub *Secrets* are needed at all -- the backend deploy step authenticates via SSM Run Command under the same
@@ -113,7 +123,8 @@ read-only, so gating it added friction without a matching safety benefit. `apply
 *pauses* for the repo's `production` GitHub Environment approval before running at all -- create that environment
 in Settings → Environments with at least one required reviewer, so a human confirms the actual plan output
 (already sitting in `plan`'s own finished job log by then) before anything real happens. Set these in Settings →
-Secrets and variables → Actions:
+Secrets and variables → Actions (repository-level, not the `production` Environment's own variables -- see the
+warning above; `plan` needs these and deliberately doesn't declare that Environment):
 
 **Variables**:
 

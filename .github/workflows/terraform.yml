@@ -43,13 +43,23 @@ jobs:
   # dispatch against main), no approval gate: `terraform plan` is read-only (this repo's own .tf files have no
   # local-exec/external-data-source escape hatch that would make it otherwise), so gating it added friction
   # without a matching safety benefit -- the actual checkpoint is `apply` below, which still requires a human to
-  # explicitly approve before anything real changes. Gating `plan` also doesn't change *who* can reach real AWS
-  # credentials here either way: only a push to main can trigger this at all, and reaching that already implies
-  # repo write access (pull_request never gets an OIDC token in the first place, see `validate` above and
-  # `github_oidc_terraform.tf`'s trust policy). workflow_dispatch can technically target any branch, hence the
-  # ref check -- without it, dispatching from a feature branch would still queue a plan against real infra off
-  # that branch's state. Uploads the plan file as a build artifact so `apply` (below) applies exactly what was
-  # planned here, rather than re-planning and risking drift between the two.
+  # explicitly approve before anything real changes.
+  #
+  # This was ungated once already, then briefly re-gated after it broke this job outright: every repo Variable
+  # this workflow reads (AWS_TERRAFORM_ROLE_ARN, TF_STATE_BUCKET, etc.) was configured at the "production" GitHub
+  # Environment level at the time, not the repository level -- GitHub only exposes environment-scoped variables
+  # to a job that actually declares that environment, so `vars.AWS_TERRAFORM_ROLE_ARN` resolved to empty the
+  # moment this job stopped declaring one, and `configure-aws-credentials` failed with "Could not load
+  # credentials from any providers." Fixed at the source instead of by re-gating: every variable read anywhere in
+  # this workflow (and deploy-frontend.yml/deploy-backend.yml's) is now repository-level, not environment-scoped
+  # -- none of them are actual secrets (just ARNs/ids/names; the real secrets go through SSM, never GitHub at
+  # all), so there was no security reason for them to live inside "production"'s protection rules in the first
+  # place. That Environment now exists purely for its required-reviewer gate on `apply` below (and on
+  # deploy-frontend.yml/deploy-backend.yml's own `deploy` jobs), not as a variable store. workflow_dispatch can
+  # technically target any branch, hence the ref check -- without it, dispatching from a feature branch would
+  # still queue a plan against real infra off that branch's state. Uploads the plan file as a build artifact so
+  # `apply` (below) applies exactly what was planned here, rather than re-planning and risking drift between the
+  # two.
   plan:
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -96,8 +106,8 @@ jobs:
           path: infra/tfplan
           retention-days: 1
 
-  # The one approval gate in this workflow -- plan (above) now runs unattended (it's read-only), so this is where
-  # a human actually has to sign off before anything real changes. Reviewer reads plan's own job log/output
+  # The one approval gate in this workflow -- plan (above) runs unattended (it's read-only), so this is where a
+  # human actually has to sign off before anything real changes. Reviewer reads plan's own job log/output
   # (already finished by the time this pauses) via the "production" GitHub Environment's required-reviewer
   # approval (Settings -> Environments, not in this file) before `terraform apply` runs.
   apply:
