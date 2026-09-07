@@ -75,6 +75,7 @@ jobs:
       - name: Terraform plan
         working-directory: infra
         env:
+          TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
           TF_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
           TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
           TF_VAR_ssh_allowed_cidr: ${{ vars.SSH_ALLOWED_CIDR }}
