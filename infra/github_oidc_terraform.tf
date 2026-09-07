@@ -1,8 +1,17 @@
 # A second, separate role from github_actions_deploy (github_oidc.tf) -- that one is narrowly scoped for app
-# deploys (push an image, sync a bucket). This one runs `terraform plan`/`apply` itself, which needs to create and
-# modify IAM roles/policies (including, subtly, its own -- see infra/README.md's bootstrap note), security groups,
-# DNS, ACM certs, and more. That's a meaningfully larger blast radius, kept in its own role rather than folded into
-# the app-deploy role, so a compromise of one doesn't automatically hand over the other.
+# deploys (push an image, sync a bucket, plus SSM Run Command to actually run the deploy on the instance -- real
+# remote code execution on the box, wider than "push an image" sounds, but that's what the deploy mechanism
+# needs). This one runs `terraform plan`/`apply` itself, which needs to create and modify IAM roles/policies
+# (including, subtly, its own -- see infra/README.md's bootstrap note), security groups, DNS, ACM certs, and
+# more. That's a meaningfully larger blast radius, kept in its own role rather than folded into the app-deploy
+# role. The isolation this buys is one-directional, not mutual, and worth being precise about: a compromised
+# github_actions_deploy can't reach this role (it has zero IAM permissions of its own -- see github_oidc.tf).
+# But this role's own `iam:*` on `role/movie-club-*` (ManageOwnIamResources below) matches
+# movie-club-github-actions-deploy's own name too, so a compromise *here* can modify, re-trust, or PassRole that
+# other role freely. That's inherent to the design, not an oversight to fix -- this role has to be able to manage
+# aws_iam_role.github_actions_deploy, since that resource is defined in this same Terraform config
+# (github_oidc.tf) and touching it is a normal, intended `apply` operation. Don't read this as a mutual
+# non-escalation guarantee; it only holds in the deploy-to-terraform direction.
 #
 # Trusted from main only, not pull_request -- this repo is public, and a `pull_request` trust condition is a
 # known GitHub Actions OIDC risk for public repos: the workflow file for a `pull_request` run is sourced from the
@@ -52,9 +61,11 @@ resource "aws_iam_role" "github_actions_terraform" {
 # AWS provider happens to make -- that list is long, changes across provider versions, and a single missing action
 # just produces a confusing mid-apply failure rather than a real security improvement. Resources are scoped by
 # this project's own naming convention/known ARNs everywhere that's actually possible (IAM roles/instance
-# profiles, the three S3 buckets, the ECR repo, the SSM parameter prefix); CloudFront/ACM/Route53/EC2 resources
-# don't support that kind of pre-creation name-based scoping in IAM, so those stay resource "*" within their own
-# service. The real safety control here is the required-reviewer GitHub Environment gate on the apply job
+# profiles, the three S3 buckets, the ECR repo, the SSM parameter prefix, this project's own Route53 hosted zone
+# -- see ManageOwnHostedZoneRecords below); CloudFront/ACM/EC2 resources don't support that kind of pre-creation
+# name-based scoping in IAM (or, for EC2, the one-time VPC/subnet/security-group bootstrap actions don't, and
+# scoping only the rest wasn't judged worth the added complexity here), so those stay resource "*" within their
+# own service. The real safety control here is the required-reviewer GitHub Environment gate on the apply job
 # (.github/workflows/terraform.yml), not fine-grained IAM alone -- there's no way to scope "create IAM roles with
 # arbitrary permissions" down much further without a permissions boundary, which is more machinery than a
 # single-app hobby account needs.
@@ -97,10 +108,29 @@ data "aws_iam_policy_document" "github_actions_terraform" {
     resources = ["*"]
   }
 
+  # Unlike CloudFront/ACM/EC2 above, Route53 record management genuinely does support resource-level scoping --
+  # tightened to just this project's own hosted zone (dns.tf/cloudfront.tf's aws_route53_record resources all
+  # reference the same data.aws_route53_zone.apex), not every zone on the account. Two actions still can't be
+  # scoped that way, each split into its own statement with resources = ["*"] and a comment saying why, matching
+  # the pattern the S3/ACM/CloudFront statements already use for their own unscopable bootstrap actions.
   statement {
-    sid       = "ManageRoute53"
-    actions   = ["route53:*"]
-    resources = ["*"]
+    sid       = "FindOwnHostedZone"
+    actions   = ["route53:ListHostedZones", "route53:ListHostedZonesByName"]
+    resources = ["*"] # finding a zone by domain name needs an account-wide list -- the zone ARN this scopes down
+    # to below doesn't exist as a known value until this lookup resolves it
+  }
+
+  statement {
+    sid       = "ManageOwnHostedZoneRecords"
+    actions   = ["route53:GetHostedZone", "route53:ListResourceRecordSets", "route53:ChangeResourceRecordSets"]
+    resources = ["arn:aws:route53:::hostedzone/${data.aws_route53_zone.apex.zone_id}"]
+  }
+
+  statement {
+    sid       = "ReadRoute53ChangeStatus"
+    actions   = ["route53:GetChange"]
+    resources = ["*"] # a change/<id> ARN doesn't exist until *after* ChangeResourceRecordSets creates it -- same
+    # bootstrap problem as s3:CreateBucket elsewhere in this file, no narrower scoping possible
   }
 
   statement {
