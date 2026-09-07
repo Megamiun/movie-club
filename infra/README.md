@@ -135,6 +135,34 @@ OIDC risk for public repos (the workflow file for that event is sourced from the
 opening a PR could rewrite it to abuse a role trusted at that trigger). PRs still get `terraform fmt`/`validate`
 feedback from the `validate` job, which needs no AWS credentials at all.
 
+## Backups
+
+A `movie-club-backup.timer` systemd unit on the EC2 instance itself (`templates/user_data.sh.tpl`) runs
+`pg_dump` nightly (03:00 UTC), compresses it, and uploads it to a dedicated, private S3 bucket (`s3_backups.tf`)
+via the instance's own IAM role -- no new credentials, no CI involvement. Versioned, with both current and
+noncurrent (overwritten) versions expiring automatically after `backup_retention_days` (default 30). This is the
+actual second copy of the data: `aws_ebs_volume.postgres_data` (see "What's NOT here" below) survives an instance
+replacement, but not a bad migration or a mistaken `docker volume rm` on the box itself.
+
+**Restoring**: `aws s3 cp s3://$(terraform output -raw s3_backups_bucket)/<key> - | gunzip | psql -U postgres -d movieclub`
+run from wherever you have `psql` and network access to the instance (or copied onto the instance itself and run
+there against `db`) — list available backups with `aws s3 ls s3://$(terraform output -raw s3_backups_bucket)/`.
+
+**Important**: `user_data` only runs once, at an instance's *first* boot (`aws_instance.app` has
+`lifecycle { ignore_changes = [user_data] }` deliberately, see `ec2.tf`'s comment) — applying this Terraform
+change alone does **not** retroactively install the timer on an already-running instance. It only takes effect
+the next time that instance is genuinely replaced for some other reason. To back-fill it onto a live instance
+now, copy the `backup-db.sh` script and the two systemd unit files out of the rendered template
+(`terraform apply` writes the final rendered script; or just copy the corresponding heredoc bodies from
+`templates/user_data.sh.tpl` by hand) onto the instance via SSH/SSM and run the same `systemctl enable --now`
+step manually.
+
+Both this bucket and the frontend bucket (`s3_frontend.tf`) are named `${var.project_name}-<frontend|backups>-<account_id>`
+— `project_name` defaults to `"movie-club"`, matching what was already hardcoded before that variable existed.
+Changing it for an already-applied deployment renames the bucket, which Terraform can only do by destroying and
+recreating it (S3 bucket names are immutable) — don't change it for a live deployment without deliberately
+planning for that, and always run `terraform plan` first to confirm what it actually intends to do.
+
 ## What's NOT here
 
 - **The app deploy itself** -- pushing a new backend image and refreshing the frontend build is GitHub Actions'
@@ -143,4 +171,4 @@ feedback from the `validate` job, which needs no AWS credentials at all.
   not RDS. Its data lives on its own separate EBS volume (`aws_ebs_volume.postgres_data`, `ec2.tf`), kept apart
   from the instance's root volume specifically so it survives independently of the instance itself -- but it's
   still destroyed if that volume is ever removed or `terraform destroy` is run (guarded by `prevent_destroy`, see
-  `ec2.tf`'s comment) -- know that before you destroy.
+  `ec2.tf`'s comment) -- know that before you destroy. See "Backups" above for the actual second copy of the data.

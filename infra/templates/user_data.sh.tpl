@@ -152,3 +152,48 @@ ENV
 chmod 600 /opt/movie-club/.env
 SCRIPT
 chmod +x /opt/movie-club/fetch-secrets.sh
+
+# Nightly pg_dump, compressed and uploaded to s3_backups.tf's bucket -- the separate EBS volume Postgres' data
+# lives on (aws_ebs_volume.postgres_data) survives an instance replacement, but not e.g. a bad migration, a
+# mistaken `docker volume rm`, or the volume itself being deleted by hand; this is the actual second copy.
+# `docker compose exec -T` (not a hardcoded container name) so this keeps working regardless of what compose
+# happens to name the container -- `-T` disables pseudo-TTY allocation, required for a non-interactive/timer
+# invocation (compose's default `exec` otherwise expects a TTY and fails under systemd).
+cat > /opt/movie-club/backup-db.sh <<'SCRIPT'
+#!/bin/bash
+set -euo pipefail
+cd /opt/movie-club
+timestamp="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
+dump_file="/tmp/movieclub-$timestamp.sql.gz"
+docker compose exec -T db pg_dump -U postgres -d movieclub | gzip > "$dump_file"
+aws s3 cp "$dump_file" "s3://${backup_bucket}/movieclub-$timestamp.sql.gz" --region "${aws_region}"
+rm -f "$dump_file"
+SCRIPT
+chmod +x /opt/movie-club/backup-db.sh
+
+cat > /etc/systemd/system/movie-club-backup.service <<'UNIT'
+[Unit]
+Description=movie-club Postgres backup to S3
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/movie-club/backup-db.sh
+UNIT
+
+# Persistent=true: if the instance happens to be off/rebooting at the scheduled time, the missed run fires once
+# shortly after the next boot instead of silently waiting until the next scheduled day.
+cat > /etc/systemd/system/movie-club-backup.timer <<'UNIT'
+[Unit]
+Description=Nightly movie-club Postgres backup
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now movie-club-backup.timer

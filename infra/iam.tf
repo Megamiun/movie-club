@@ -64,3 +64,20 @@ resource "aws_iam_instance_profile" "ec2" {
   name = "movie-club-ec2"
   role = aws_iam_role.ec2.name
 }
+
+# Lets the instance's own nightly backup timer (templates/user_data.sh.tpl) upload to s3_backups.tf's bucket --
+# scoped to just that one bucket, not a broader S3 policy. No read/delete permissions: the instance only ever
+# needs to write new backups, never list/restore/delete existing ones (that's a human's job, via the console/CLI
+# with their own credentials).
+data "aws_iam_policy_document" "s3_write_backups" {
+  statement {
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.backups.arn}/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "s3_write_backups" {
+  name   = "movie-club-s3-write-backups"
+  role   = aws_iam_role.ec2.id
+  policy = data.aws_iam_policy_document.s3_write_backups.json
+}

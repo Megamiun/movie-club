@@ -26,6 +26,11 @@ output "s3_frontend_bucket" {
   value       = aws_s3_bucket.frontend.id
 }
 
+output "s3_backups_bucket" {
+  description = "Nightly pg_dump backups land here (see templates/user_data.sh.tpl's movie-club-backup.timer)."
+  value       = aws_s3_bucket.backups.id
+}
+
 output "cloudfront_distribution_id" {
   description = "GitHub Actions invalidates this distribution's cache after every frontend deploy."
   value       = aws_cloudfront_distribution.frontend.id

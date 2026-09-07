@@ -1,3 +1,9 @@
+variable "project_name" {
+  description = "Naming prefix for resources whose names can't collide across AWS accounts/deployments -- currently just the two S3 buckets (s3_frontend.tf, s3_backups.tf), which need a globally-unique name and so can't just be \"frontend\"/\"backups\" outright. Defaults to \"movie-club\", matching what was already hardcoded into both bucket names before this variable existed -- changing this default for an already-applied deployment renames the bucket, which Terraform can only do by destroying and recreating it (S3 bucket names are immutable), so don't change it for a live deployment without deliberately planning for that."
+  type        = string
+  default     = "movie-club"
+}
+
 variable "aws_region" {
   description = "AWS region for every resource except the CloudFront ACM cert, which must be us-east-1 regardless."
   type        = string
@@ -29,6 +35,12 @@ variable "instance_type" {
 
 variable "root_volume_size_gb" {
   description = "Root EBS volume size -- OS + Docker images only now (Postgres' own data lives on the separate volume below, not here). AWS refuses to launch with a root volume smaller than the AMI's own root snapshot (data.aws_ami.al2023_arm64, main.tf) regardless of how little of it this app actually uses -- 30 is that AMI's current floor (RunInstances fails with InvalidBlockDeviceMapping below it); bump this if a future AMI ever raises that floor further. Destroyed if the instance itself is ever replaced/terminated (e.g. `terraform destroy`), same as any root volume -- fine here since nothing on it is unique data, unlike data_volume_size_gb below."
+  type        = number
+  default     = 30
+}
+
+variable "backup_retention_days" {
+  description = "How long nightly pg_dump backups (s3_backups.tf) are kept before S3 expires them automatically, both the current copy and any noncurrent (overwritten) version. 30 days is generous for a small club's tiny dataset -- the storage cost of keeping them all is negligible either way."
   type        = number
   default     = 30
 }
