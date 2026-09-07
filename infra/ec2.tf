@@ -51,6 +51,7 @@ resource "aws_instance" "app" {
     api_domain    = local.api_domain
     aws_region    = var.aws_region
     backup_bucket = aws_s3_bucket.backups.id
+    log_group     = aws_cloudwatch_log_group.backend.name
     # Nitro-based instances (the t4g family) expose EBS volumes as NVMe devices whose /dev/nvmeXn1 enumeration
     # order isn't guaranteed to match attachment order -- /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_<id>
     # (id with its dash stripped) is the reliable way to find this specific volume, per AWS's own guidance.

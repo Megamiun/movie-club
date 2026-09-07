@@ -81,3 +81,20 @@ resource "aws_iam_role_policy" "s3_write_backups" {
   role   = aws_iam_role.ec2.id
   policy = data.aws_iam_policy_document.s3_write_backups.json
 }
+
+# Lets the instance's own backend container ship its logs to CloudWatch Logs (cloudwatch.tf) via the `awslogs`
+# docker logging driver -- scoped to just that one log group, and no logs:CreateLogGroup: the group already exists
+# (Terraform-managed), and the production compose file (templates/user_data.sh.tpl) sets `awslogs-create-group:
+# "false"` so the driver never needs that permission in the first place.
+data "aws_iam_policy_document" "cloudwatch_write_backend_logs" {
+  statement {
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.backend.arn}:*"]
+  }
+}
+
+resource "aws_iam_role_policy" "cloudwatch_write_backend_logs" {
+  name   = "movie-club-cloudwatch-write-backend-logs"
+  role   = aws_iam_role.ec2.id
+  policy = data.aws_iam_policy_document.cloudwatch_write_backend_logs.json
+}

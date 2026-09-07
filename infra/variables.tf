@@ -45,6 +45,12 @@ variable "backup_retention_days" {
   default     = 30
 }
 
+variable "log_retention_days" {
+  description = "How long the backend container's CloudWatch Logs (cloudwatch.tf) are kept before AWS expires them automatically. 14 days is plenty for a small club's debugging needs -- unlike the pg_dump backups above, these are operational logs, not the only copy of anything irreplaceable."
+  type        = number
+  default     = 14
+}
+
 variable "data_volume_size_gb" {
   description = "Size of the separate EBS volume holding just Postgres' own data (see ec2.tf's aws_ebs_volume.postgres_data and templates/user_data.sh.tpl's mount logic) -- kept apart from the root volume specifically so the data survives independently of the instance itself (a root-volume replacement, or swapping instance types, no longer risks it). 10GB is generous for a small club's actual data volume (genuinely tiny -- a few hundred/thousand rows across all tables), resizable later via `aws ec2 modify-volume` without needing to recreate anything."
   type        = number

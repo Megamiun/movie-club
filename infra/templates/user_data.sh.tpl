@@ -133,6 +133,18 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    # Ships stdout/stderr to CloudWatch Logs (infra/cloudwatch.tf) instead of only the docker daemon's own local
+    # log buffer, which is lost the moment this container restarts (crash-loop, redeploy). Uses the instance's own
+    # IAM role (iam.tf's cloudwatch_write_backend_logs) for credentials -- nothing to configure here for that.
+    # awslogs-create-group is false since the group already exists (Terraform-managed); the instance role is
+    # deliberately not granted logs:CreateLogGroup at all, so leaving this at its true default would just fail.
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: "${aws_region}"
+        awslogs-group: "${log_group}"
+        awslogs-create-group: "false"
+        awslogs-stream: "backend"
 COMPOSE
 
 # Regenerates .env from SSM Parameter Store -- run by the GitHub Actions deploy step before every
