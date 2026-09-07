@@ -127,15 +127,17 @@ data "aws_iam_policy_document" "github_actions_terraform" {
     # to below doesn't exist as a known value until this lookup resolves it
   }
 
+  # Get*/List* rather than enumerating GetHostedZone/ListResourceRecordSets/ListTagsForResource individually --
+  # switched to this after ListTagsForResource turned out to be a real gap (the aws_route53_zone data source calls
+  # it unconditionally to populate its own `tags` attribute, even though nothing here ever reads .tags), which
+  # produced a genuine bootstrap deadlock: that data source refreshes at the start of every `plan` using whatever
+  # policy is *currently live* in AWS, not the pending .tf change that would've granted it, so CI's plan/apply split
+  # could never fix itself -- only a one-off local apply with broader credentials could unblock it. A read-only
+  # wildcard on this project's own hosted zone hedges against the same class of surprise recurring for some other
+  # provider-internal read call later.
   statement {
-    sid = "ManageOwnHostedZoneRecords"
-    actions = [
-      "route53:GetHostedZone", "route53:ListResourceRecordSets", "route53:ChangeResourceRecordSets",
-      # data.aws_route53_zone.apex (main.tf) calls this unconditionally to populate its own `tags` attribute, even
-      # though nothing here ever reads .tags -- confirmed by a real plan failure (AccessDenied on
-      # ListTagsForResource) once this statement stopped granting it.
-      "route53:ListTagsForResource",
-    ]
+    sid       = "ManageOwnHostedZoneRecords"
+    actions   = ["route53:Get*", "route53:List*", "route53:ChangeResourceRecordSets"]
     resources = ["arn:aws:route53:::hostedzone/${data.aws_route53_zone.apex.zone_id}"]
   }
 
