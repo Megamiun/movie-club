@@ -102,9 +102,14 @@ export function MeetingDetailPage() {
       <AsyncState loading={loading} error={error}>
         {meeting && (
           <>
-            <Button component={RouterLink} to={`/clubs/${meeting.clubId}`} sx={{ mb: 2 }}>
-              &larr; Back to meetings
-            </Button>
+            <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+              <Button component={RouterLink} to={`/clubs/${meeting.clubId}`}>
+                &larr; Back to meetings
+              </Button>
+              <Button component={RouterLink} to={`/clubs/${meeting.clubId}/watchlist`}>
+                &larr; Back to watchlist
+              </Button>
+            </Stack>
             <Typography variant="h4" gutterBottom>
               Meeting — {meeting.date}
             </Typography>

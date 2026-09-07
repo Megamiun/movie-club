@@ -34,7 +34,10 @@
     browser, confirmed section order (own name first), grid wrapping at both a 1100px desktop width (6 cards
     per row) and a 390px mobile width (2 per row, no more side-scrolling), and that delete/move-to-meeting still
     work through the new card layout.
-- [ ] Add a back to wishlist button on meeting page
+- [x] Add a back to wishlist button on meeting page
+  - `MeetingDetailPage` already had a "← Back to meetings" link at the top; added a matching "← Back to
+    watchlist" one right beside it (`/clubs/{clubId}/watchlist`), same style. Verified in a real browser: click
+    navigates there correctly.
 - [x] Improve the meeting-picker used when moving a Watchlist movie to a meeting
   - Same complaint as the swap/merge picker above (a long flat list of every meeting, nothing prioritized) —
     `WatchlistCard`'s "Move to meeting" control was a plain `<Select>` listing every club meeting in ascending
