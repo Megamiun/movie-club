@@ -52,7 +52,7 @@ resource "aws_iam_role" "github_actions_terraform" {
 # AWS provider happens to make -- that list is long, changes across provider versions, and a single missing action
 # just produces a confusing mid-apply failure rather than a real security improvement. Resources are scoped by
 # this project's own naming convention/known ARNs everywhere that's actually possible (IAM roles/instance
-# profiles, the two S3 buckets, the ECR repo, the SSM parameter prefix); CloudFront/ACM/Route53/EC2 resources
+# profiles, the three S3 buckets, the ECR repo, the SSM parameter prefix); CloudFront/ACM/Route53/EC2 resources
 # don't support that kind of pre-creation name-based scoping in IAM, so those stay resource "*" within their own
 # service. The real safety control here is the required-reviewer GitHub Environment gate on the apply job
 # (.github/workflows/terraform.yml), not fine-grained IAM alone -- there's no way to scope "create IAM roles with
@@ -80,6 +80,7 @@ data "aws_iam_policy_document" "github_actions_terraform" {
     actions = ["s3:*"]
     resources = [
       aws_s3_bucket.frontend.arn, "${aws_s3_bucket.frontend.arn}/*",
+      aws_s3_bucket.backups.arn, "${aws_s3_bucket.backups.arn}/*",
       "arn:aws:s3:::${var.tf_state_bucket_name}", "arn:aws:s3:::${var.tf_state_bucket_name}/*",
     ]
   }
