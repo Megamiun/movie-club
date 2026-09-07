@@ -54,7 +54,7 @@ import { resolveTitle, type LanguagePreferences } from '../utils/title'
 export function WatchlistPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { member } = useAuth()
-  const { data: entries, loading, error, reload, silentReload } = useAsync(() => watchlistApi.list(club.id), [club.id])
+  const { data: entries, loading, error, silentReload } = useAsync(() => watchlistApi.list(club.id), [club.id])
   const { data: meetings } = useAsync(() => meetingsApi.list(club.id), [club.id])
 
   useSmartPolling(silentReload, 15000)
@@ -87,7 +87,7 @@ export function WatchlistPage() {
               clubId={club.id}
               meetings={sortedMeetings}
               languagePrefs={languagePrefs}
-              onChange={reload}
+              onChange={silentReload}
             />
           ))}
         </Stack>
