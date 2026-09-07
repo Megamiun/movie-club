@@ -4,6 +4,7 @@
 # Parameter Store by hand (see infra/README.md's bootstrap step), not through Terraform, so their plaintext never
 # passes through a .tfvars file, a GitHub secret, or Terraform state.
 
+project_name         = "your-distinctive-name" # names the two S3 buckets ("<project_name>-frontend"/"-backups") -- must be globally unique across all of AWS, not just your account (no account-id suffix), or bucket creation fails outright on a collision. Defaults to "movie-club", which is not itself guaranteed unique -- see variables.tf's comment
 domain_name          = "example.com"      # must already be an existing Route53 hosted zone
 ssh_public_key       = "ssh-ed25519 AAAA..." # contents of e.g. ~/.ssh/id_ed25519.pub
 ssh_allowed_cidr     = "1.2.3.4/32"       # your own IP -- never 0.0.0.0/0

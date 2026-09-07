@@ -70,6 +70,11 @@ terraform apply
 Requires an AWS account with an existing Route53 hosted zone for `domain_name` -- this configuration doesn't
 create the zone itself, only records inside it.
 
+Set `project_name` in that same `terraform.tfvars` too, to something actually distinctive to you -- it names the
+two S3 buckets (see "Backups" below) and, unlike most naming in this config, isn't auto-suffixed with your
+account id, so the `"movie-club"` default is not guaranteed globally unique and a collision fails bucket
+creation outright.
+
 **This first apply has to be run locally, with your own AWS credentials** -- it's what creates
 `github_actions_terraform`, the IAM role `.github/workflows/terraform.yml` needs to run itself. CI can't apply the
 config that creates its own credentials before that credential exists. Every apply *after* this first one can run
