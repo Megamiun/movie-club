@@ -106,11 +106,11 @@ allows the role to be assumed from a push to *this exact repo's* `main` branch, 
 ## Applying via CI/CD instead of locally
 
 After the one-time local bootstrap above, `.github/workflows/terraform.yml` can take over. `validate` (fmt +
-`terraform validate`, no AWS credentials) runs automatically on every push and PR touching `infra/**`. `plan` and
-`apply` also queue automatically on a push to main (or a manual dispatch against it), but each *pauses* for the
-repo's `production` GitHub Environment approval before actually running any steps -- create that environment in
-Settings → Environments with at least one required reviewer. That's two separate approval clicks: one before
-`terraform plan` runs at all, a second before `terraform apply` does, so a human confirms the actual plan output
+`terraform validate`, no AWS credentials) runs automatically on every push and PR touching `infra/**`. `plan` also
+queues and runs automatically on a push to main (or a manual dispatch against it) with no approval gate -- it's
+read-only, so gating it added friction without a matching safety benefit. `apply` is the one actual checkpoint: it
+*pauses* for the repo's `production` GitHub Environment approval before running at all -- create that environment
+in Settings → Environments with at least one required reviewer, so a human confirms the actual plan output
 (already sitting in `plan`'s own finished job log by then) before anything real happens. Set these in Settings →
 Secrets and variables → Actions:
 
