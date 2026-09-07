@@ -95,6 +95,18 @@ data "aws_iam_policy_document" "github_actions_deploy" {
     actions   = ["ec2:DescribeInstances"]
     resources = ["*"] # this action doesn't support resource-level scoping -- AWS requires "*" here
   }
+
+  # Same reasoning as ResolveInstanceIdByTag above, for deploy-frontend.yml's own two ids: the distribution id is
+  # provider-assigned (nothing in this project's own naming convention can derive it), so it's resolved at deploy
+  # time by matching the distribution whose alias equals var.domain_name instead of being copied into a repo
+  # variable that would go stale on distribution replacement. The frontend bucket name doesn't need a lookup like
+  # this at all -- it's fully derivable from the repo's own PROJECT_NAME variable via the same "${project_name}-
+  # frontend" convention s3_frontend.tf itself uses, so deploy-frontend.yml just interpolates that directly.
+  statement {
+    sid       = "ResolveDistributionIdByAlias"
+    actions   = ["cloudfront:ListDistributions"]
+    resources = ["*"] # this action doesn't support resource-level scoping -- AWS requires "*" here
+  }
 }
 
 resource "aws_iam_role_policy" "github_actions_deploy" {

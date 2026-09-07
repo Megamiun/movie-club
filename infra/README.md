@@ -99,13 +99,18 @@ gate on `apply`/`deploy` jobs, not as a place to store configuration.
 No GitHub *Secrets* are needed at all -- the backend deploy step authenticates via SSM Run Command under the same
 OIDC-assumed role, not SSH, so there's no private key to store:
 
-| Variable                     | Value                                                  |
-|------------------------------|--------------------------------------------------------|
-| `AWS_DEPLOY_ROLE_ARN`        | `terraform output -raw github_actions_deploy_role_arn` |
-| `EC2_INSTANCE_ID`            | `terraform output -raw ec2_instance_id`                |
-| `API_BASE_URL`               | `https://api.<domain_name>`                            |
-| `CLOUDFRONT_DISTRIBUTION_ID` | `terraform output -raw cloudfront_distribution_id`     |
-| `S3_FRONTEND_BUCKET`         | `terraform output -raw s3_frontend_bucket`             |
+| Variable              | Value                                                  |
+|-----------------------|--------------------------------------------------------|
+| `AWS_DEPLOY_ROLE_ARN` | `terraform output -raw github_actions_deploy_role_arn` |
+| `API_BASE_URL`        | `https://api.<domain_name>`                            |
+
+`EC2_INSTANCE_ID`/`CLOUDFRONT_DISTRIBUTION_ID`/`S3_FRONTEND_BUCKET` used to be set here too, but none of them are
+read anywhere anymore -- each is either provider-assigned and resolved live at deploy time instead (the EC2
+instance by its Name tag, the CloudFront distribution by its alias -- see deploy-backend.yml's/deploy-frontend.yml's
+own comments), or, for the S3 bucket, fully derivable from `PROJECT_NAME` alone
+(`"${PROJECT_NAME}-frontend"`, matching `s3_frontend.tf`'s own naming). A stored copy of any of these is exactly
+what goes stale the moment the underlying resource is replaced or renamed -- as `S3_FRONTEND_BUCKET` itself did
+the first time `PROJECT_NAME` changed.
 
 Also make sure `github_repository` in `terraform.tfvars` is set (`"owner/repo"`) -- the OIDC trust policy only
 allows the role to be assumed from a push to *this exact repo's* `main` branch, nothing broader.

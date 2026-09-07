@@ -72,12 +72,26 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
 
+      # Derived from PROJECT_NAME rather than a stored S3_FRONTEND_BUCKET variable -- infra/s3_frontend.tf names
+      # the bucket "${var.project_name}-frontend" itself, so there's nothing to keep in sync here; a stored copy
+      # is exactly what went stale the first time project_name changed (see infra/README.md's Backups section).
       - name: Sync to S3
         run: |
-          aws s3 sync frontend/dist "s3://${{ vars.S3_FRONTEND_BUCKET }}" --delete
+          aws s3 sync frontend/dist "s3://${{ vars.PROJECT_NAME }}-frontend" --delete
+
+      # Resolved by alias (infra/cloudfront.tf's own `aliases = [local.frontend_domain]`), not a stored
+      # CLOUDFRONT_DISTRIBUTION_ID repo variable -- that id is provider-assigned (unlike the bucket name above, it
+      # can't be derived from any input variable) and would go stale the moment the distribution is ever replaced,
+      # same reasoning as deploy-backend.yml's own EC2 instance id resolution by tag.
+      - name: Resolve CloudFront distribution id
+        id: distribution
+        run: |
+          echo "id=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?contains(Aliases.Items, '${{ vars.DOMAIN_NAME }}')].Id | [0]" \
+            --output text)" >> "$GITHUB_OUTPUT"
 
       - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --distribution-id "${{ steps.distribution.outputs.id }}" \
             --paths "/*"
