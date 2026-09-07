@@ -260,6 +260,14 @@
   capacity isn't available. Needs an EventBridge rule on the Spot interruption warning + a Lambda to launch a
   replacement and repoint the Elastic IP; not attempted, disproportionate to the ~$4-8/month this instance costs
   today (Postgres' own data already survives an interruption either way, via its separate EBS volume).
+- [ ] Analyse going IPv6-only on the EC2 instance to drop AWS's flat public-IPv4 charge (~$0.12/day, confirmed via
+  `samples/costs.csv`'s daily "VPC" line item — $0.005/hr since AWS's Feb 2024 pricing change, applies regardless
+  of whether the IP is an Elastic IP or just auto-assigned). Real trade-off already identified, not yet resolved:
+  the API would only be reachable over IPv6, and some club members' networks (older ISPs, some mobile carriers,
+  corporate networks) may be IPv4-only and would simply be unable to reach it at all — not slower, just broken.
+  Also needs confirming TMDB/OMDb's APIs are themselves IPv6-reachable for the backend's own outbound calls, and
+  moving `ssh_allowed_cidr` to an IPv6 CIDR. Initial read: for a small friend-group app, ~$43/year isn't worth a
+  real chance of breaking access for someone — but worth actually checking members' connectivity before deciding.
 
 - [ ] Make color selector more inclusive, should allow for a certain range of colors. Grill me
     - Grilling so far: this is about widening `PastelColorPicker`'s fixed S60/L82 point, not accessibility/
