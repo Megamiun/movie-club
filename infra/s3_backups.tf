@@ -4,7 +4,7 @@
 # terraform destroy with the lifecycle guard removed by hand. Private bucket, never served -- nothing here is
 # meant to be read outside the EC2 instance's own IAM role (iam.tf) and whoever has direct AWS console/CLI access.
 resource "aws_s3_bucket" "backups" {
-  bucket = "${var.project_name}-backups-${data.aws_caller_identity.current.account_id}"
+  bucket = "${var.project_name}-backups"
 }
 
 resource "aws_s3_bucket_public_access_block" "backups" {

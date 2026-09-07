@@ -1,7 +1,7 @@
 # Private bucket -- never served directly, only ever read by CloudFront via Origin Access Control (below). The
 # Vite build output (frontend/dist) is synced here by GitHub Actions on every deploy.
 resource "aws_s3_bucket" "frontend" {
-  bucket = "${var.project_name}-frontend-${data.aws_caller_identity.current.account_id}"
+  bucket = "${var.project_name}-frontend"
 }
 
 data "aws_caller_identity" "current" {}

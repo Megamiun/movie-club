@@ -157,11 +157,14 @@ now, copy the `backup-db.sh` script and the two systemd unit files out of the re
 `templates/user_data.sh.tpl` by hand) onto the instance via SSH/SSM and run the same `systemctl enable --now`
 step manually.
 
-Both this bucket and the frontend bucket (`s3_frontend.tf`) are named `${var.project_name}-<frontend|backups>-<account_id>`
-— `project_name` defaults to `"movie-club"`, matching what was already hardcoded before that variable existed.
-Changing it for an already-applied deployment renames the bucket, which Terraform can only do by destroying and
-recreating it (S3 bucket names are immutable) — don't change it for a live deployment without deliberately
-planning for that, and always run `terraform plan` first to confirm what it actually intends to do.
+Both this bucket and the frontend bucket (`s3_frontend.tf`) are named `${var.project_name}-<frontend|backups>` —
+no account-id suffix, so `project_name` alone has to already be globally unique across all of AWS (not just this
+account) or bucket creation just fails on a collision with someone else's bucket entirely. Set your own
+distinctive value in `terraform.tfvars` for a real deployment; the `"movie-club"` default is not itself
+guaranteed unique. Changing `project_name` for an already-applied deployment renames both buckets, which
+Terraform can only do by destroying and recreating them (S3 bucket names are immutable) — don't change it for a
+live deployment without deliberately planning for that, and always run `terraform plan` first to confirm what it
+actually intends to do.
 
 ## What's NOT here
 
