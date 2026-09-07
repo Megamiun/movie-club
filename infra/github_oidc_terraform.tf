@@ -128,8 +128,14 @@ data "aws_iam_policy_document" "github_actions_terraform" {
   }
 
   statement {
-    sid       = "ManageOwnHostedZoneRecords"
-    actions   = ["route53:GetHostedZone", "route53:ListResourceRecordSets", "route53:ChangeResourceRecordSets"]
+    sid = "ManageOwnHostedZoneRecords"
+    actions = [
+      "route53:GetHostedZone", "route53:ListResourceRecordSets", "route53:ChangeResourceRecordSets",
+      # data.aws_route53_zone.apex (main.tf) calls this unconditionally to populate its own `tags` attribute, even
+      # though nothing here ever reads .tags -- confirmed by a real plan failure (AccessDenied on
+      # ListTagsForResource) once this statement stopped granting it.
+      "route53:ListTagsForResource",
+    ]
     resources = ["arn:aws:route53:::hostedzone/${data.aws_route53_zone.apex.zone_id}"]
   }
 
