@@ -86,12 +86,19 @@ data "aws_iam_policy_document" "github_actions_terraform" {
     resources = ["*"]
   }
 
+  # Built from var.project_name as plain string interpolation, not aws_s3_bucket.frontend.arn/.backups.arn --
+  # referencing the resource attributes would make this policy update depend on those buckets already existing
+  # (Terraform orders the bucket create before the policy update, since the policy reads the bucket's arn), which
+  # is a real bootstrap deadlock the first time a bucket's name changes: CreateBucket for the new name gets denied
+  # by the role's still-old policy, and the policy that would've granted it never gets to apply first. S3 bucket
+  # ARNs are name-based (arn:aws:s3:::<name>), not id-based, so they're fully knowable from var.project_name alone
+  # -- no resource reference, no dependency edge, no ordering problem.
   statement {
     sid     = "ManageOwnS3Buckets"
     actions = ["s3:*"]
     resources = [
-      aws_s3_bucket.frontend.arn, "${aws_s3_bucket.frontend.arn}/*",
-      aws_s3_bucket.backups.arn, "${aws_s3_bucket.backups.arn}/*",
+      "arn:aws:s3:::${var.project_name}-frontend", "arn:aws:s3:::${var.project_name}-frontend/*",
+      "arn:aws:s3:::${var.project_name}-backups", "arn:aws:s3:::${var.project_name}-backups/*",
       "arn:aws:s3:::${var.tf_state_bucket_name}", "arn:aws:s3:::${var.tf_state_bucket_name}/*",
     ]
   }
