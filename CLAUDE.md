@@ -294,7 +294,9 @@ enforces those automatically. This section is for conventions ktlint can't check
 - Per-member **comments** (free text, optional)
 - Deleting a pick removes only that meeting's choice; the shared catalog row (and any other club's pick of it) is
   untouched
-- A pick can be moved to a different meeting (`POST /movies/{movieId}/move`, `MovieService.moveToMeeting`) without
+- A pick can be moved to a different meeting (`PATCH /movies/{movieId}` with a `meetingId` field, `MovieService.moveToMeeting`
+  -- folded into the same PATCH used for custom title/display preference/watch link edits, rather than a dedicated
+  `POST .../move`, since which meeting a pick belongs to is just another field on the resource) without
   losing its reviews/custom title/watch link — it repoints the *same* `MeetingMovies` row's `meeting_id` rather than
   deleting and re-adding, reusing the same `MovieRepository.updateMeeting` primitive `MeetingService.mergeMeetings`
   already used for merging a whole meeting's movies at once. Both meetings must belong to the same club, and the
@@ -439,7 +441,8 @@ enforces those automatically. This section is for conventions ktlint can't check
   lookup both dropped the type filter; `V29__watchlist_mixed_position.sql` renumbered every pre-existing row per
   member, movies keeping their relative order first, series after). Each member's section still gets its own
   `DndContext`, so a card can never be dragged into a different member's section — entries are personal,
-  ownership isn't reassignable. `POST /watchlist/{id}/move` takes a target index directly
+  ownership isn't reassignable. `PATCH /watchlist/{id}` (a `position` field, not a dedicated `POST .../move`) takes
+  a target index directly
   (`WatchlistService.moveEntry(entryId, actingMemberId, targetPosition)`, clamped to the list's bounds) and shifts
   every sibling between the entry's old and new position in one call — replaced an earlier adjacent-swap-only
   version (`MoveDirection` UP/DOWN) that made the frontend replay one call per slot crossed to drag an entry any
@@ -459,12 +462,17 @@ enforces those automatically. This section is for conventions ktlint can't check
   endpoint — the frontend composes the existing add + delete calls (add to the watchlist via the movie's `tmdbId`,
   then delete the meeting pick only once that succeeds, so a rejected add leaves the pick untouched), same-member
   only since a pick's own owner is doing the moving.
-  Watchlist-to-meeting is a dedicated atomic call instead, `WatchlistService.moveEntryToMeeting` (`POST
-  /watchlist/{entryId}/move-to-meeting/{meetingId}`, injects `MovieService` — a Service depending on another
-  Service, same pattern `MovieService` already uses for `ClubService` — to reuse `addMovie`) and, deliberately,
+  Watchlist-to-meeting is a dedicated atomic call instead, `WatchlistService.moveEntryToMeeting` — exposed not as
+  its own route but as a `fromWatchlistEntryId` field on the existing `POST /meetings/{meetingId}/movies` (the same
+  "add a movie to this meeting" endpoint the `imdbUrlOrId`/`tmdbId` paths already use, since the result is the same
+  kind of resource either way: a new movie pick under that meeting), rather than a bespoke
+  `POST /watchlist/{entryId}/move-to-meeting/{meetingId}`. `MovieRoutes.movieRoutes` takes `WatchlistService` as a
+  second parameter just to dispatch this one case. The service method itself injects `MovieService` — a Service
+  depending on another Service, same pattern `MovieService` already uses for `ClubService` — to reuse `addMovie`,
+  and, deliberately,
   *not* owner-restricted: any club member may schedule a movie sitting in someone else's Watchlist onto a meeting,
-  the same as any member can already add a brand-new movie to a meeting from scratch. This needed its own endpoint
-  rather than the same add-then-delete composition the other direction uses, specifically because the *delete*
+  the same as any member can already add a brand-new movie to a meeting from scratch. This needed one atomic
+  service call rather than the same add-then-delete composition the other direction uses, specifically because the *delete*
   half (`deleteEntry` → `requireOwnedEntry`) is still, and should stay, owner-only for a raw delete — a non-owner's
   composed move would add the movie fine, then 403 on the delete, leaving the movie duplicated in both the meeting
   and the original owner's watchlist. The target-meeting picker is an `Autocomplete` ordered by

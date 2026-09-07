@@ -16,6 +16,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
+import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 
 fun Route.watchlistRoutes(watchlistService: WatchlistService) {
@@ -36,12 +37,12 @@ fun Route.watchlistRoutes(watchlistService: WatchlistService) {
             call.respond(entries.map { it.toResponse() })
         }
 
-        post("/watchlist/{entryId}/move") {
-            val body = call.receive<MoveWatchlistEntryRequest>()
+        patch("/watchlist/{entryId}") {
+            val body = call.receive<UpdateWatchlistEntryRequest>()
             val entry = watchlistService.moveEntry(
                 call.uuidPathParam("entryId"),
                 call.actingMemberId(),
-                body.targetPosition,
+                body.position,
             )
             call.respond(entry.toResponse())
         }
@@ -49,15 +50,6 @@ fun Route.watchlistRoutes(watchlistService: WatchlistService) {
         delete("/watchlist/{entryId}") {
             watchlistService.deleteEntry(call.uuidPathParam("entryId"), call.actingMemberId())
             call.respond(NoContent)
-        }
-
-        post("/watchlist/{entryId}/move-to-meeting/{meetingId}") {
-            val movie = watchlistService.moveEntryToMeeting(
-                call.uuidPathParam("entryId"),
-                call.uuidPathParam("meetingId"),
-                call.actingMemberId(),
-            )
-            call.respond(Created, movie.toResponse())
         }
     }
 }

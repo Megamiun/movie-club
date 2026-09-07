@@ -59,7 +59,7 @@ fun Application.configureRouting(
         memberRoutes(memberService)
         clubRoutes(clubService)
         meetingRoutes(meetingService)
-        movieRoutes(movieService)
+        movieRoutes(movieService, watchlistService)
         seriesRoutes(seriesService, seasonService, episodeService)
         watchlistRoutes(watchlistService)
         importRoutes(importService)

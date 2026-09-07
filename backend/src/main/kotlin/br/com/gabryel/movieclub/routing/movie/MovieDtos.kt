@@ -7,6 +7,11 @@ internal data class AddMovieRequest(
     val imdbUrlOrId: String? = null,
     val tmdbId: String? = null,
     val watchLink: String? = null,
+    // Sources the new pick from an existing Watchlist entry (WatchlistService.moveEntryToMeeting) instead of a
+    // fresh TMDB/IMDB lookup -- mutually exclusive with imdbUrlOrId/tmdbId. Folded into this same "add movie to
+    // meeting" endpoint rather than a separate POST /watchlist/{entryId}/move-to-meeting/{meetingId}, since the
+    // result either way is the same thing: a new movie pick under this meeting.
+    val fromWatchlistEntryId: String? = null,
 )
 
 @Serializable
@@ -24,11 +29,10 @@ internal data class UpdateMovieRequest(
     val preference: String? = null,
     val languageCode: String? = null,
     val watchLink: String? = null,
-)
-
-@Serializable
-internal data class MoveMovieRequest(
-    val meetingId: String,
+    // Moves the pick to a different meeting (MovieService.moveToMeeting) when set -- folded into this same PATCH
+    // instead of a separate POST /movies/{movieId}/move, since "which meeting this pick belongs to" is just
+    // another field on the movie resource, not a distinct action.
+    val meetingId: String? = null,
 )
 
 @Serializable

@@ -14,12 +14,10 @@ export const moviesApi = {
 
   update: (
     movieId: string,
-    body: { customTitle?: string; preference?: string; languageCode?: string; watchLink?: string },
+    body: { customTitle?: string; preference?: string; languageCode?: string; watchLink?: string; meetingId?: string },
   ) => api.patch<Movie>(`/movies/${movieId}`, body),
 
   refreshMetadata: (movieId: string) => api.post<Movie>(`/movies/${movieId}/refresh-metadata`),
-
-  move: (movieId: string, meetingId: string) => api.post<Movie>(`/movies/${movieId}/move`, { meetingId }),
 
   remove: (movieId: string) => api.delete<void>(`/movies/${movieId}`),
 

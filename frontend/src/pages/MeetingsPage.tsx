@@ -198,7 +198,7 @@ export function MeetingsPage() {
     setMoveError(null)
     try {
       if (data.kind === 'movie') {
-        await moviesApi.move(String(active.id), targetMeetingId)
+        await moviesApi.update(String(active.id), { meetingId: targetMeetingId })
       } else {
         await episodesApi.unassignFromMeeting(String(active.id), data.fromMeetingId)
         await episodesApi.assignToMeeting(String(active.id), targetMeetingId)

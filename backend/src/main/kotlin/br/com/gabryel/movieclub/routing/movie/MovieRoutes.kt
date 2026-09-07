@@ -10,6 +10,7 @@ import br.com.gabryel.movieclub.routing.toIntOrBadRequest
 import br.com.gabryel.movieclub.routing.toUuidOrBadRequest
 import br.com.gabryel.movieclub.routing.uuidPathParam
 import br.com.gabryel.movieclub.service.MovieService
+import br.com.gabryel.movieclub.service.WatchlistService
 import br.com.gabryel.movieclub.service.tmdb.TmdbMovieSearchItem
 import io.ktor.http.HttpStatusCode.Companion.Created
 import io.ktor.http.HttpStatusCode.Companion.NoContent
@@ -23,7 +24,7 @@ import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 
-fun Route.movieRoutes(movieService: MovieService) {
+fun Route.movieRoutes(movieService: MovieService, watchlistService: WatchlistService) {
     authenticate("auth-jwt") {
         get("/movies/search") {
             val query = call.request.queryParameters["q"].orEmpty()
@@ -36,11 +37,13 @@ fun Route.movieRoutes(movieService: MovieService) {
             val actingMemberId = call.actingMemberId()
             val meetingId = call.uuidPathParam("meetingId")
             val movie = when {
+                body.fromWatchlistEntryId != null ->
+                    watchlistService.moveEntryToMeeting(body.fromWatchlistEntryId.toUuidOrBadRequest(), meetingId, actingMemberId)
                 body.tmdbId != null ->
                     movieService.addMovieByTmdbId(meetingId, actingMemberId, body.tmdbId.toIntOrBadRequest(), body.watchLink)
                 body.imdbUrlOrId != null ->
                     movieService.addMovie(meetingId, actingMemberId, body.imdbUrlOrId, body.watchLink)
-                else -> throw BadRequestException("Either imdbUrlOrId or tmdbId is required")
+                else -> throw BadRequestException("One of imdbUrlOrId, tmdbId, or fromWatchlistEntryId is required")
             }
             call.respond(Created, movie.toResponse())
         }
@@ -66,17 +69,10 @@ fun Route.movieRoutes(movieService: MovieService) {
             if (body.watchLink != null) {
                 movieService.updateWatchLink(movieId, actingMemberId, body.watchLink)
             }
+            if (body.meetingId != null) {
+                movieService.moveToMeeting(movieId, actingMemberId, body.meetingId.toUuidOrBadRequest())
+            }
             call.respond(movieService.getMovie(movieId, actingMemberId).toResponse())
-        }
-
-        post("/movies/{movieId}/move") {
-            val body = call.receive<MoveMovieRequest>()
-            val movie = movieService.moveToMeeting(
-                call.uuidPathParam("movieId"),
-                call.actingMemberId(),
-                body.meetingId.toUuidOrBadRequest(),
-            )
-            call.respond(movie.toResponse())
         }
 
         post("/movies/{movieId}/refresh-metadata") {

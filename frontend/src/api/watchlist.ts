@@ -7,11 +7,10 @@ export const watchlistApi = {
   add: (clubId: string, type: 'MOVIE' | 'SERIES', tmdbId: string) =>
     api.post<WatchlistEntry>(`/clubs/${clubId}/watchlist`, { type, tmdbId }),
 
-  move: (entryId: string, targetPosition: number) =>
-    api.post<WatchlistEntry>(`/watchlist/${entryId}/move`, { targetPosition }),
+  move: (entryId: string, position: number) => api.patch<WatchlistEntry>(`/watchlist/${entryId}`, { position }),
 
   remove: (entryId: string) => api.delete<void>(`/watchlist/${entryId}`),
 
   moveToMeeting: (entryId: string, meetingId: string) =>
-    api.post<Movie>(`/watchlist/${entryId}/move-to-meeting/${meetingId}`),
+    api.post<Movie>(`/meetings/${meetingId}/movies`, { fromWatchlistEntryId: entryId }),
 }
