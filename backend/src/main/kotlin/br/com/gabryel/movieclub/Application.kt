@@ -53,8 +53,8 @@ fun Application.module() {
     configureDatabase()
 
     val s3StorageClient = S3StorageClient(
-        accessKeyId = config.propertyOrNull("aws.accessKeyId")?.getString().orEmpty(),
-        secretAccessKey = config.propertyOrNull("aws.secretAccessKey")?.getString().orEmpty(),
+        accessKeyId = config.propertyOrNull("aws.accessKeyId")?.getString(),
+        secretAccessKey = config.propertyOrNull("aws.secretAccessKey")?.getString(),
         region = config.property("aws.region").getString(),
         bucketName = config.propertyOrNull("aws.bucketName")?.getString().orEmpty(),
         endpointUrl = config.propertyOrNull("aws.endpointUrl")?.getString(),

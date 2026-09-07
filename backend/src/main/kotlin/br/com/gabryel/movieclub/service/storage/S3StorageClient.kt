@@ -1,6 +1,7 @@
 package br.com.gabryel.movieclub.service.storage
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
@@ -15,8 +16,8 @@ import kotlin.uuid.Uuid
  * CLAUDE.md's MediaItem section). [endpointUrl] is set only for local dev against MinIO (see docker-compose.yml);
  * left unset, this talks to real AWS S3 with its default endpoint. */
 class S3StorageClient(
-    accessKeyId: String,
-    secretAccessKey: String,
+    accessKeyId: String? = null,
+    secretAccessKey: String? = null,
     private val region: String,
     private val bucketName: String,
     endpointUrl: String? = null,
@@ -24,7 +25,22 @@ class S3StorageClient(
 ) {
     private val client: S3Client = S3Client.builder()
         .region(Region.of(region))
-        .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKeyId, secretAccessKey)))
+        .also { builder ->
+            // Explicit keys are only ever set for local dev against MinIO (see docker-compose.yml/.env.example --
+            // MinIO has no IAM/instance-metadata concept of its own to fall back to). Left unset, this defaults to
+            // the SDK's own DefaultCredentialsProvider chain, which resolves a real deployment's EC2 instance role
+            // automatically (env vars, instance metadata, etc.) -- passing blank strings to StaticCredentialsProvider
+            // instead threw at construction time, during application boot, which took the entire app down in
+            // production (not just photo uploads) the moment this class was first wired into Application.kt, since
+            // no AWS keys are configured there at all.
+            builder.credentialsProvider(
+                if (!accessKeyId.isNullOrBlank() && !secretAccessKey.isNullOrBlank()) {
+                    StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKeyId, secretAccessKey))
+                } else {
+                    DefaultCredentialsProvider.builder().build()
+                },
+            )
+        }
         .also { builder ->
             if (!endpointUrl.isNullOrBlank()) {
                 builder.endpointOverride(URI.create(endpointUrl))
