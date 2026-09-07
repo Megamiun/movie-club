@@ -429,15 +429,25 @@ enforces those automatically. This section is for conventions ktlint can't check
   onto every `WatchlistEntryRow` it returns. There's no per-entry `customTitle`/`displayTitlePreference`/
   `displayLanguageCode` at all (no storage for it, unlike Movie/Series picks), so an entry's title always resolves
   as if `ORIGINAL` — genuinely per-entry overrides would need new columns on `WatchlistEntries` itself
-- `WatchlistPage` is a Trello-style board per section (Movies, Series): one column per club member, the viewer's own
-  column always leftmost, others following the club's rotation order. `position` is scoped to `(club, MediaItem
-  type, member)`, so each member's column reorders independently; each column has its own `DndContext` so a card
-  can never be dragged into a different member's column. Reordering swaps an entry with whichever one is immediately
-  adjacent in that same column. Any club member may reorder any column (a shared, collaboratively prioritized list —
-  not owner-only, even though it's now someone else's column); deleting an entry stays owner-only
-  (`WatchlistService.requireOwnedEntry`). The frontend offers both up/down icon buttons and drag-and-drop (`@dnd-kit`)
-  for reordering — dragging further than one slot just replays the same adjacent-swap `POST /watchlist/{id}/move`
-  call once per step, reusing the existing primitive rather than adding a "set exact position" endpoint
+- `WatchlistPage` is one full-width section per club member (`WatchlistMemberSection`) — viewer's own section
+  first, everyone else after in the club's rotation order — each a CSS grid of poster cards
+  (`grid-template-columns: repeat(auto-fill, minmax(150px, 1fr))`, so a row fits as many cards as its width
+  allows with no JS measurement needed) rather than the old side-scrolling Trello board of fixed-width columns.
+  Movies and series share one mixed list per member, not two separately-ordered ones — `position` is scoped to
+  just `(club, member)`, not `(club, member, MediaItem type)` — so a movie and a series can sit adjacent and swap
+  directly (`ExposedWatchlistRepository.create`'s "next position" and `WatchlistService.moveEntry`'s sibling
+  lookup both dropped the type filter; `V29__watchlist_mixed_position.sql` renumbered every pre-existing row per
+  member, movies keeping their relative order first, series after). Each member's section still gets its own
+  `DndContext`, so a card can never be dragged into a different member's section — entries are personal,
+  ownership isn't reassignable. Reordering swaps an entry with whichever one is immediately adjacent in that
+  same list; any club member may reorder any list (a shared, collaboratively prioritized list — not owner-only,
+  even though it's now someone else's list); deleting an entry stays owner-only
+  (`WatchlistService.requireOwnedEntry`). Drag-and-drop (`@dnd-kit`, `rectSortingStrategy` for the grid layout)
+  is the only way to reorder now — the up/down icon buttons this used to offer alongside it were dropped.
+  Dragging further than one slot still just replays the same adjacent-swap `POST /watchlist/{id}/move` call once
+  per step, reusing the existing primitive rather than adding a "set exact position" endpoint. Adding an entry
+  is one form (a Movie/Series toggle picking which `TmdbSearchAutocomplete` to search, same toggle pattern as
+  the meeting detail page's own Add button) inside the viewer's own section, not two separate type-specific forms
 - No freeform field on an entry — `notes` existed briefly but was removed (V27 migration) once the board layout
   shipped, since per-card free text didn't fit it and it was the last remaining editable field besides
   position/deletion

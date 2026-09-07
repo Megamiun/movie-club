@@ -112,18 +112,18 @@ class WatchlistService(
         return enrichCatalogTitles(watchlistRepository.listByClub(clubId))
     }
 
-    /** Swaps [entryId] with whichever entry is immediately adjacent to it within its own owner's column -- among
-     * entries of the *same* [WatchlistEntryRow.type] *and* the same [WatchlistEntryRow.memberId] only, since the UI
-     * shows one column per member (movies and series as separate boards, see `WatchlistPage`). A no-op at either
-     * edge of that column. Unlike [deleteEntry], any club member may reorder -- reordering was already documented
-     * as not owner-restricted before per-member columns existed (a shared, collaboratively prioritized list), and
-     * that's preserved here even though it now means reordering someone else's own column. */
+    /** Swaps [entryId] with whichever entry is immediately adjacent to it within its own owner's list -- among
+     * entries of the same [WatchlistEntryRow.memberId] only (movies and series share one mixed, ordered list per
+     * member, not separate ones by type -- see `WatchlistPage`). A no-op at either edge of that list. Unlike
+     * [deleteEntry], any club member may reorder -- reordering was already documented as not owner-restricted
+     * before per-member lists existed (a shared, collaboratively prioritized list), and that's preserved here
+     * even though it now means reordering someone else's own list. */
     fun moveEntry(entryId: Uuid, actingMemberId: Uuid, direction: MoveDirection): WatchlistEntryRow {
         val entry = watchlistRepository.findById(entryId) ?: throw NotFoundException("Watchlist entry not found")
         clubService.requireMembership(entry.clubId, actingMemberId)
 
         val siblings = watchlistRepository.listByClub(entry.clubId)
-            .filter { it.type == entry.type && it.memberId == entry.memberId }
+            .filter { it.memberId == entry.memberId }
             .sortedBy { it.position }
         val index = siblings.indexOfFirst { it.id == entryId }
         val targetIndex = if (direction == MoveDirection.UP) index - 1 else index + 1

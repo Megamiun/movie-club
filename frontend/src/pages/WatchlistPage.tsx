@@ -1,10 +1,22 @@
 import AddIcon from '@mui/icons-material/Add'
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import EventIcon from '@mui/icons-material/Event'
-import { Alert, Autocomplete, Box, Button, Chip, IconButton, Paper, Stack, TextField, Typography } from '@mui/material'
+import LiveTvIcon from '@mui/icons-material/LiveTv'
+import MovieIcon from '@mui/icons-material/Movie'
+import {
+  Alert,
+  Autocomplete,
+  Box,
+  Button,
+  Chip,
+  IconButton,
+  Stack,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material'
 import {
   DndContext,
   PointerSensor,
@@ -13,7 +25,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core'
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
@@ -35,6 +47,10 @@ import { orderMeetingsByProximity } from '../utils/meetings'
 import { ratingLabel } from '../utils/rating'
 import { resolveTitle, type LanguagePreferences } from '../utils/title'
 
+/** One mixed, member-ordered list (movies and series together, see `WatchlistService.moveEntry`/`create` on the
+ * backend) rather than the old two-board-per-type layout -- each member gets one full-width section, viewer's own
+ * first, then everyone else in the club's rotation order, so on a phone you see your own whole list before
+ * anyone else's instead of a cramped side-scrolling column per member. */
 export function WatchlistPage() {
   const { club } = useOutletContext<ClubOutletContext>()
   const { member } = useAuth()
@@ -45,7 +61,7 @@ export function WatchlistPage() {
   const sortedMeetings = [...(meetings ?? [])].sort((a, b) => a.date.localeCompare(b.date))
   const languagePrefs: LanguagePreferences = { preferredLanguages: club.preferredLanguages, ignoredLanguages: club.ignoredLanguages }
 
-  // Acting member's own column always leftmost, everyone else afterwards in the club's usual member order.
+  // Viewer's own section always first, everyone else afterwards in the club's usual rotation order.
   const orderedMembers = [...club.members].sort((a, b) => {
     if (a.memberId === member?.id) return -1
     if (b.memberId === member?.id) return 1
@@ -60,130 +76,41 @@ export function WatchlistPage() {
 
       <AsyncState loading={loading} error={error}>
         <Stack spacing={4}>
-          <WatchlistBoard
-            type="MOVIE"
-            title="Movies"
-            search={moviesApi.search}
-            entries={entries?.filter((entry) => entry.type === 'MOVIE') ?? []}
-            members={orderedMembers}
-            clubId={club.id}
-            meetings={sortedMeetings}
-            myMemberId={member?.id ?? null}
-            languagePrefs={languagePrefs}
-            onChange={reload}
-          />
-          <WatchlistBoard
-            type="SERIES"
-            title="Series"
-            search={seriesApi.search}
-            entries={entries?.filter((entry) => entry.type === 'SERIES') ?? []}
-            members={orderedMembers}
-            clubId={club.id}
-            meetings={[]}
-            myMemberId={member?.id ?? null}
-            languagePrefs={languagePrefs}
-            onChange={reload}
-          />
+          {orderedMembers.map((sectionMember) => (
+            <WatchlistMemberSection
+              key={sectionMember.memberId}
+              member={sectionMember}
+              entries={(entries ?? [])
+                .filter((entry) => entry.memberId === sectionMember.memberId)
+                .sort((a, b) => a.position - b.position)}
+              isOwnSection={sectionMember.memberId === member?.id}
+              clubId={club.id}
+              meetings={sortedMeetings}
+              languagePrefs={languagePrefs}
+              onChange={reload}
+            />
+          ))}
         </Stack>
       </AsyncState>
     </Box>
   )
 }
 
-function WatchlistBoard({
-  type,
-  title,
-  search,
-  entries,
-  members,
-  clubId,
-  meetings,
-  myMemberId,
-  languagePrefs,
-  onChange,
-}: {
-  type: 'MOVIE' | 'SERIES'
-  title: string
-  search: (query: string) => Promise<TmdbSearchResult[]>
-  entries: WatchlistEntry[]
-  members: ClubMember[]
-  clubId: string
-  meetings: Meeting[]
-  myMemberId: string | null
-  languagePrefs: LanguagePreferences
-  onChange: () => void
-}) {
-  const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
-  const [submitError, setSubmitError] = useState<string | null>(null)
+const CARD_WIDTH = 150
 
-  const handleAdd = async (event: FormEvent) => {
-    event.preventDefault()
-    if (!selectedResult) return
-    setSubmitError(null)
-    try {
-      await watchlistApi.add(clubId, type, selectedResult.tmdbId)
-      setSelectedResult(null)
-      onChange()
-    } catch (err) {
-      setSubmitError(err instanceof ApiError ? err.message : 'Something went wrong')
-    }
-  }
-
-  return (
-    <Box>
-      <Typography variant="h6" gutterBottom>
-        {title}
-      </Typography>
-
-      <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 1 }}>
-        {members.map((columnMember) => (
-          <WatchlistColumn
-            key={columnMember.memberId}
-            member={columnMember}
-            entries={entries.filter((entry) => entry.memberId === columnMember.memberId).sort((a, b) => a.position - b.position)}
-            isOwnColumn={columnMember.memberId === myMemberId}
-            meetings={meetings}
-            languagePrefs={languagePrefs}
-            onChange={onChange}
-          />
-        ))}
-      </Box>
-
-      {submitError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {submitError}
-        </Alert>
-      )}
-      <Box component="form" onSubmit={handleAdd} sx={{ mt: 2 }}>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-          <TmdbSearchAutocomplete
-            search={search}
-            value={selectedResult}
-            onChange={setSelectedResult}
-            label={`Search ${title.toLowerCase()}`}
-          />
-          <Button type="submit" variant="contained" startIcon={<AddIcon />}>
-            Add to my list
-          </Button>
-        </Stack>
-      </Box>
-    </Box>
-  )
-}
-
-const COLUMN_WIDTH = 260
-
-function WatchlistColumn({
+function WatchlistMemberSection({
   member,
   entries,
-  isOwnColumn,
+  isOwnSection,
+  clubId,
   meetings,
   languagePrefs,
   onChange,
 }: {
   member: ClubMember
   entries: WatchlistEntry[]
-  isOwnColumn: boolean
+  isOwnSection: boolean
+  clubId: string
   meetings: Meeting[]
   languagePrefs: LanguagePreferences
   onChange: () => void
@@ -191,11 +118,12 @@ function WatchlistColumn({
   const [dragError, setDragError] = useState<string | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
-  /** The backend only supports swapping with an *adjacent* sibling within this member's own column (see
+  /** The backend only supports swapping with an *adjacent* sibling within this member's own list (see
    * `WatchlistService.moveEntry`) -- dropping further away just replays that same swap one step at a time until
-   * the dragged entry reaches where it was dropped, reusing the up/down buttons' own primitive instead of adding a
-   * "set exact position" endpoint. Each column gets its own `DndContext`, so a card can never even be dropped into
-   * a different member's column in the first place -- entries are personal, ownership isn't reassignable. */
+   * the dragged entry reaches where it was dropped, rather than adding a "set exact position" endpoint. Each
+   * section gets its own `DndContext`, so a card can never even be dropped into a different member's section in
+   * the first place -- entries are personal, ownership isn't reassignable. `rectSortingStrategy` (not
+   * `verticalListSortingStrategy`) since cards now wrap into a grid, not a single column. */
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -216,16 +144,14 @@ function WatchlistColumn({
   }
 
   return (
-    <Paper variant="outlined" sx={{ p: 1, width: COLUMN_WIDTH, flexShrink: 0 }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1, px: 0.5 }}>
-        <MemberBadge member={member} />
-        <Typography variant="subtitle2" noWrap>
-          {member.name}
-        </Typography>
+    <Box>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
+        <MemberBadge member={member} size={28} />
+        <Typography variant="h6">{member.name}</Typography>
       </Stack>
 
       {entries.length === 0 && (
-        <Typography variant="body2" color="text.secondary" sx={{ px: 0.5 }}>
+        <Typography variant="body2" color="text.secondary">
           Nothing here yet.
         </Typography>
       )}
@@ -237,39 +163,91 @@ function WatchlistColumn({
       )}
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={entries.map((entry) => entry.id)} strategy={verticalListSortingStrategy}>
-          <Stack spacing={1}>
-            {entries.map((entry, index) => (
+        <SortableContext items={entries.map((entry) => entry.id)} strategy={rectSortingStrategy}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_WIDTH}px, 1fr))`, gap: 1.5 }}>
+            {entries.map((entry) => (
               <WatchlistCard
                 key={entry.id}
                 entry={entry}
-                canMoveUp={index > 0}
-                canMoveDown={index < entries.length - 1}
                 meetings={meetings}
-                isOwner={isOwnColumn}
+                isOwner={isOwnSection}
                 languagePrefs={languagePrefs}
                 onChange={onChange}
               />
             ))}
-          </Stack>
+          </Box>
         </SortableContext>
       </DndContext>
-    </Paper>
+
+      {isOwnSection && <AddToWatchlistForm clubId={clubId} onChange={onChange} />}
+    </Box>
+  )
+}
+
+function AddToWatchlistForm({ clubId, onChange }: { clubId: string; onChange: () => void }) {
+  const [type, setType] = useState<'MOVIE' | 'SERIES'>('MOVIE')
+  const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const handleAdd = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!selectedResult) return
+    setSubmitError(null)
+    try {
+      await watchlistApi.add(clubId, type, selectedResult.tmdbId)
+      setSelectedResult(null)
+      onChange()
+    } catch (err) {
+      setSubmitError(err instanceof ApiError ? err.message : 'Something went wrong')
+    }
+  }
+
+  return (
+    <Box component="form" onSubmit={handleAdd} sx={{ mt: 2 }}>
+      {submitError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {submitError}
+        </Alert>
+      )}
+      <Stack spacing={1}>
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={type}
+          onChange={(_, value) => {
+            if (value) {
+              setType(value)
+              setSelectedResult(null)
+            }
+          }}
+        >
+          <ToggleButton value="MOVIE">Movie</ToggleButton>
+          <ToggleButton value="SERIES">Series</ToggleButton>
+        </ToggleButtonGroup>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <TmdbSearchAutocomplete
+            search={type === 'MOVIE' ? moviesApi.search : seriesApi.search}
+            value={selectedResult}
+            onChange={setSelectedResult}
+            label={`Search ${type === 'MOVIE' ? 'movies' : 'series'}`}
+          />
+          <Button type="submit" variant="contained" startIcon={<AddIcon />}>
+            Add to my list
+          </Button>
+        </Stack>
+      </Stack>
+    </Box>
   )
 }
 
 function WatchlistCard({
   entry,
-  canMoveUp,
-  canMoveDown,
   meetings,
   isOwner,
   languagePrefs,
   onChange,
 }: {
   entry: WatchlistEntry
-  canMoveUp: boolean
-  canMoveDown: boolean
   meetings: Meeting[]
   isOwner: boolean
   languagePrefs: LanguagePreferences
@@ -278,16 +256,6 @@ function WatchlistCard({
   const [targetMeetingId, setTargetMeetingId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: entry.id })
-
-  const handleMove = async (direction: 'UP' | 'DOWN') => {
-    setError(null)
-    try {
-      await watchlistApi.move(entry.id, direction)
-      onChange()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong')
-    }
-  }
 
   const handleDelete = async () => {
     setError(null)
@@ -332,59 +300,66 @@ function WatchlistCard({
   )
 
   return (
-    <Paper
+    <Box
       ref={setNodeRef}
-      variant="outlined"
       sx={{
-        p: 1,
         opacity: isDragging ? 0.5 : 1,
         transform: CSS.Transform.toString(transform),
         transition,
       }}
     >
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 0.25 }}>
         <Box
           {...attributes}
           {...listeners}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.disabled', flexShrink: 0, mt: 0.5 }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.disabled', touchAction: 'none' }}
           title="Drag to reorder"
         >
           <DragIndicatorIcon fontSize="small" />
         </Box>
-        {entry.posterUrl && (
-          <Box component="img" src={entry.posterUrl} alt="" sx={{ width: 36, borderRadius: 0.5, flexShrink: 0 }} />
-        )}
-        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-            {title}
-          </Typography>
-          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexWrap: 'wrap', mt: 0.25 }}>
-            {entry.year && <Chip size="small" label={entry.year} />}
-            {rating && <Chip size="small" label={rating} />}
-            <ImdbLink imdbId={entry.imdbId} />
-          </Stack>
-          {error && (
-            <Alert severity="error" sx={{ mt: 1 }}>
-              {error}
-            </Alert>
-          )}
-        </Box>
-        <Stack sx={{ flexShrink: 0 }}>
-          <IconButton size="small" onClick={() => handleMove('UP')} disabled={!canMoveUp} title="Move up">
-            <ArrowUpwardIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small" onClick={() => handleMove('DOWN')} disabled={!canMoveDown} title="Move down">
-            <ArrowDownwardIcon fontSize="small" />
-          </IconButton>
-        </Stack>
         {isOwner && (
-          <IconButton size="small" onClick={handleDelete} title="Remove" sx={{ flexShrink: 0 }}>
+          <IconButton size="small" onClick={handleDelete} title="Remove" sx={{ ml: 'auto', p: 0.25 }}>
             <DeleteIcon fontSize="small" />
           </IconButton>
         )}
       </Stack>
+
+      {entry.posterUrl ? (
+        <Box component="img" src={entry.posterUrl} alt="" sx={{ width: '100%', aspectRatio: '2 / 3', objectFit: 'cover', borderRadius: 1 }} />
+      ) : (
+        <Box
+          sx={{
+            width: '100%',
+            aspectRatio: '2 / 3',
+            borderRadius: 1,
+            bgcolor: 'action.hover',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'text.disabled',
+          }}
+        >
+          {entry.type === 'SERIES' ? <LiveTvIcon /> : <MovieIcon />}
+        </Box>
+      )}
+
+      <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5, lineHeight: 1.2 }}>
+        {title}
+      </Typography>
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexWrap: 'wrap', mt: 0.25 }}>
+        {entry.year && <Chip size="small" label={entry.year} />}
+        {rating && <Chip size="small" label={rating} />}
+        <ImdbLink imdbId={entry.imdbId} />
+      </Stack>
+
+      {error && (
+        <Alert severity="error" sx={{ mt: 0.5 }}>
+          {error}
+        </Alert>
+      )}
+
       {canMoveToMeeting && (
-        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mt: 1 }}>
+        <Stack spacing={0.5} sx={{ mt: 0.5 }}>
           <Autocomplete
             size="small"
             options={orderedMeetings}
@@ -393,13 +368,18 @@ function WatchlistCard({
             value={orderedMeetings.find((m) => m.id === targetMeetingId) ?? null}
             onChange={(_, option) => setTargetMeetingId(option?.id ?? '')}
             renderInput={(params) => <TextField {...params} label="Move to meeting" />}
-            sx={{ minWidth: 0, flexGrow: 1 }}
           />
-          <IconButton size="small" onClick={handleMoveToMeeting} disabled={!targetMeetingId} title="Move to meeting">
-            <EventIcon fontSize="small" />
-          </IconButton>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<EventIcon fontSize="small" />}
+            onClick={handleMoveToMeeting}
+            disabled={!targetMeetingId}
+          >
+            Move
+          </Button>
         </Stack>
       )}
-    </Paper>
+    </Box>
   )
 }

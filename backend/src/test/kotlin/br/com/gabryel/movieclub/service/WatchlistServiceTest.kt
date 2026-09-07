@@ -120,7 +120,7 @@ class WatchlistServiceTest {
     }
 
     @Test
-    fun `moveEntry swaps positions with the adjacent entry in the same owner's column, even when acting member isn't the owner`() {
+    fun `moveEntry swaps positions with the adjacent entry in the same owner's list, even when acting member isn't the owner`() {
         val entryId = Uuid.random()
         val otherId = Uuid.random()
         val ownerId = Uuid.random()
@@ -140,7 +140,27 @@ class WatchlistServiceTest {
     }
 
     @Test
-    fun `moveEntry never swaps across a different member's column, even with an adjacent position`() {
+    fun `moveEntry swaps across movie and series entries, since they now share one mixed list per member`() {
+        val entryId = Uuid.random()
+        val otherId = Uuid.random()
+        val ownerId = Uuid.random()
+        val current = entry(id = entryId, memberId = ownerId, position = 1, type = MOVIE)
+        val other = entry(id = otherId, memberId = ownerId, position = 0, type = SERIES)
+
+        every { watchlistRepository.findById(entryId) } returns current
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { watchlistRepository.listByClub(clubId) } returns listOf(other, current)
+        every { watchlistRepository.updatePosition(entryId, 0) } returns current.copy(position = 0)
+        every { watchlistRepository.updatePosition(otherId, 1) } returns other.copy(position = 1)
+
+        watchlistService.moveEntry(entryId, memberId, MoveDirection.UP)
+
+        verify { watchlistRepository.updatePosition(entryId, 0) }
+        verify { watchlistRepository.updatePosition(otherId, 1) }
+    }
+
+    @Test
+    fun `moveEntry never swaps across a different member's list, even with an adjacent position`() {
         val entryId = Uuid.random()
         val otherMembersEntryId = Uuid.random()
         val current = entry(id = entryId, position = 1)

@@ -17,14 +17,12 @@ import kotlin.uuid.Uuid
 
 class ExposedWatchlistRepository : WatchlistRepository {
     override fun create(clubId: Uuid, memberId: Uuid, mediaItemId: Uuid): WatchlistEntryRow = transaction {
-        val type = MediaItems.selectAll().where { MediaItems.id eq mediaItemId }.map { it[MediaItems.type] }.single()
-        // Scoped to this member's own entries of this type, not every member's -- the UI shows one column per
-        // member (see WatchlistPage), each with its own independently ordered list.
+        // Scoped to this member's own entries, not every member's -- the UI shows one list per member (see
+        // WatchlistPage), each independently ordered. Movies and series share that same list/ordering (not
+        // separate ones by type), so a new entry of either type just appends to the end of it.
         val nextPosition = (
-            joined().selectAll().where {
-                (WatchlistEntries.clubId eq clubId) and
-                    (WatchlistEntries.memberId eq memberId) and
-                    (MediaItems.type eq type)
+            WatchlistEntries.selectAll().where {
+                (WatchlistEntries.clubId eq clubId) and (WatchlistEntries.memberId eq memberId)
             }.maxOfOrNull { it[WatchlistEntries.position] } ?: -1
         ) + 1
 

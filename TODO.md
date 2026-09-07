@@ -1,5 +1,40 @@
 # TODO
 
+- [x] Keep watchlists in a way that you see you first, occupying the whole screen horizontally, until your watchlist ends, then put the other users, in rotation order from your user one
+  - [x] Also, mix series and movies
+  - [x] Order change will be drag and drop now
+  - Clarified with the user first (3 real forks here): the layout is a vertical stack of full-width sections
+    (each row fits as many cards as the available width allows, not a fixed column count); the up/down buttons
+    are gone entirely, drag-and-drop only; and the one-time merge of the two previously-separate, independently-
+    ordered lists (movies had their own position sequence per member, series had their own) puts movies first,
+    series after.
+  - Backend: `watchlist_entries.position` was scoped to `(club, member, MediaItem type)` — two independent
+    orderings per member. Dropped `type` from that scope in both `ExposedWatchlistRepository.create` (a new
+    entry now appends to the end of the member's one mixed list, either type) and
+    `WatchlistService.moveEntry` (adjacent-swap siblings are now just "same member," not "same member and same
+    type"), so a movie and a series can now sit next to each other and swap directly. New migration
+    (`V29__watchlist_mixed_position.sql`) renumbers every existing row per `(club, member)` in one pass —
+    movies keeping their relative order first, series keeping theirs after, exactly the merge rule above.
+  - Frontend: `WatchlistPage` no longer renders two side-by-side `WatchlistBoard`s (Movies, Series) each with
+    their own row of fixed-260px member columns. Now one `WatchlistMemberSection` per member (viewer's own
+    first, then rotation order), each a full-width `display: grid; grid-template-columns: repeat(auto-fill,
+    minmax(150px, 1fr))` — CSS handles the "fit as many as the row allows" sizing on its own, no JS measurement
+    needed (unlike the Calendar tab's `balancedColumns`, which solves a different problem — avoiding a sparse
+    *last* row in a static, non-interactive grid; drag-and-drop reordering doesn't benefit from that kind of
+    rebalancing). Reused `@dnd-kit/sortable`'s `rectSortingStrategy` instead of `verticalListSortingStrategy`,
+    since cards now wrap into a grid instead of stacking in one column — the actual reorder mechanism
+    (adjacent-swap, replayed once per step for a multi-slot drag) is unchanged. Each member still gets their own
+    `DndContext`, so a card still can never be dropped into a different member's section. The add form (search +
+    add) used to be two separate instances, one per type-specific board; now it's one instance inside the
+    viewer's own section with a Movie/Series toggle (same `ToggleButtonGroup` pattern used for the meeting
+    page's own Add button earlier this session) choosing which `TmdbSearchAutocomplete` to show.
+  - Verified against the real running app: added a movie then a series and confirmed positions landed
+    sequentially (0, 1, 2) across both types rather than each restarting its own count; moved a movie up to swap
+    with an adjacent series entry via the API directly and confirmed the swap crossed the type boundary; in the
+    browser, confirmed section order (own name first), grid wrapping at both a 1100px desktop width (6 cards
+    per row) and a 390px mobile width (2 per row, no more side-scrolling), and that delete/move-to-meeting still
+    work through the new card layout.
+- [ ] Add a back to wishlist button on meeting page
 - [x] Improve the meeting-picker used when moving a Watchlist movie to a meeting
   - Same complaint as the swap/merge picker above (a long flat list of every meeting, nothing prioritized) —
     `WatchlistCard`'s "Move to meeting" control was a plain `<Select>` listing every club meeting in ascending

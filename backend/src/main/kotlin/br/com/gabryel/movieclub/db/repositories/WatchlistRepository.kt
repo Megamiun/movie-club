@@ -5,7 +5,8 @@ import kotlin.uuid.Uuid
 
 interface WatchlistRepository {
     /** [WatchlistEntryRow.position] is assigned automatically -- one past the highest existing position for
-     * ([clubId], the MediaItem's type), so a new entry always lands at the end of its own type's list. */
+     * ([clubId], [memberId]), so a new entry always lands at the end of that member's list, movies and series
+     * mixed together in one ordering rather than each type having its own. */
     fun create(clubId: Uuid, memberId: Uuid, mediaItemId: Uuid): WatchlistEntryRow
 
     fun findById(id: Uuid): WatchlistEntryRow?
