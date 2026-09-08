@@ -256,10 +256,23 @@
   regional-indicator emoji.
 - [ ] Make import async with a loading state on the meeting list; prioritize movies/series first, then episodes,
   then directors.
-- [ ] Spot-with-on-demand-fallback EC2 — run the app instance on Spot with automatic fallback to on-demand when
-  capacity isn't available. Needs an EventBridge rule on the Spot interruption warning + a Lambda to launch a
-  replacement and repoint the Elastic IP; not attempted, disproportionate to the ~$4-8/month this instance costs
-  today (Postgres' own data already survives an interruption either way, via its separate EBS volume).
+- [ ] Spot EC2 instead of on-demand — revisit if/when the current free-tier credit covering `BoxUsage:t4g.small`
+  runs out. Checked via Cost Explorer (`aws ce get-cost-and-usage`, filtered to `EC2: Running Hours`): the
+  instance-hours themselves are genuinely billing $0 right now (finalized, not a reporting lag), so switching to
+  Spot today wouldn't save anything — held off for that reason, not because it's hard.
+  - Design simpler than originally assumed, worth remembering next time: a *persistent* Spot request with
+    `instance_interruption_behavior = "stop"` (not `terminate`) needs no "launch a replacement and repoint the
+    Elastic IP" machinery at all — AWS stops and later restarts the *same* instance (same instance id, same EBS
+    volumes, same EIP association), and `aws_eip.app`'s own comment already documents that the IP survives a
+    stop/start cycle, since that's the exact same mechanism. Just add an `instance_market_options { market_type =
+    "spot"; spot_options { instance_interruption_behavior = "stop"; spot_instance_type = "persistent" } }` block
+    to `aws_instance.app`.
+  - Real trade-off, not eliminated by the above: no automatic on-demand fallback while Spot capacity is
+    unavailable — the app is just down until AWS resumes the instance (usually fast for t4g.small, not
+    guaranteed). Converting the existing on-demand instance to Spot also isn't in-place — purchase option is set
+    at launch, so Terraform has to destroy and recreate the instance, with real downtime during the switch itself
+    (a silver lining: that reruns `user_data` fresh, so backups/CloudWatch logs would auto-configure instead of
+    needing another manual backfill like this session's).
 - [ ] Analyse going IPv6-only on the EC2 instance to drop AWS's flat public-IPv4 charge (~$0.12/day, confirmed via
   `samples/costs.csv`'s daily "VPC" line item — $0.005/hr since AWS's Feb 2024 pricing change, applies regardless
   of whether the IP is an Elastic IP or just auto-assigned). Real trade-off already identified, not yet resolved:
