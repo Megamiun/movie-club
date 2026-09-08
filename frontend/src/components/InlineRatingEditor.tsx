@@ -83,7 +83,7 @@ export function InlineRatingEditor({
   const memberBorderColor = memberColor ? strongPastelHex(memberColor) : 'rgba(0, 0, 0, 0.18)'
   const tooltip = (
     <Stack spacing={0.5} sx={{ py: 0.25 }}>
-      <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 1.4 }}>
+      <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.4 }}>
         {memberName}
       </Typography>
       {quality && <TooltipRatingLine label="Quality" option={qualityOption} />}
@@ -93,7 +93,10 @@ export function InlineRatingEditor({
 
   return (
     <>
-      <Tooltip title={tooltip}>
+      <Tooltip
+        title={tooltip}
+        slotProps={{ tooltip: { sx: { fontSize: '0.875rem', p: 1.25, maxWidth: 280 } } }}
+      >
         <Box
           onClick={editable ? (e) => setAnchorEl(e.currentTarget) : undefined}
           sx={{
@@ -223,8 +226,8 @@ export function InlineRatingEditor({
 function TooltipRatingLine({ label, option }: { label: string; option: RatingOption | undefined }) {
   return (
     <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
-      {option && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: option.color, flexShrink: 0 }} />}
-      <Typography variant="caption" sx={{ lineHeight: 1.4 }}>
+      {option && <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: option.color, flexShrink: 0 }} />}
+      <Typography variant="body2" sx={{ lineHeight: 1.4 }}>
         {label}: {option ? option.label : <Box component="span" sx={{ opacity: 0.7, fontStyle: 'italic' }}>Not rated</Box>}
       </Typography>
     </Stack>

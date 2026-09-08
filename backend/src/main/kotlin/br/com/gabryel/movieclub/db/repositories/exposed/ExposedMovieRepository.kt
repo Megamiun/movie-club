@@ -2,6 +2,7 @@ package br.com.gabryel.movieclub.db.repositories.exposed
 
 import br.com.gabryel.movieclub.db.DisplayTitlePreference
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
+import br.com.gabryel.movieclub.db.MediaItemType.MOVIE
 import br.com.gabryel.movieclub.db.repositories.MovieRepository
 import br.com.gabryel.movieclub.db.repositories.dto.CatalogTitleInfo
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
@@ -13,6 +14,7 @@ import br.com.gabryel.movieclub.db.tables.MeetingMovies
 import br.com.gabryel.movieclub.db.tables.MemberMovieReviews
 import br.com.gabryel.movieclub.db.tables.Movies
 import br.com.gabryel.movieclub.db.tables.People
+import br.com.gabryel.movieclub.db.tables.WatchlistEntries
 import kotlinx.datetime.LocalDate
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -199,6 +201,21 @@ class ExposedMovieRepository : MovieRepository {
     }
 
     override fun count(): Long = transaction { Movies.selectAll().count() }
+
+    override fun findWatchlistOnlyCandidates(limit: Int): List<RefreshCandidateRow> = transaction {
+        MediaItems.innerJoin(WatchlistEntries).leftJoin(Movies)
+            .selectAll()
+            .withDistinct()
+            .where { (MediaItems.type eq MOVIE) and Movies.id.isNull() }
+            .limit(limit)
+            .map {
+                RefreshCandidateRow(
+                    id = it[MediaItems.id].value,
+                    imdbId = it[MediaItems.imdbId],
+                    tmdbId = it[MediaItems.tmdbId],
+                )
+            }
+    }
 
     /** Deletes only this pick (and its reviews) -- the shared global catalog row is left alone since other
      * meetings/clubs may still reference it. */

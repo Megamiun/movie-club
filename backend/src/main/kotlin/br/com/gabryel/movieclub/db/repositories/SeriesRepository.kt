@@ -65,6 +65,9 @@ interface SeriesRepository {
      * Movie/Series/Episode total. */
     fun count(): Long
 
+    /** Same as [MovieRepository.findWatchlistOnlyCandidates], for the Series catalog instead. */
+    fun findWatchlistOnlyCandidates(limit: Int): List<RefreshCandidateRow>
+
     fun upsertReview(
         seriesId: Uuid,
         memberId: Uuid,

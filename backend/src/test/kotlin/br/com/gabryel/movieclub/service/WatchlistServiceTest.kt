@@ -18,6 +18,7 @@ import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -116,27 +117,28 @@ class WatchlistServiceTest {
     }
 
     @Test
-    fun `moveEntry swaps positions with the adjacent entry in the same owner's list, even when acting member isn't the owner`() {
-        val entryId = Uuid.random()
-        val otherId = Uuid.random()
-        val ownerId = Uuid.random()
-        val current = entry(id = entryId, memberId = ownerId, position = 1)
-        val other = entry(id = otherId, memberId = ownerId, position = 0)
+    fun `moveEntry swaps positions with the adjacent entry in the same owner's list, even when acting member isn't the owner`(): Unit =
+        runBlocking {
+            val entryId = Uuid.random()
+            val otherId = Uuid.random()
+            val ownerId = Uuid.random()
+            val current = entry(id = entryId, memberId = ownerId, position = 1)
+            val other = entry(id = otherId, memberId = ownerId, position = 0)
 
-        every { watchlistRepository.findById(entryId) } returns current
-        every { clubService.requireMembership(clubId, memberId) } returns membership()
-        every { watchlistRepository.listByClub(clubId) } returns listOf(other, current)
-        every { watchlistRepository.updatePosition(entryId, 0) } returns current.copy(position = 0)
-        every { watchlistRepository.updatePosition(otherId, 1) } returns other.copy(position = 1)
+            every { watchlistRepository.findById(entryId) } returns current
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+            every { watchlistRepository.listByClub(clubId) } returns listOf(other, current)
+            every { watchlistRepository.updatePosition(entryId, 0) } returns current.copy(position = 0)
+            every { watchlistRepository.updatePosition(otherId, 1) } returns other.copy(position = 1)
 
-        watchlistService.moveEntry(entryId, memberId, 0)
+            watchlistService.moveEntry(entryId, memberId, 0)
 
-        verify { watchlistRepository.updatePosition(entryId, 0) }
-        verify { watchlistRepository.updatePosition(otherId, 1) }
-    }
+            verify { watchlistRepository.updatePosition(entryId, 0) }
+            verify { watchlistRepository.updatePosition(otherId, 1) }
+        }
 
     @Test
-    fun `moveEntry swaps across movie and series entries, since they now share one mixed list per member`() {
+    fun `moveEntry swaps across movie and series entries, since they now share one mixed list per member`(): Unit = runBlocking {
         val entryId = Uuid.random()
         val otherId = Uuid.random()
         val ownerId = Uuid.random()
@@ -156,7 +158,7 @@ class WatchlistServiceTest {
     }
 
     @Test
-    fun `moveEntry shifts every sibling in between in one call, not just the adjacent one`() {
+    fun `moveEntry shifts every sibling in between in one call, not just the adjacent one`(): Unit = runBlocking {
         val entryId = Uuid.random()
         val ownerId = Uuid.random()
         val current = entry(id = entryId, memberId = ownerId, position = 0)
@@ -176,7 +178,7 @@ class WatchlistServiceTest {
     }
 
     @Test
-    fun `moveEntry never swaps across a different member's list, even with an adjacent position`() {
+    fun `moveEntry never swaps across a different member's list, even with an adjacent position`(): Unit = runBlocking {
         val entryId = Uuid.random()
         val otherMembersEntryId = Uuid.random()
         val current = entry(id = entryId, position = 1)
@@ -192,7 +194,7 @@ class WatchlistServiceTest {
     }
 
     @Test
-    fun `moveEntry clamps an out-of-bounds target position instead of failing`() {
+    fun `moveEntry clamps an out-of-bounds target position instead of failing`(): Unit = runBlocking {
         val entryId = Uuid.random()
         val current = entry(id = entryId, position = 0)
 
@@ -254,7 +256,7 @@ class WatchlistServiceTest {
     }
 
     @Test
-    fun `listEntries returns entries visible to any club member, not just owners`() {
+    fun `listEntries returns entries visible to any club member, not just owners`(): Unit = runBlocking {
         every { clubService.requireMembership(clubId, memberId) } returns membership()
 
         val entries = listOf(entry(memberId = Uuid.random()), entry(memberId = memberId))
@@ -264,7 +266,7 @@ class WatchlistServiceTest {
     }
 
     @Test
-    fun `listEntries fills in originalLanguage and translations from the movie catalog for a movie entry`() {
+    fun `listEntries fills in originalLanguage and translations from the movie catalog for a movie entry`(): Unit = runBlocking {
         every { clubService.requireMembership(clubId, memberId) } returns membership()
 
         val movieEntry = entry(type = MOVIE)
@@ -280,7 +282,7 @@ class WatchlistServiceTest {
     }
 
     @Test
-    fun `listEntries fills in originalLanguage and translations from the series catalog for a series entry`() {
+    fun `listEntries fills in originalLanguage and translations from the series catalog for a series entry`(): Unit = runBlocking {
         every { clubService.requireMembership(clubId, memberId) } returns membership()
 
         val seriesEntry = entry(type = SERIES)
@@ -295,13 +297,36 @@ class WatchlistServiceTest {
         assertEquals(info.translations, result.translations)
     }
 
+    /** Covers the actual bug the user hit in production: a Watchlist entry added before `fetchMovieMediaItem`/
+     * `fetchSeriesMediaItem` started creating a real catalog row had a MediaItem but nothing in `Movies`, so
+     * `resolveTitle` silently ignored the club's language preferences for it forever. `listEntries` now self-heals
+     * this on the very next load instead of leaving it permanently blank. */
     @Test
-    fun `listEntries leaves originalLanguage null when the media item has no matching catalog row`() {
+    fun `listEntries backfills a missing catalog row on the fly and returns its language info`(): Unit = runBlocking {
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+
+        val movieEntry = entry(type = MOVIE)
+        every { watchlistRepository.listByClub(clubId) } returns listOf(movieEntry)
+        val info = CatalogTitleInfo("en", listOf(Translation("pt", "BR", "Portuguese", "Duna")))
+        every { movieRepository.findCatalogTitleInfoByMediaItemIds(listOf(movieEntry.mediaItemId)) } returnsMany
+            listOf(emptyMap(), mapOf(movieEntry.mediaItemId to info))
+        coEvery { movieService.refreshByImdbId(movieEntry.imdbId) } returns mediaItem()
+
+        val result = watchlistService.listEntries(clubId, memberId).single()
+
+        assertEquals("en", result.originalLanguage)
+        assertEquals(info.translations, result.translations)
+        coVerify { movieService.refreshByImdbId(movieEntry.imdbId) }
+    }
+
+    @Test
+    fun `listEntries leaves originalLanguage null when the backfill attempt itself fails`(): Unit = runBlocking {
         every { clubService.requireMembership(clubId, memberId) } returns membership()
 
         val movieEntry = entry(type = MOVIE)
         every { watchlistRepository.listByClub(clubId) } returns listOf(movieEntry)
         every { movieRepository.findCatalogTitleInfoByMediaItemIds(listOf(movieEntry.mediaItemId)) } returns emptyMap()
+        coEvery { movieService.refreshByImdbId(movieEntry.imdbId) } throws BadRequestException("Could not find TMDB metadata")
 
         val result = watchlistService.listEntries(clubId, memberId).single()
 

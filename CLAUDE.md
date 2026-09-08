@@ -482,9 +482,28 @@ enforces those automatically. This section is for conventions ktlint can't check
   `SeriesService.findOrCreateCatalogMediaItem` instead — the same TMDB-fetch-and-cache path `createFromTmdb` already
   uses for a meeting pick/club series add, minus actually picking it to anything, so a Watchlist-only add gets the
   identical catalog row (backed by `MovieRepository`/`SeriesRepository.findOrCreateCatalogEntry`, the same
-  find-or-create-and-refresh upsert `create` already used internally, now also exposed standalone). Entries added
-  *before* this fix still have no catalog row and won't retroactively gain one — only removing and re-adding, or
-  the same movie/series later getting picked to a meeting/added to the club's series list, backfills it
+  find-or-create-and-refresh upsert `create` already used internally, now also exposed standalone).
+  - Entries added *before* this fix are self-healing now, on two independent paths, rather than staying
+    permanently blank until someone happens to remove and re-add them:
+    - **Read time**: `WatchlistService.enrichCatalogTitles` checks which entries in the batch it's about to return
+      have no matching catalog row (`Movie`/`SeriesRepository.findCatalogTitleInfoByMediaItemIds` simply omits
+      them from its result map), and runs `backfillMissingCatalogRows` for exactly those — concurrently
+      (`coroutineScope`/`async`/`awaitAll`, since a whole club's backlog can be dozens of entries at once and each
+      backfill is its own TMDB/OMDb round trip), best-effort per entry (`runCatching`, so one TMDB hiccup doesn't
+      fail the whole page load), then re-queries once more to pick up whatever succeeded. `listEntries`/`moveEntry`
+      had to become `suspend fun` for this (they now make TMDB calls, not just DB reads).
+    - **`MetadataRefreshJob`**: `MovieRepository`/`SeriesRepository.findWatchlistOnlyCandidates` finds MediaItems
+      referenced by a Watchlist entry with no catalog row at all (a plain SQL join — `MediaItems.innerJoin(
+      WatchlistEntries).leftJoin(Movies)`/`.leftJoin(Series)`, filtered to the missing side — not a call into
+      `WatchlistRepository`, keeping repositories independent of each other as usual), merged into the job's
+      regular candidate list. Distinct from `findRefreshCandidates`, which only ever *refreshes* rows that already
+      exist — without this, these entries are invisible to the nightly/admin-triggered sweep entirely, since
+      there's nothing in `Movies`/`Series` for it to find. This is what actually fixes the backlog for an entry
+      nobody happens to load the Watchlist page for; the read-time fix above only ever touches entries someone's
+      current request happens to include.
+    - Both call the exact same `MovieService`/`SeriesService.refreshByImdbId` used by the consolidated MediaItem
+      refresh endpoint (see MediaItem above) — no new fetch-and-cache logic, just two more triggers for the one
+      that already existed.
 - `WatchlistPage` is one full-width section per club member (`WatchlistMemberSection`) — viewer's own section
   first, everyone else after in the club's rotation order — each a CSS grid of poster cards
   (`grid-template-columns: repeat(auto-fill, minmax(150px, 1fr))`, so a row fits as many cards as its width

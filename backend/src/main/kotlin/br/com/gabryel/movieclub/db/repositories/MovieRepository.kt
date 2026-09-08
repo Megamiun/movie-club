@@ -71,6 +71,16 @@ interface MovieRepository {
      * Movie/Series/Episode total. */
     fun count(): Long
 
+    /** MediaItems of type MOVIE referenced by at least one Watchlist entry but with no matching catalog row here
+     * at all -- distinct from [findRefreshCandidates], which only ever refreshes rows that already exist. An
+     * entry added straight to a Watchlist before `WatchlistService`'s own find-or-create fix (see its doc) has a
+     * MediaItem but genuinely no row here, so it's otherwise invisible to `MetadataRefreshJob` -- this is the
+     * nightly job's own backfill path for that same gap, alongside the read-time self-heal in
+     * `WatchlistService.enrichCatalogTitles`. No [today]/`staleBefore` filtering needed (these have never been
+     * fetched at all), and `MetadataRefreshJob` merges the result into its regular candidate list -- it already
+     * sorts a never-fetched, unreleased-unknown, no-rating row to the top tier on its own. */
+    fun findWatchlistOnlyCandidates(limit: Int): List<RefreshCandidateRow>
+
     fun delete(movieId: Uuid)
 
     fun upsertReview(

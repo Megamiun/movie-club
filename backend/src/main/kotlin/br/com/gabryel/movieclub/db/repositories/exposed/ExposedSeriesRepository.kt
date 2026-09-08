@@ -2,6 +2,7 @@ package br.com.gabryel.movieclub.db.repositories.exposed
 
 import br.com.gabryel.movieclub.db.DisplayTitlePreference
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
+import br.com.gabryel.movieclub.db.MediaItemType.SERIES
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.dto.CatalogTitleInfo
 import br.com.gabryel.movieclub.db.repositories.dto.RefreshCandidateRow
@@ -14,6 +15,7 @@ import br.com.gabryel.movieclub.db.tables.MediaItems
 import br.com.gabryel.movieclub.db.tables.MemberSeriesReviews
 import br.com.gabryel.movieclub.db.tables.People
 import br.com.gabryel.movieclub.db.tables.Series
+import br.com.gabryel.movieclub.db.tables.WatchlistEntries
 import kotlinx.datetime.LocalDate
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -190,6 +192,21 @@ class ExposedSeriesRepository : SeriesRepository {
     }
 
     override fun count(): Long = transaction { Series.selectAll().count() }
+
+    override fun findWatchlistOnlyCandidates(limit: Int): List<RefreshCandidateRow> = transaction {
+        MediaItems.innerJoin(WatchlistEntries).leftJoin(Series)
+            .selectAll()
+            .withDistinct()
+            .where { (MediaItems.type eq SERIES) and Series.id.isNull() }
+            .limit(limit)
+            .map {
+                RefreshCandidateRow(
+                    id = it[MediaItems.id].value,
+                    imdbId = it[MediaItems.imdbId],
+                    tmdbId = it[MediaItems.tmdbId],
+                )
+            }
+    }
 
     override fun upsertReview(
         seriesId: Uuid,

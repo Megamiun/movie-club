@@ -38,6 +38,12 @@ class MetadataRefreshJobTest {
         callDelay = ZERO,
     )
 
+    init {
+        // No watchlist-only backfill candidates by default -- covered separately in its own test below.
+        every { movieRepository.findWatchlistOnlyCandidates(any()) } returns emptyList()
+        every { seriesRepository.findWatchlistOnlyCandidates(any()) } returns emptyList()
+    }
+
     private fun noCandidatesElsewhere() {
         every { seriesRepository.findRefreshCandidates(any(), any(), any(), any()) } returns emptyList()
         every { episodeRepository.findRefreshCandidates(any(), any(), any(), any()) } returns emptyList()
@@ -142,6 +148,24 @@ class MetadataRefreshJobTest {
 
         coVerify(exactly = 1) { movieService.refreshByImdbId(releasedAndAlreadyFetched.imdbId, releasedAndAlreadyFetched.tmdbId) }
         coVerify(exactly = 0) { movieService.refreshByImdbId(unreleasedButNeverFetched.imdbId, any()) }
+    }
+
+    @Test
+    fun `merges in watchlist-only candidates that have no catalog row at all yet`(): Unit = runBlocking {
+        every { movieRepository.count() } returns 0
+        every { seriesRepository.count() } returns 0
+        every { episodeRepository.count() } returns 0
+        noCandidatesElsewhere()
+        every { movieRepository.findRefreshCandidates(any(), any(), any(), any()) } returns emptyList()
+        val orphan = RefreshCandidateRow(id = Uuid.random(), imdbId = "tt0111161")
+        every { movieRepository.findWatchlistOnlyCandidates(any()) } returns listOf(orphan)
+        coEvery { movieService.refreshByImdbId(orphan.imdbId) } returns mediaItem(orphan.imdbId)
+
+        val result = job().run()
+
+        assertEquals(1, result.candidatesConsidered)
+        assertEquals(1, result.succeeded)
+        coVerify { movieService.refreshByImdbId(orphan.imdbId) }
     }
 
     private fun mediaItem(imdbId: String) = MediaItemRow(

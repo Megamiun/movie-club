@@ -49,6 +49,13 @@ private sealed class Candidate(val row: RefreshCandidateRow) {
  * so e.g. a stale movie doesn't lose out to a merely-older-but-still-fresh episode just because episodes happen to
  * outnumber movies in the catalog.
  *
+ * Also merges in `MovieRepository`/`SeriesRepository.findWatchlistOnlyCandidates` -- MediaItems referenced only by
+ * a Watchlist entry with no Movie/Series catalog row created for them at all (legacy entries added before
+ * `WatchlistService`'s own find-or-create fix, see its doc). `findRefreshCandidates` alone can't see these since
+ * it only ever refreshes rows that already exist in `Movies`/`Series` -- this run is what actually backfills them
+ * server-side without waiting for someone to reload their Watchlist page (`WatchlistService.enrichCatalogTitles`
+ * does the same backfill, but only for entries a given request happens to touch).
+ *
  * Priority (see each repository's own `findRefreshCandidates` doc for the exact SQL-level ordering): not-yet-
  * released rows sort last regardless of anything else (nothing to meaningfully refresh yet), then no-rating rows,
  * then oldest-fetched first. A row fetched more recently than [staleAfter] ago is excluded entirely *unless* it
@@ -84,11 +91,16 @@ class MetadataRefreshJob(
         val recentReleaseSince = today.minus(4, DateTimeUnit.MONTH)
 
         // Over-fetch [budget] from each type before merging -- the shared budget is applied only after combining
-        // and re-sorting all three, so any one type alone might contribute up to the full budget.
+        // and re-sorting all three, so any one type alone might contribute up to the full budget. The watchlist-
+        // only sources (see `MovieRepository.findWatchlistOnlyCandidates`'s doc) are a distinct kind of gap --
+        // never-fetched because no catalog row exists yet at all, not just stale -- but need no separate priority
+        // handling: a never-fetched row already sorts to the top tier below.
         val candidates = (
             movieRepository.findRefreshCandidates(budget, today, staleBefore, recentReleaseSince).map { Candidate.Movie(it) } +
                 seriesRepository.findRefreshCandidates(budget, today, staleBefore, recentReleaseSince).map { Candidate.Series(it) } +
-                episodeRepository.findRefreshCandidates(budget, today, staleBefore, recentReleaseSince).map { Candidate.Episode(it) }
+                episodeRepository.findRefreshCandidates(budget, today, staleBefore, recentReleaseSince).map { Candidate.Episode(it) } +
+                movieRepository.findWatchlistOnlyCandidates(budget).map { Candidate.Movie(it) } +
+                seriesRepository.findWatchlistOnlyCandidates(budget).map { Candidate.Series(it) }
         )
             .sortedWith(
                 compareBy(

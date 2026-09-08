@@ -14,6 +14,9 @@ import br.com.gabryel.movieclub.exception.BadRequestException
 import br.com.gabryel.movieclub.exception.ForbiddenException
 import br.com.gabryel.movieclub.exception.NotFoundException
 import br.com.gabryel.movieclub.service.tmdb.TmdbClient
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlin.uuid.Uuid
 
 class WatchlistService(
@@ -79,7 +82,7 @@ class WatchlistService(
 
     private suspend fun fetchSeriesMediaItem(tmdbId: Int): MediaItemRow = seriesService.findOrCreateCatalogMediaItem(tmdbId)
 
-    fun listEntries(clubId: Uuid, actingMemberId: Uuid): List<WatchlistEntryRow> {
+    suspend fun listEntries(clubId: Uuid, actingMemberId: Uuid): List<WatchlistEntryRow> {
         clubService.requireMembership(clubId, actingMemberId)
         return enrichCatalogTitles(watchlistRepository.listByClub(clubId))
     }
@@ -94,7 +97,7 @@ class WatchlistService(
      * reordering was already documented as not owner-restricted before per-member lists existed (a shared,
      * collaboratively prioritized list), and that's preserved here even though it now means reordering someone
      * else's own list. */
-    fun moveEntry(entryId: Uuid, actingMemberId: Uuid, targetPosition: Int): WatchlistEntryRow {
+    suspend fun moveEntry(entryId: Uuid, actingMemberId: Uuid, targetPosition: Int): WatchlistEntryRow {
         val entry = watchlistRepository.findById(entryId) ?: throw NotFoundException("Watchlist entry not found")
         clubService.requireMembership(entry.clubId, actingMemberId)
 
@@ -153,14 +156,31 @@ class WatchlistService(
      * `WatchlistEntries`/`MediaItems` join `ExposedWatchlistRepository` itself does can supply these (repositories
      * don't depend on each other), so this cross-entity composition lives here, same as any other in this
      * codebase. Batched across every entry at once rather than per-entry, to avoid a query per row when listing a
-     * whole club's watchlist. An entry whose MediaItem has no matching catalog row (not yet backfilled, or
-     * [MediaItemType.EPISODE] -- watchlist entries can't be episodes yet) is left with its default `null`/empty
-     * values, which `resolveTitle` treats the same as "no translation data available". */
-    private fun enrichCatalogTitles(entries: List<WatchlistEntryRow>): List<WatchlistEntryRow> {
+     * whole club's watchlist.
+     *
+     * An entry whose MediaItem has no matching catalog row yet ([MediaItemType.EPISODE] always, or a MOVIE/SERIES
+     * entry added before [fetchMovieMediaItem]/[fetchSeriesMediaItem] started creating one) is *not* just left
+     * blank -- [backfillMissingCatalogRows] creates the missing row on the spot (best-effort, same find-or-create
+     * [addEntry] itself uses), so the watchlist always shows real language-resolved data on the very next load
+     * rather than staying permanently broken until someone happens to remove and re-add the entry. */
+    private suspend fun enrichCatalogTitles(entries: List<WatchlistEntryRow>): List<WatchlistEntryRow> {
         val movieMediaItemIds = entries.filter { it.type == MOVIE }.map { it.mediaItemId }
         val seriesMediaItemIds = entries.filter { it.type == SERIES }.map { it.mediaItemId }
-        val movieCatalogInfo = movieRepository.findCatalogTitleInfoByMediaItemIds(movieMediaItemIds)
-        val seriesCatalogInfo = seriesRepository.findCatalogTitleInfoByMediaItemIds(seriesMediaItemIds)
+        var movieCatalogInfo = movieRepository.findCatalogTitleInfoByMediaItemIds(movieMediaItemIds)
+        var seriesCatalogInfo = seriesRepository.findCatalogTitleInfoByMediaItemIds(seriesMediaItemIds)
+
+        val missing = entries.filter { entry ->
+            when (entry.type) {
+                MOVIE -> entry.mediaItemId !in movieCatalogInfo
+                SERIES -> entry.mediaItemId !in seriesCatalogInfo
+                EPISODE -> false
+            }
+        }
+        if (missing.isNotEmpty()) {
+            backfillMissingCatalogRows(missing)
+            movieCatalogInfo = movieRepository.findCatalogTitleInfoByMediaItemIds(movieMediaItemIds)
+            seriesCatalogInfo = seriesRepository.findCatalogTitleInfoByMediaItemIds(seriesMediaItemIds)
+        }
 
         return entries.map { entry ->
             val info = when (entry.type) {
@@ -172,5 +192,26 @@ class WatchlistService(
         }
     }
 
-    private fun enrichCatalogTitle(entry: WatchlistEntryRow): WatchlistEntryRow = enrichCatalogTitles(listOf(entry)).single()
+    /** Runs [fetchMovieMediaItem]/[fetchSeriesMediaItem] again for each entry in [missing] purely for its
+     * find-or-create side effect (a fresh catalog row) -- concurrently, since a full club watchlist can have
+     * dozens of these at once (the pre-fix backlog) and each is its own TMDB/OMDb round trip; a serial loop would
+     * make one page load take as long as backfilling the whole club. Best-effort per entry (`runCatching`), same
+     * posture as every other TMDB call in this app that must never block on a transient upstream hiccup -- a
+     * failure here just leaves that one entry blank for this load, same as before this method existed, and it's
+     * retried the next time anyone loads the watchlist. */
+    private suspend fun backfillMissingCatalogRows(missing: List<WatchlistEntryRow>) = coroutineScope {
+        missing.map { entry ->
+            async {
+                runCatching {
+                    when (entry.type) {
+                        MOVIE -> movieService.refreshByImdbId(entry.imdbId)
+                        SERIES -> seriesService.refreshByImdbId(entry.imdbId)
+                        EPISODE -> Unit
+                    }
+                }
+            }
+        }.awaitAll()
+    }
+
+    private suspend fun enrichCatalogTitle(entry: WatchlistEntryRow): WatchlistEntryRow = enrichCatalogTitles(listOf(entry)).single()
 }

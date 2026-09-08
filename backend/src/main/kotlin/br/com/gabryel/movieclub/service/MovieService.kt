@@ -104,7 +104,7 @@ class MovieService(
      * `tmdbId` reliably) -- resolves one via TMDB search first when it's missing, the same fallback
      * [addMovie]/[refreshMetadata] already use. Used by `MediaItemService`'s consolidated refresh endpoint and the
      * nightly metadata-refresh job (`MetadataRefreshJob`). */
-    suspend fun refreshByImdbId(imdbId: String, knownTmdbId: String?): MediaItemRow {
+    suspend fun refreshByImdbId(imdbId: String, knownTmdbId: String? = null): MediaItemRow {
         val tmdbId = knownTmdbId?.toIntOrNull()
             ?: tmdbClient.findByImdbId(imdbId)?.id
             ?: throw BadRequestException("Could not find TMDB metadata for $imdbId")
