@@ -154,6 +154,7 @@ export interface Movie {
   posterS3Key: string | null
   posterUrl: string | null
   watchLink: string | null
+  mediaItemId: string | null
 }
 
 export interface MovieReview {
@@ -184,6 +185,7 @@ export interface Series {
   creator: string | null
   posterS3Key: string | null
   posterUrl: string | null
+  mediaItemId: string | null
 }
 
 export interface Season {
@@ -205,6 +207,7 @@ export interface Episode {
   directorImdbId: string | null
   imdbId: string | null
   imdbRating: string | null
+  mediaItemId: string | null
 }
 
 export interface SeriesReview {
@@ -229,6 +232,17 @@ export interface EpisodeReview {
   qualityOptionId: string | null
   sentimentOptionId: string | null
   comment: string | null
+}
+
+export interface MediaItem {
+  id: string
+  type: 'MOVIE' | 'SERIES' | 'EPISODE'
+  imdbId: string
+  title: string
+  tmdbId: string | null
+  year: number | null
+  posterUrl: string | null
+  imdbRating: string | null
 }
 
 export interface WatchlistEntry {

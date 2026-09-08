@@ -13,6 +13,7 @@ import kotlin.uuid.Uuid
 class AdminService(
     private val memberRepository: MemberRepository,
     private val mediaItemRepository: MediaItemRepository,
+    private val metadataRefreshJob: MetadataRefreshJob,
 ) {
     fun requireSiteAdmin(actingMemberId: Uuid): RegisteredMember {
         val member = memberRepository.findById(actingMemberId) as? RegisteredMember
@@ -28,5 +29,14 @@ class AdminService(
     fun listAllMediaItems(actingMemberId: Uuid): List<MediaItemRow> {
         requireSiteAdmin(actingMemberId)
         return mediaItemRepository.listAll()
+    }
+
+    /** On-demand run of the same sweep the nightly scheduler triggers automatically (see `Application.kt`'s own
+     * coroutine loop) -- lets a site admin force a refresh cycle immediately instead of waiting for the next
+     * scheduled one, e.g. right after noticing a batch of stale ratings. Same OMDb-quota-aware budget either way;
+     * running this manually still counts against the same daily allowance a scheduled run would. */
+    suspend fun triggerMetadataRefresh(actingMemberId: Uuid): MetadataRefreshResult {
+        requireSiteAdmin(actingMemberId)
+        return metadataRefreshJob.run()
     }
 }

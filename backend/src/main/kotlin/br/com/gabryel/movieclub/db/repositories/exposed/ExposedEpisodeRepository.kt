@@ -5,6 +5,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeSearchRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeSearchSeriesTitle
+import br.com.gabryel.movieclub.db.repositories.dto.RefreshCandidateRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbEpisodeMetadata
 import br.com.gabryel.movieclub.db.tables.ClubSeries
 import br.com.gabryel.movieclub.db.tables.Episodes
@@ -14,13 +15,20 @@ import br.com.gabryel.movieclub.db.tables.MemberEpisodeReviews
 import br.com.gabryel.movieclub.db.tables.People
 import br.com.gabryel.movieclub.db.tables.Seasons
 import br.com.gabryel.movieclub.db.tables.Series
+import kotlinx.datetime.LocalDate
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.SortOrder.ASC
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.innerJoin
+import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.leftJoin
+import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.core.or
@@ -32,6 +40,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.upsert
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 class ExposedEpisodeRepository : EpisodeRepository {
@@ -188,12 +197,56 @@ class ExposedEpisodeRepository : EpisodeRepository {
         }
     }
 
-    override fun updateTmdbMetadata(episodeId: Uuid, metadata: TmdbEpisodeMetadata): EpisodeRow = transaction {
+    override fun updateTmdbMetadata(episodeId: Uuid, metadata: TmdbEpisodeMetadata, mediaItemId: Uuid?): EpisodeRow = transaction {
         Episodes.update({ Episodes.id eq episodeId }) {
-            it.applyTmdbMetadata(metadata)
+            it.applyTmdbMetadata(metadata, mediaItemId)
         }
         findById(episodeId)!!
     }
+
+    override fun findIdByMediaItemId(mediaItemId: Uuid): Uuid? = transaction {
+        Episodes.selectAll()
+            .where { Episodes.mediaItemId eq mediaItemId }
+            .map { it[Episodes.id].value }
+            .singleOrNull()
+    }
+
+    /** See `ExposedMovieRepository.findRefreshCandidates`'s doc -- identical prioritization logic, Episode catalog
+     * (`airDate` standing in for `releaseDate`, which Episode already had -- see `Episodes.airDate`'s own comment). */
+    override fun findRefreshCandidates(
+        limit: Int,
+        today: LocalDate,
+        staleBefore: Instant,
+        recentReleaseSince: LocalDate,
+    ): List<RefreshCandidateRow> = transaction {
+        Episodes.selectAll()
+            .where {
+                Episodes.metadataFetchedAt.isNull() or
+                    (Episodes.airDate greaterEq recentReleaseSince) or
+                    (Episodes.metadataFetchedAt less staleBefore)
+            }
+            .orderBy(
+                (Episodes.airDate.isNotNull() and (Episodes.airDate greater today)) to SortOrder.ASC,
+                Episodes.imdbRating.isNull() to SortOrder.DESC,
+                Episodes.metadataFetchedAt to SortOrder.ASC_NULLS_FIRST,
+            )
+            .limit(limit)
+            .map {
+                RefreshCandidateRow(
+                    id = it[Episodes.id].value,
+                    // An episode with no imdb_id yet is still a valid refresh candidate (it just needs a first
+                    // fetch to resolve one) -- imdbId is non-nullable on RefreshCandidateRow, so this falls back
+                    // to an empty string rather than making every other type's imdbId nullable just for this case.
+                    // MetadataRefreshJob dispatches Episode candidates by [id] alone, never by this field.
+                    imdbId = it[Episodes.imdbId].orEmpty(),
+                    imdbRating = it[Episodes.imdbRating],
+                    metadataFetchedAt = it[Episodes.metadataFetchedAt],
+                    isUnreleased = it[Episodes.airDate]?.let { date -> date > today } ?: false,
+                )
+            }
+    }
+
+    override fun count(): Long = transaction { Episodes.selectAll().count() }
 
     override fun upsertReview(
         episodeId: Uuid,
@@ -305,6 +358,7 @@ class ExposedEpisodeRepository : EpisodeRepository {
         imdbId = row[Episodes.imdbId],
         imdbRating = row[Episodes.imdbRating],
         metadataFetchedAt = row[Episodes.metadataFetchedAt],
+        mediaItemId = row[Episodes.mediaItemId]?.value,
     )
 
     private fun toReviewRow(row: ResultRow) = EpisodeReviewRow(
@@ -316,7 +370,7 @@ class ExposedEpisodeRepository : EpisodeRepository {
     )
 }
 
-private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbEpisodeMetadata) {
+private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbEpisodeMetadata, mediaItemId: Uuid?) {
     this[Episodes.airDate] = metadata.airDate
     this[Episodes.overview] = metadata.overview
     this[Episodes.runtimeMinutes] = metadata.runtimeMinutes
@@ -324,4 +378,5 @@ private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbEpisodeMetadata) {
     this[Episodes.imdbId] = metadata.imdbId
     this[Episodes.imdbRating] = metadata.imdbRating
     this[Episodes.metadataFetchedAt] = metadata.metadataFetchedAt
+    this[Episodes.mediaItemId] = mediaItemId
 }

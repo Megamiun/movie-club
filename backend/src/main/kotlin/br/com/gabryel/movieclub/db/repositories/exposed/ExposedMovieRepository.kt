@@ -6,18 +6,27 @@ import br.com.gabryel.movieclub.db.repositories.MovieRepository
 import br.com.gabryel.movieclub.db.repositories.dto.CatalogTitleInfo
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
+import br.com.gabryel.movieclub.db.repositories.dto.RefreshCandidateRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbMovieMetadata
 import br.com.gabryel.movieclub.db.tables.MediaItems
 import br.com.gabryel.movieclub.db.tables.MeetingMovies
 import br.com.gabryel.movieclub.db.tables.MemberMovieReviews
 import br.com.gabryel.movieclub.db.tables.Movies
 import br.com.gabryel.movieclub.db.tables.People
+import kotlinx.datetime.LocalDate
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.innerJoin
+import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.leftJoin
+import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -26,6 +35,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.upsert
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 class ExposedMovieRepository : MovieRepository {
@@ -150,6 +160,45 @@ class ExposedMovieRepository : MovieRepository {
                 }
         }
     }
+
+    /** Not-yet-released rows (`releaseDate` after [today]) sort last regardless of everything else -- nothing to
+     * meaningfully refresh yet, so budget goes to an already-released row first. Among the rest, no-rating-first,
+     * then oldest-fetched-first: a never-fetched row (`metadataFetchedAt` null) sorts before everything else on
+     * either key (Postgres treats `NULL` as greater than any value in `ORDER BY ... ASC` by default, so
+     * `metadataFetchedAt` is sorted with nulls explicitly first here). [recentReleaseSince] bypasses the
+     * [staleBefore] cutoff entirely rather than tightening it -- a title released last week needs checking every
+     * night regardless of when it was last fetched, since its rating is still actively moving. */
+    override fun findRefreshCandidates(
+        limit: Int,
+        today: LocalDate,
+        staleBefore: Instant,
+        recentReleaseSince: LocalDate,
+    ): List<RefreshCandidateRow> = transaction {
+        Movies.selectAll()
+            .where {
+                Movies.metadataFetchedAt.isNull() or
+                    (Movies.releaseDate greaterEq recentReleaseSince) or
+                    (Movies.metadataFetchedAt less staleBefore)
+            }
+            .orderBy(
+                (Movies.releaseDate.isNotNull() and (Movies.releaseDate greater today)) to SortOrder.ASC,
+                Movies.imdbRating.isNull() to SortOrder.DESC,
+                Movies.metadataFetchedAt to SortOrder.ASC_NULLS_FIRST,
+            )
+            .limit(limit)
+            .map {
+                RefreshCandidateRow(
+                    id = it[Movies.id].value,
+                    imdbId = it[Movies.imdbId],
+                    tmdbId = it[Movies.tmdbId],
+                    imdbRating = it[Movies.imdbRating],
+                    metadataFetchedAt = it[Movies.metadataFetchedAt],
+                    isUnreleased = it[Movies.releaseDate]?.let { date -> date > today } ?: false,
+                )
+            }
+    }
+
+    override fun count(): Long = transaction { Movies.selectAll().count() }
 
     /** Deletes only this pick (and its reviews) -- the shared global catalog row is left alone since other
      * meetings/clubs may still reference it. */
@@ -304,6 +353,7 @@ class ExposedMovieRepository : MovieRepository {
         posterUrl = row.getOrNull(MediaItems.posterUrl),
         watchLink = row[MeetingMovies.watchLink],
         metadataFetchedAt = row[Movies.metadataFetchedAt],
+        mediaItemId = row[Movies.mediaItemId]?.value,
         createdAt = row[MeetingMovies.createdAt],
     )
 
@@ -325,6 +375,7 @@ private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbMovieMetadata, medi
     this[Movies.originalLanguage] = metadata.originalLanguage
     this[Movies.translations] = metadata.translations
     this[Movies.year] = metadata.year
+    this[Movies.releaseDate] = metadata.releaseDate
     this[Movies.directorPersonId] = metadata.directorPersonId
     this[Movies.runtimeMinutes] = metadata.runtimeMinutes
     this[Movies.genre] = metadata.genre

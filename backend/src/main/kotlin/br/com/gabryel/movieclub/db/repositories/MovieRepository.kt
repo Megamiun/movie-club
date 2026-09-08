@@ -4,7 +4,10 @@ import br.com.gabryel.movieclub.db.DisplayTitlePreference
 import br.com.gabryel.movieclub.db.repositories.dto.CatalogTitleInfo
 import br.com.gabryel.movieclub.db.repositories.dto.MovieReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
+import br.com.gabryel.movieclub.db.repositories.dto.RefreshCandidateRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbMovieMetadata
+import kotlinx.datetime.LocalDate
+import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 interface MovieRepository {
@@ -55,6 +58,18 @@ interface MovieRepository {
      * once; entries whose MediaItem has no matching Movie catalog row (e.g. not yet backfilled) are simply absent
      * from the result rather than erroring. */
     fun findCatalogTitleInfoByMediaItemIds(mediaItemIds: List<Uuid>): Map<Uuid, CatalogTitleInfo>
+
+    /** Candidates for the nightly metadata-refresh job (`MetadataRefreshJob`), ordered: not-yet-released rows
+     * ([today] before their own release date) sort *last* regardless of everything else -- no rating to
+     * meaningfully refresh yet, so spending budget on an already-released row comes first. Among the rest,
+     * no-rating-first then oldest-fetched-first. Eligible rows are never-fetched ones, rows released on/after
+     * [recentReleaseSince] (still-moving ratings, always eligible regardless of [staleBefore]), or rows fetched
+     * before [staleBefore]. */
+    fun findRefreshCandidates(limit: Int, today: LocalDate, staleBefore: Instant, recentReleaseSince: LocalDate): List<RefreshCandidateRow>
+
+    /** Total catalog row count -- `MetadataRefreshJob` computes its nightly budget as a percentage of the combined
+     * Movie/Series/Episode total. */
+    fun count(): Long
 
     fun delete(movieId: Uuid)
 

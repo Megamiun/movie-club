@@ -99,6 +99,18 @@ class MovieService(
         return mediaItem
     }
 
+    /** Same as [findOrCreateCatalogMediaItem], for a caller that only has [imdbId] and possibly-null [knownTmdbId]
+     * (a `RefreshCandidateRow`/a MediaItem's own cached field, either of which can predate this app tracking a
+     * `tmdbId` reliably) -- resolves one via TMDB search first when it's missing, the same fallback
+     * [addMovie]/[refreshMetadata] already use. Used by `MediaItemService`'s consolidated refresh endpoint and the
+     * nightly metadata-refresh job (`MetadataRefreshJob`). */
+    suspend fun refreshByImdbId(imdbId: String, knownTmdbId: String?): MediaItemRow {
+        val tmdbId = knownTmdbId?.toIntOrNull()
+            ?: tmdbClient.findByImdbId(imdbId)?.id
+            ?: throw BadRequestException("Could not find TMDB metadata for $imdbId")
+        return findOrCreateCatalogMediaItem(tmdbId)
+    }
+
     suspend fun refreshMetadata(movieId: Uuid, actingMemberId: Uuid): MovieRow {
         val movie = requireMovieAccess(movieId, actingMemberId)
         val summary = tmdbClient.findByImdbId(movie.imdbId)

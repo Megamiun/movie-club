@@ -13,6 +13,7 @@ import br.com.gabryel.movieclub.routing.watchlist.watchlistRoutes
 import br.com.gabryel.movieclub.service.AdminService
 import br.com.gabryel.movieclub.service.ClubService
 import br.com.gabryel.movieclub.service.EpisodeService
+import br.com.gabryel.movieclub.service.MediaItemService
 import br.com.gabryel.movieclub.service.MeetingService
 import br.com.gabryel.movieclub.service.MemberService
 import br.com.gabryel.movieclub.service.MovieService
@@ -41,6 +42,7 @@ fun Application.configureRouting(
     importService: ImportService,
     adminService: AdminService,
     tmdbClient: TmdbClient,
+    mediaItemService: MediaItemService,
     meterRegistry: PrometheusMeterRegistry,
 ) {
     routing {
@@ -64,6 +66,6 @@ fun Application.configureRouting(
         watchlistRoutes(watchlistService)
         importRoutes(importService)
         adminRoutes(adminService)
-        mediaItemRoutes(tmdbClient)
+        mediaItemRoutes(tmdbClient, mediaItemService)
     }
 }

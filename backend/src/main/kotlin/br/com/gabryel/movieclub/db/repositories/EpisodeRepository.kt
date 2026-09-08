@@ -3,7 +3,10 @@ package br.com.gabryel.movieclub.db.repositories
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeSearchRow
+import br.com.gabryel.movieclub.db.repositories.dto.RefreshCandidateRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbEpisodeMetadata
+import kotlinx.datetime.LocalDate
+import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 interface EpisodeRepository {
@@ -47,7 +50,26 @@ interface EpisodeRepository {
      * are untouched. */
     fun unassignFromMeeting(episodeId: Uuid, meetingId: Uuid)
 
-    fun updateTmdbMetadata(episodeId: Uuid, metadata: TmdbEpisodeMetadata): EpisodeRow
+    fun updateTmdbMetadata(episodeId: Uuid, metadata: TmdbEpisodeMetadata, mediaItemId: Uuid? = null): EpisodeRow
+
+    /** The episode whose [EpisodeRow.mediaItemId] is [mediaItemId], if any -- lets `MediaItemService`'s
+     * consolidated refresh endpoint resolve a MediaItem back to the episode it links to (Movie/Series don't need
+     * this: their own `imdbId`/`tmdbId` are already cached on the MediaItem itself, but an episode's refresh needs
+     * its *own* row, season, and parent series to resolve TMDB's per-episode endpoint -- see
+     * `EpisodeService.refreshCatalogMetadata`). */
+    fun findIdByMediaItemId(mediaItemId: Uuid): Uuid?
+
+    /** Candidates for the nightly metadata-refresh job (`MetadataRefreshJob`), ordered: not-yet-released rows
+     * ([today] before their own release date) sort *last* regardless of everything else -- no rating to
+     * meaningfully refresh yet, so spending budget on an already-released row comes first. Among the rest,
+     * no-rating-first then oldest-fetched-first. Eligible rows are never-fetched ones, rows released on/after
+     * [recentReleaseSince] (still-moving ratings, always eligible regardless of [staleBefore]), or rows fetched
+     * before [staleBefore]. */
+    fun findRefreshCandidates(limit: Int, today: LocalDate, staleBefore: Instant, recentReleaseSince: LocalDate): List<RefreshCandidateRow>
+
+    /** Total episode count, refreshable or not -- `MetadataRefreshJob` computes its nightly budget as a percentage
+     * of the combined Movie/Series/Episode total, so every row (even one with no `imdb_id` yet) counts toward it. */
+    fun count(): Long
 
     fun upsertReview(
         episodeId: Uuid,

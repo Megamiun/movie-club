@@ -17,8 +17,6 @@ export const moviesApi = {
     body: { customTitle?: string; preference?: string; languageCode?: string; watchLink?: string; meetingId?: string },
   ) => api.patch<Movie>(`/movies/${movieId}`, body),
 
-  refreshMetadata: (movieId: string) => api.post<Movie>(`/movies/${movieId}/refresh-metadata`),
-
   remove: (movieId: string) => api.delete<void>(`/movies/${movieId}`),
 
   rate: (movieId: string, qualityOptionId?: string, sentimentOptionId?: string, comment?: string) =>

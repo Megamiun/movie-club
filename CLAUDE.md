@@ -179,21 +179,24 @@ enforces those automatically. This section is for conventions ktlint can't check
 
 ### MediaItem
 
-- Universal handle for anything sourced from TMDB — `type` (MOVIE|SERIES|EPISODE; EPISODE is reserved but not
-  populated yet, see below), deduplicated by `imdb_id`, plus `tmdb_id`, `title`, `year`, `poster_url` (an external
-  TMDB CDN URL string, unrelated to Movie/Series' own long-unused `poster_s3_key`), and IMDB rating
+- Universal handle for anything sourced from TMDB — `type` (MOVIE|SERIES|EPISODE), deduplicated by `imdb_id`, plus
+  `tmdb_id`, `title`, `year`, `poster_url` (an external TMDB CDN URL string, unrelated to Movie/Series' own
+  long-unused `poster_s3_key`), and IMDB rating. `MetadataRefreshJob`'s staleness check (below) reads
+  `metadata_fetched_at` off each type's own catalog row (`Movies`/`Series`/`Episodes`), not off MediaItems itself,
+  which has no such column
 - Created *only* by a successful TMDB lookup (search result, or an IMDB id/URL resolved through TMDB) — never from
   freeform/manually-typed input. This is a deliberate policy, not just today's implementation default: nothing
   should ever reference a MediaItem that TMDB couldn't derive
 - Movie and Series catalog rows each carry a `media_item_id` pointing at their MediaItem, created/refreshed
   alongside their own richer columns (director/runtime for Movie, creator for Series — those stay on Movie/Series
-  themselves; MediaItem isn't a replacement for the full catalog row, just a shared cross-type reference point)
-- Episode still doesn't have a `media_item_id` — deliberately, not just deferred: nothing reads it, since Watchlist
-  (MediaItem's one cross-type consumer) doesn't support Episode entries. Episode's own `imdb_id` is fetched (via
-  `append_to_response=external_ids` on the same per-episode TMDB call, see the Series → Season → Episode section
-  below) and stored directly as a plain column on `episodes`, the same way Movie/Series already carry their own
-  `imdb_id` alongside their `media_item_id` — MediaItem would just be unused indirection here until something
-  besides display (i.e. Watchlist) actually needs to reference an Episode across types
+  themselves; MediaItem isn't a replacement for the full catalog row, just a shared cross-type reference point).
+  This happens synchronously when the pick is first added, so it's always populated for Movie/Series
+- Episode also carries a `media_item_id` now, unlike originally — populated only as a side effect of a successful
+  `EpisodeService.refreshCatalogMetadata` run (the same call that resolves the episode's own `imdb_id` via TMDB's
+  `external_ids`), not at episode-creation time. A freshly-imported, never-refreshed episode has no MediaItem yet;
+  `EpisodeRoutes`' response exposes `mediaItemId` as nullable for exactly this reason. This asymmetry with
+  Movie/Series (see above) is why Episode still keeps its own dedicated refresh route rather than being fully
+  folded into the consolidated one — see "Metadata refresh" below
 - WatchlistEntry references a MediaItem directly instead of duplicating title/year/rating itself (see below)
 - IMDB's own rating is fetched separately from OMDb (`OmdbClient`, `OMDB_API_KEY`) since TMDB's API never exposes it
   (only its own `vote_average`) — optional, silently no-ops when the key is unset, never blocks an add/refresh. The
@@ -204,6 +207,44 @@ enforces those automatically. This section is for conventions ktlint can't check
   removed (schema, backend, UI) rather than kept as a fallback, so the UI never needs to label a rating's source
   (no "IMDB"/"TMDB" prefix, just the bare number, e.g. `8.7`) since there's only ever one possible source. A row
   added before OMDb was wired in, or where OMDb had no match, simply shows no rating
+- **Metadata refresh** is consolidated onto one route, `POST /media-items/{mediaItemId}/refresh-metadata`
+  (`MediaItemService.refreshMetadata`, `routing/mediaitem/MediaItemRoutes.kt`) — replaces what used to be three
+  near-identical per-type routes (`POST /movies/{id}/refresh-metadata`, `/series/{id}/refresh-metadata`,
+  `/episodes/{id}/refresh-metadata`) with one that dispatches on the MediaItem's own `type`. Deliberately not
+  club-access-checked, unlike the routes it replaces — a MediaItem is global, so "which club's membership" isn't
+  well-defined; gated by plain `authenticate("auth-jwt")` only, the same posture `GET /movies/search` already uses.
+  `MovieService.refreshByImdbId`/`SeriesService.refreshByImdbId` are new methods added alongside the existing
+  pick-scoped `refreshMetadata(id, actingMemberId)` (kept as-is, still used internally by `ImportService`) rather
+  than replacing it — reusing the pick-scoped path from here would have required a club/member context this global
+  endpoint doesn't have. `EpisodeService.refreshCatalogMetadata` is the equivalent split for Episode: the club-
+  access-checked `refreshMetadata(episodeId, actingMemberId)` now just checks access and delegates to it.
+  - Episode's own `POST /episodes/{episodeId}/refresh-metadata` route deliberately still exists alongside the
+    consolidated one, not fully folded in — a never-yet-refreshed episode has no `media_item_id` yet (see above),
+    so it has nothing for the consolidated route to be addressed by. Once an episode has been refreshed at least
+    once, refreshing it again works through the consolidated route too, via its now-populated `mediaItemId`. The
+    frontend always calls the per-episode route (`episodesApi.refreshMetadata`) for this reason; Movie/Series
+    always call the consolidated one (`mediaItemsApi.refreshMetadata`), since their MediaItem always exists by the
+    time a refresh could be requested.
+  - `POST /admin/metadata-refresh` (`AdminService.triggerMetadataRefresh`, site-admin only) runs the same sweep
+    described below on demand, returning its `MetadataRefreshResult` synchronously — useful for testing/backfilling
+    without waiting for the nightly run.
+- **`MetadataRefreshJob`** (`service/MetadataRefreshJob.kt`) is a nightly sweep — scheduled via a plain in-process
+  Ktor coroutine loop (`Application.scheduleNightlyMetadataRefresh`, 04:00 UTC, one hour after the existing nightly
+  backup timer to avoid resource contention) rather than any new scheduling infrastructure, since none existed in
+  this codebase before — that keeps every Movie/Series/Episode's TMDB/OMDb metadata from going stale, both
+  backfilling anything never fetched and periodically re-checking already-fetched rows (IMDB ratings genuinely
+  drift over time, not just for brand-new releases). Built specifically around OMDb's free-tier daily quota
+  (1,000 requests/day), which is shared with every other caller of the same key (organic adds, manual refreshes):
+    - Budget is 20% of the combined Movie+Series+Episode catalog size, recomputed fresh every run (not a fixed
+      number) so it stays proportional as the catalog grows, and each individual refresh is paced with a fixed
+      `delay()` between calls (`callDelay`, default 3s) rather than firing the whole batch back-to-back.
+    - Priority, applied across all three types together (each repository's own `findRefreshCandidates` does the
+      per-type SQL-level ordering, then the job merges and re-sorts before applying the shared budget): not-yet-
+      released rows sort last regardless of anything else, then no-rating rows, then oldest-fetched first. A row
+      fetched more recently than 14 days ago is skipped entirely unless it was released within the last 4 months
+      (a rating that's still actively moving is worth checking every run even if just checked).
+    - One candidate failing (a transient TMDB/OMDb hiccup, a since-deleted row) doesn't stop the run — best-effort,
+      same posture `SeriesService.importSeasonsAndEpisodes`'s own per-episode loop already takes.
 
 ### Person
 

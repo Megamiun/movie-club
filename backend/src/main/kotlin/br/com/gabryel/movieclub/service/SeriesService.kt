@@ -97,6 +97,17 @@ class SeriesService(
         return mediaItem
     }
 
+    /** Same as [findOrCreateCatalogMediaItem], for a caller that only has [imdbId] and possibly-null [knownTmdbId]
+     * -- see [br.com.gabryel.movieclub.service.MovieService.refreshByImdbId]'s doc for the identical reasoning.
+     * Used by `MediaItemService`'s consolidated refresh endpoint and the nightly metadata-refresh job
+     * (`MetadataRefreshJob`). */
+    suspend fun refreshByImdbId(imdbId: String, knownTmdbId: String?): MediaItemRow {
+        val tmdbId = knownTmdbId?.toIntOrNull()
+            ?: tmdbClient.findTvByImdbId(imdbId)?.id
+            ?: throw BadRequestException("Could not find TMDB metadata for $imdbId")
+        return findOrCreateCatalogMediaItem(tmdbId)
+    }
+
     suspend fun refreshMetadata(seriesId: Uuid, actingMemberId: Uuid): SeriesRow {
         val series = requireSeriesAccess(seriesId, actingMemberId)
         val summary = tmdbClient.findTvByImdbId(series.imdbId)

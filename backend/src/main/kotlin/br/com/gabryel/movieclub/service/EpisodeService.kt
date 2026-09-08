@@ -1,8 +1,10 @@
 package br.com.gabryel.movieclub.service
 
+import br.com.gabryel.movieclub.db.MediaItemType.EPISODE
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
+import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.PersonRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
@@ -33,6 +35,7 @@ class EpisodeService(
     private val omdbClient: OmdbClient,
     private val watchlistRepository: WatchlistRepository,
     private val personRepository: PersonRepository,
+    private val mediaItemRepository: MediaItemRepository,
 ) {
     /** Unlike [br.com.gabryel.movieclub.service.MovieService.addMovie]/`SeriesService.addSeries`, TMDB enrichment
      * here is always best-effort: an episode has no id of its own to look up by, only the parent series' `tmdbId`
@@ -53,11 +56,28 @@ class EpisodeService(
     }
 
     /** Manual/explicit refresh -- unlike [addEpisode]'s best-effort enrichment, this throws when the series has no
-     * `tmdbId` yet or TMDB has no matching episode, so callers who explicitly ask for a refresh learn why it failed. */
+     * `tmdbId` yet or TMDB has no matching episode, so callers who explicitly ask for a refresh learn why it failed.
+     * Just the club-membership access check; the actual fetch-and-persist logic lives in [refreshCatalogMetadata],
+     * shared with callers that have no club member to check against. */
     suspend fun refreshMetadata(episodeId: Uuid, actingMemberId: Uuid): EpisodeRow {
         val episode = episodeRepository.findById(episodeId) ?: throw NotFoundException("Episode not found")
+        requireClubSeriesForMember(season(episode.seasonId).seriesId, actingMemberId)
+        return refreshCatalogMetadata(episodeId)
+    }
+
+    /** Same fetch as [refreshMetadata], minus the club-membership check -- used by `MediaItemService`'s
+     * consolidated refresh endpoint and the nightly metadata-refresh job (`MetadataRefreshJob`), neither of which
+     * has an acting club member to check against (see [br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow]/
+     * a stale-catalog scan, neither scoped to one club). Resolves the parent series by its *global* id
+     * ([SeriesRepository.findGlobalCatalogById]) instead of through a club pick, for the same reason. Also links
+     * the episode's own MediaItem (Movie/Series always have, Episode never did until now -- see CLAUDE.md's
+     * MediaItem section) once TMDB resolves an `imdb_id` for it; before that, there's nothing to key a MediaItem
+     * on, so linking stays skipped exactly like [addEpisode]'s existing best-effort enrichment already tolerates. */
+    suspend fun refreshCatalogMetadata(episodeId: Uuid): EpisodeRow {
+        val episode = episodeRepository.findById(episodeId) ?: throw NotFoundException("Episode not found")
         val season = season(episode.seasonId)
-        val series = requireClubSeriesForMember(season.seriesId, actingMemberId)
+        val series = seriesRepository.findGlobalCatalogById(season.seriesId)
+            ?: throw NotFoundException("Series not found")
         val tmdbId = series.tmdbId?.toIntOrNull()
             ?: throw BadRequestException("Series has not been matched to TMDB yet")
 
@@ -77,7 +97,10 @@ class EpisodeService(
         val directorPersonId = resolveDirectorPersonId(details.director, details.directorTmdbId)
         val imdbRating = details.imdbId?.let { omdbClient.getImdbRating(it) }
         val metadata = details.toMetadata().copy(directorPersonId = directorPersonId, imdbRating = imdbRating)
-        return episodeRepository.updateTmdbMetadata(episodeId, metadata)
+        val mediaItem = details.imdbId?.let { episodeImdbId ->
+            mediaItemRepository.findOrCreate(type = EPISODE, imdbId = episodeImdbId, title = details.name, imdbRating = imdbRating)
+        }
+        return episodeRepository.updateTmdbMetadata(episodeId, metadata, mediaItem?.id)
     }
 
     /** Same best-effort IMDB-id-via-TMDB-person-lookup pattern as

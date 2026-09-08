@@ -4,6 +4,7 @@ import br.com.gabryel.movieclub.db.DisplayTitlePreference
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.dto.CatalogTitleInfo
+import br.com.gabryel.movieclub.db.repositories.dto.RefreshCandidateRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
@@ -13,18 +14,27 @@ import br.com.gabryel.movieclub.db.tables.MediaItems
 import br.com.gabryel.movieclub.db.tables.MemberSeriesReviews
 import br.com.gabryel.movieclub.db.tables.People
 import br.com.gabryel.movieclub.db.tables.Series
+import kotlinx.datetime.LocalDate
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.innerJoin
+import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.leftJoin
+import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.statements.UpdateBuilder
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 class ExposedSeriesRepository : SeriesRepository {
@@ -94,6 +104,21 @@ class ExposedSeriesRepository : SeriesRepository {
             .firstOrNull()
     }
 
+    override fun findGlobalCatalogById(globalSeriesId: Uuid): RefreshCandidateRow? = transaction {
+        Series.selectAll()
+            .where { Series.id eq globalSeriesId }
+            .map {
+                RefreshCandidateRow(
+                    id = it[Series.id].value,
+                    imdbId = it[Series.imdbId],
+                    tmdbId = it[Series.tmdbId],
+                    imdbRating = it[Series.imdbRating],
+                    metadataFetchedAt = it[Series.metadataFetchedAt],
+                )
+            }
+            .singleOrNull()
+    }
+
     override fun updateDisplayTitle(
         seriesId: Uuid,
         customTitle: String?,
@@ -132,6 +157,39 @@ class ExposedSeriesRepository : SeriesRepository {
                 }
         }
     }
+
+    /** See `ExposedMovieRepository.findRefreshCandidates`'s doc -- identical prioritization logic, Series catalog. */
+    override fun findRefreshCandidates(
+        limit: Int,
+        today: LocalDate,
+        staleBefore: Instant,
+        recentReleaseSince: LocalDate,
+    ): List<RefreshCandidateRow> = transaction {
+        Series.selectAll()
+            .where {
+                Series.metadataFetchedAt.isNull() or
+                    (Series.releaseDate greaterEq recentReleaseSince) or
+                    (Series.metadataFetchedAt less staleBefore)
+            }
+            .orderBy(
+                (Series.releaseDate.isNotNull() and (Series.releaseDate greater today)) to SortOrder.ASC,
+                Series.imdbRating.isNull() to SortOrder.DESC,
+                Series.metadataFetchedAt to SortOrder.ASC_NULLS_FIRST,
+            )
+            .limit(limit)
+            .map {
+                RefreshCandidateRow(
+                    id = it[Series.id].value,
+                    imdbId = it[Series.imdbId],
+                    tmdbId = it[Series.tmdbId],
+                    imdbRating = it[Series.imdbRating],
+                    metadataFetchedAt = it[Series.metadataFetchedAt],
+                    isUnreleased = it[Series.releaseDate]?.let { date -> date > today } ?: false,
+                )
+            }
+    }
+
+    override fun count(): Long = transaction { Series.selectAll().count() }
 
     override fun upsertReview(
         seriesId: Uuid,
@@ -226,6 +284,7 @@ class ExposedSeriesRepository : SeriesRepository {
         posterUrl = row.getOrNull(MediaItems.posterUrl),
         status = row[Series.status],
         metadataFetchedAt = row[Series.metadataFetchedAt],
+        mediaItemId = row[Series.mediaItemId]?.value,
         createdAt = row[ClubSeries.createdAt],
     )
 
@@ -247,6 +306,7 @@ private fun UpdateBuilder<*>.applyTmdbMetadata(metadata: TmdbSeriesMetadata, med
     this[Series.originalLanguage] = metadata.originalLanguage
     this[Series.translations] = metadata.translations
     this[Series.year] = metadata.year
+    this[Series.releaseDate] = metadata.releaseDate
     this[Series.genre] = metadata.genre
     this[Series.originCountry] = metadata.originCountry
     this[Series.productionCountries] = metadata.productionCountries

@@ -2,9 +2,12 @@ package br.com.gabryel.movieclub.db.repositories
 
 import br.com.gabryel.movieclub.db.DisplayTitlePreference
 import br.com.gabryel.movieclub.db.repositories.dto.CatalogTitleInfo
+import br.com.gabryel.movieclub.db.repositories.dto.RefreshCandidateRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
+import kotlinx.datetime.LocalDate
+import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 interface SeriesRepository {
@@ -30,6 +33,13 @@ interface SeriesRepository {
      * to check directly since they're shared across every club following the series. */
     fun findClubSeriesForMember(seriesId: Uuid, memberId: Uuid): SeriesRow?
 
+    /** The global series catalog row's own `imdbId`/`tmdbId`, looked up by its *global* id directly -- unlike
+     * [findClubSeriesForMember] and [findById] (both club/pick-scoped), this needs no member or pick context.
+     * Used by `EpisodeService.refreshCatalogMetadata`, which needs the parent series' `tmdbId` to resolve TMDB's
+     * per-episode endpoint but has no acting member for the new system-triggered refresh paths (the nightly job,
+     * `MediaItemService`'s consolidated endpoint). */
+    fun findGlobalCatalogById(globalSeriesId: Uuid): RefreshCandidateRow?
+
     fun updateDisplayTitle(
         seriesId: Uuid,
         customTitle: String? = null,
@@ -42,6 +52,18 @@ interface SeriesRepository {
     /** Same as [MovieRepository.findCatalogTitleInfoByMediaItemIds], for the Series catalog (`Series.mediaItemId`)
      * instead. */
     fun findCatalogTitleInfoByMediaItemIds(mediaItemIds: List<Uuid>): Map<Uuid, CatalogTitleInfo>
+
+    /** Candidates for the nightly metadata-refresh job (`MetadataRefreshJob`), ordered: not-yet-released rows
+     * ([today] before their own release date) sort *last* regardless of everything else -- no rating to
+     * meaningfully refresh yet, so spending budget on an already-released row comes first. Among the rest,
+     * no-rating-first then oldest-fetched-first. Eligible rows are never-fetched ones, rows released on/after
+     * [recentReleaseSince] (still-moving ratings, always eligible regardless of [staleBefore]), or rows fetched
+     * before [staleBefore]. */
+    fun findRefreshCandidates(limit: Int, today: LocalDate, staleBefore: Instant, recentReleaseSince: LocalDate): List<RefreshCandidateRow>
+
+    /** Total catalog row count -- `MetadataRefreshJob` computes its nightly budget as a percentage of the combined
+     * Movie/Series/Episode total. */
+    fun count(): Long
 
     fun upsertReview(
         seriesId: Uuid,

@@ -7,8 +7,10 @@ import br.com.gabryel.movieclub.db.repositories.dto.InvitedMember
 import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
 import br.com.gabryel.movieclub.db.repositories.dto.RegisteredMember
 import br.com.gabryel.movieclub.exception.ForbiddenException
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -18,7 +20,8 @@ import kotlin.uuid.Uuid
 class AdminServiceTest {
     private val memberRepository = mockk<MemberRepository>()
     private val mediaItemRepository = mockk<MediaItemRepository>()
-    private val adminService = AdminService(memberRepository, mediaItemRepository)
+    private val metadataRefreshJob = mockk<MetadataRefreshJob>()
+    private val adminService = AdminService(memberRepository, mediaItemRepository, metadataRefreshJob)
 
     private val memberId = Uuid.random()
 
@@ -81,6 +84,22 @@ class AdminServiceTest {
         every { mediaItemRepository.listAll() } returns allItems
 
         assertEquals(allItems, adminService.listAllMediaItems(memberId))
+    }
+
+    @Test
+    fun `triggerMetadataRefresh throws ForbiddenException for a non-admin instead of running the job`(): Unit = runBlocking {
+        every { memberRepository.findById(memberId) } returns registeredMember(isSiteAdmin = false)
+
+        assertFailsWith<ForbiddenException> { adminService.triggerMetadataRefresh(memberId) }
+    }
+
+    @Test
+    fun `triggerMetadataRefresh runs the job and returns its result for a site admin`(): Unit = runBlocking {
+        every { memberRepository.findById(memberId) } returns registeredMember(isSiteAdmin = true)
+        val result = MetadataRefreshResult(totalCatalogSize = 10, budget = 2, candidatesConsidered = 2, succeeded = 2, failed = 0)
+        coEvery { metadataRefreshJob.run() } returns result
+
+        assertEquals(result, adminService.triggerMetadataRefresh(memberId))
     }
 
     private fun registeredMember(isSiteAdmin: Boolean) = RegisteredMember(

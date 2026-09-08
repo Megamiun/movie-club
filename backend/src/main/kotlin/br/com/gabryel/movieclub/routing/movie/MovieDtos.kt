@@ -79,6 +79,7 @@ internal data class MovieResponse(
     val posterS3Key: String?,
     val posterUrl: String?,
     val watchLink: String?,
+    val mediaItemId: String?,
 )
 
 @Serializable

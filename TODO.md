@@ -264,6 +264,57 @@
     (200) and the box updated immediately without a page reload, then changed it back to its original value and
     confirmed via the database that the original rating was restored exactly.
 
+- [x] Create an endpoint to recover media metadata for a certain movie. Also, do a nightly schedule to update any
+  movies with missing info. Also, IMDB ratings do fluctuate over time (more votes, occasional rediscovery), so
+  refresh them from time to time too — considering we have a limited number of OMDb queries per day.
+  - Clarified with the user first: nightly budget is 20% of the catalog per run — enough to fully cycle everything
+    within a handful of nights, but skip anything fetched too recently (14 days) unless it was released in the
+    last 4 months (a still-moving rating is worth re-checking even if just checked); prioritize no-rating items,
+    then oldest-fetched; and unreleased items sort last regardless of anything else. Movie/Series/Episode share one
+    combined budget, not three separate ones.
+  - Mid-task, the user also asked to lean harder into MediaItem as the shared cross-type handle (an existing
+    preference from an earlier session — see CLAUDE.md's MediaItem section) rather than duplicating a near-
+    identical refresh endpoint per type, and to consolidate the movie/series/episode routes that already existed
+    into one. Backend: new `MediaItemService.refreshMetadata(mediaItemId)` dispatches on type; new
+    `MovieService.refreshByImdbId`/`SeriesService.refreshByImdbId` (added alongside, not replacing, the existing
+    pick-scoped `refreshMetadata` still used by `ImportService`) and `EpisodeService.refreshCatalogMetadata` back
+    it. Episode also got `media_item_id` linked for the first time (previously deliberately deferred, since
+    nothing read it) — but only as a *result* of a successful refresh, which meant Episode's own
+    `POST /episodes/{id}/refresh-metadata` route had to stay alongside the consolidated one rather than being
+    fully folded in: a never-refreshed episode has no MediaItem yet for the consolidated route to address. Full
+    reasoning and the exact endpoint split are documented in CLAUDE.md's MediaItem section.
+  - The user then asked for an on-demand version too — `POST /admin/metadata-refresh` (site-admin only) runs the
+    same sweep synchronously and returns its result, useful for testing/backfilling without waiting overnight.
+  - Nightly scheduling itself needed no new infrastructure — no scheduler existed anywhere in this codebase before
+    (only an OS-level systemd timer for backups, which shells out directly). Added a plain in-process Ktor
+    coroutine loop instead (`Application.scheduleNightlyMetadataRefresh`, 04:00 UTC — an hour after the existing
+    backup timer, to avoid contention), avoiding any new HTTP/auth surface just for the scheduler.
+  - Real gotcha hit along the way: `kotlinx.datetime.Instant` and `kotlin.time.Instant` are *not* interchangeable
+    in this project's dependency version, and the repository interfaces already standardized on `kotlin.time.
+    Instant` — using `kotlinx.datetime.Clock` in the new job initially caused a type mismatch against
+    `findRefreshCandidates`'s `staleBefore: Instant` param. Fixed by using `kotlin.time.Clock` throughout and only
+    reaching for `kotlinx.datetime`'s `toLocalDateTime(TimeZone)` extension (which does accept the stdlib Instant
+    in this version) to derive `today: LocalDate`.
+  - Full backend test suite (270 tests, including the Testcontainers-backed migration tests for the two new
+    columns) passes; frontend `tsc -b`/lint pass. No UI trigger was added for the admin endpoint — it's API-only
+    for now (curl/Postman), since it wasn't explicitly asked for beyond "can we trigger the complete refresh via
+    endpoint".
+  - Verified against the real running local backend (real Postgres, real TMDB/OMDb keys): V30/V31 migrations
+    applied cleanly on top of the existing dev data; a direct `POST /media-items/{id}/refresh-metadata` call on a
+    real movie's MediaItem round-tripped correctly (fresh `imdbRating`/`posterUrl` back from TMDB/OMDb); a
+    never-refreshed episode's `POST /episodes/{id}/refresh-metadata` call resolved and linked a `mediaItemId` for
+    the first time, exactly the bootstrap case the endpoint split above exists for.
+  - `POST /admin/metadata-refresh` on the real dev DB returned `succeeded: 0` on every candidate — not a code bug.
+    `MetadataRefreshJob` had no failure logging at all (`runCatching { }.onFailure { failed++ }`, nothing else),
+    so a warn-level log line (candidate id/imdbId plus the exception) was added — a real, permanent gap, not just
+    a debug aid, since a job that silently swallows every failure is unauditable. With that in place, every
+    failure traced to the same root cause: 119 of this dev DB's 122 `series` rows carry a *movie's* `imdb_id`
+    (dev/test data pollution from earlier in this session, not something this feature introduced or needs to
+    handle specially) — TMDB correctly reports "not a TV series" for each, and the job logs and moves on to the
+    next candidate exactly as designed. Confirmed the real candidates (movies/episodes) are clean (0 with a null
+    `metadata_fetched_at`) — nothing left to test against locally without either fixing that dev data or seeding
+    fresh unrefreshed rows, so this wasn't pushed further.
+
 # Stretch goals (only start after asked)
 
 - [ ] Drag-and-drop on mobile — meetings table uses `@dnd-kit` (desktop mouse drag works), but touch drag doesn't

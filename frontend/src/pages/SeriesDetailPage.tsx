@@ -4,6 +4,7 @@ import { Alert, Box, Button, Chip, IconButton, List, ListItemButton, ListItemTex
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 import { seriesApi } from '../api/series'
+import { mediaItemsApi } from '../api/mediaItems'
 import { clubsApi } from '../api/clubs'
 import { ApiError } from '../api/client'
 import { AsyncState } from '../components/AsyncState'
@@ -69,9 +70,10 @@ export function SeriesDetailPage() {
   }
 
   const handleRefresh = async () => {
+    if (!series?.mediaItemId) return
     setActionError(null)
     try {
-      await seriesApi.refreshMetadata(seriesId!)
+      await mediaItemsApi.refreshMetadata(series.mediaItemId)
       reload()
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -159,7 +161,7 @@ export function SeriesDetailPage() {
                 selectedLanguageCode={series.displayTitlePreference === 'LANGUAGE' ? series.displayLanguageCode : null}
                 onSelect={handlePickLanguage}
               />
-              <IconButton size="small" onClick={handleRefresh} title="Refresh metadata">
+              <IconButton size="small" onClick={handleRefresh} disabled={!series.mediaItemId} title="Refresh metadata">
                 <RefreshIcon fontSize="small" />
               </IconButton>
             </Stack>

@@ -21,6 +21,7 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useState, type FormEvent } from 'react'
 import { moviesApi } from '../../api/movies'
+import { mediaItemsApi } from '../../api/mediaItems'
 import { watchlistApi } from '../../api/watchlist'
 import { ApiError } from '../../api/client'
 import type { ClubMember, Movie, RatingScale, TmdbSearchResult } from '../../api/types'
@@ -202,9 +203,10 @@ function MovieItem({
   }
 
   const handleRefresh = async () => {
+    if (!movie.mediaItemId) return
     setError(null)
     try {
-      await moviesApi.refreshMetadata(movie.id)
+      await mediaItemsApi.refreshMetadata(movie.mediaItemId)
       onChange()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
@@ -300,7 +302,7 @@ function MovieItem({
             <Button size="small" variant="outlined" onClick={handleSaveDetails}>
               Save
             </Button>
-            <IconButton size="small" onClick={handleRefresh} title="Refresh metadata">
+            <IconButton size="small" onClick={handleRefresh} disabled={!movie.mediaItemId} title="Refresh metadata">
               <RefreshIcon fontSize="small" />
             </IconButton>
             <IconButton

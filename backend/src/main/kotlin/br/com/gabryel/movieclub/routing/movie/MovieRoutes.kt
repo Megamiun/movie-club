@@ -75,11 +75,6 @@ fun Route.movieRoutes(movieService: MovieService, watchlistService: WatchlistSer
             call.respond(movieService.getMovie(movieId, actingMemberId).toResponse())
         }
 
-        post("/movies/{movieId}/refresh-metadata") {
-            val movie = movieService.refreshMetadata(call.uuidPathParam("movieId"), call.actingMemberId())
-            call.respond(movie.toResponse())
-        }
-
         delete("/movies/{movieId}") {
             movieService.deleteMovie(call.uuidPathParam("movieId"), call.actingMemberId())
             call.respond(NoContent)
@@ -147,6 +142,7 @@ internal fun MovieRow.toResponse() = MovieResponse(
     posterS3Key = posterS3Key,
     posterUrl = posterUrl,
     watchLink = watchLink,
+    mediaItemId = mediaItemId?.toString(),
 )
 
 private fun Translation.toResponse() = TranslationResponse(languageCode, countryCode, englishName, title)

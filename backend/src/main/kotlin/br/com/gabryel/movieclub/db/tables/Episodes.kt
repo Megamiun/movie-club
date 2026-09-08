@@ -19,6 +19,7 @@ object Episodes : UuidTable("episodes") {
     val imdbId = varchar("imdb_id", 16).nullable()
     val imdbRating = decimal("imdb_rating", precision = 4, scale = 1).nullable()
     val metadataFetchedAt = timestamp("metadata_fetched_at").nullable()
+    val mediaItemId = reference("media_item_id", MediaItems).nullable()
 
     init {
         uniqueIndex(seasonId, number)

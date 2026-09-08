@@ -24,8 +24,6 @@ export const seriesApi = {
   updateDisplayTitle: (seriesId: string, preference: string, customTitle?: string, languageCode?: string) =>
     api.patch<Series>(`/series/${seriesId}`, { customTitle, preference, languageCode }),
 
-  refreshMetadata: (seriesId: string) => api.post<Series>(`/series/${seriesId}/refresh-metadata`),
-
   rate: (seriesId: string, qualityOptionId?: string, sentimentOptionId?: string, comment?: string) =>
     api.put<SeriesReview>(`/series/${seriesId}/review`, { qualityOptionId, sentimentOptionId, comment }),
 
@@ -58,6 +56,8 @@ export const episodesApi = {
   nextSuggestions: (clubId: string) =>
     api.get<EpisodeSearchResult[]>(`/clubs/${clubId}/episodes/next-suggestions`),
 
+  // Kept as its own endpoint (not the consolidated `mediaItemsApi.refreshMetadata`) since a never-refreshed
+  // episode has no `mediaItemId` yet -- see `MediaItemService`'s own doc for why.
   refreshMetadata: (episodeId: string) => api.post<Episode>(`/episodes/${episodeId}/refresh-metadata`),
 
   assignToMeeting: (episodeId: string, meetingId: string) =>

@@ -21,6 +21,7 @@ data class EpisodeRow(
     val imdbId: String? = null,
     val imdbRating: BigDecimal? = null,
     val metadataFetchedAt: Instant? = null,
+    val mediaItemId: Uuid? = null,
 )
 
 /** Just the fields a client needs to resolve the *display* title of [EpisodeSearchRow]'s series (mirrors the

@@ -2,9 +2,11 @@ package br.com.gabryel.movieclub.service
 
 import br.com.gabryel.movieclub.db.ClubRole.MEMBER
 import br.com.gabryel.movieclub.db.DisplayTitlePreference.ORIGINAL
+import br.com.gabryel.movieclub.db.MediaItemType.EPISODE
 import br.com.gabryel.movieclub.db.RatingScaleType.QUALITY
 import br.com.gabryel.movieclub.db.RatingScaleType.SENTIMENT
 import br.com.gabryel.movieclub.db.repositories.EpisodeRepository
+import br.com.gabryel.movieclub.db.repositories.MediaItemRepository
 import br.com.gabryel.movieclub.db.repositories.MeetingRepository
 import br.com.gabryel.movieclub.db.repositories.PersonRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
@@ -13,8 +15,10 @@ import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
 import br.com.gabryel.movieclub.db.repositories.dto.ClubMembershipRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeReviewRow
 import br.com.gabryel.movieclub.db.repositories.dto.EpisodeRow
+import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
 import br.com.gabryel.movieclub.db.repositories.dto.MeetingRow
 import br.com.gabryel.movieclub.db.repositories.dto.PersonRow
+import br.com.gabryel.movieclub.db.repositories.dto.RefreshCandidateRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeasonRow
 import br.com.gabryel.movieclub.db.repositories.dto.SeriesRow
 import br.com.gabryel.movieclub.db.repositories.dto.Translation
@@ -53,6 +57,7 @@ class EpisodeServiceTest {
     private val omdbClient = mockk<OmdbClient>()
     private val watchlistRepository = mockk<WatchlistRepository>()
     private val personRepository = mockk<PersonRepository>()
+    private val mediaItemRepository = mockk<MediaItemRepository>()
     private val episodeService = EpisodeService(
         episodeRepository,
         seasonRepository,
@@ -63,6 +68,7 @@ class EpisodeServiceTest {
         omdbClient,
         watchlistRepository,
         personRepository,
+        mediaItemRepository,
     )
 
     private val clubId = Uuid.random()
@@ -191,6 +197,8 @@ class EpisodeServiceTest {
         every { episodeRepository.findById(episodeId) } returns episode(episodeId)
         every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
         every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        every { seriesRepository.findGlobalCatalogById(globalSeriesId) } returns
+            RefreshCandidateRow(id = globalSeriesId, imdbId = "tt0903747", tmdbId = "1396")
         coEvery { tmdbClient.getEpisodeDetails(1396, 1, 1) } returns TmdbEpisodeDetails(
             name = "Pilot",
             episodeNumber = 1,
@@ -204,7 +212,7 @@ class EpisodeServiceTest {
 
         val updated = episode(episodeId)
         every {
-            episodeRepository.updateTmdbMetadata(episodeId, match { it.directorPersonId == directorId })
+            episodeRepository.updateTmdbMetadata(episodeId, match { it.directorPersonId == directorId }, null)
         } returns updated
 
         assertEquals(updated, episodeService.refreshMetadata(episodeId, memberId))
@@ -216,6 +224,8 @@ class EpisodeServiceTest {
         every { episodeRepository.findById(episodeId) } returns episode(episodeId)
         every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
         every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        every { seriesRepository.findGlobalCatalogById(globalSeriesId) } returns
+            RefreshCandidateRow(id = globalSeriesId, imdbId = "tt0903747", tmdbId = "1396")
         coEvery { tmdbClient.getEpisodeDetails(1396, 1, 1) } returns TmdbEpisodeDetails(
             name = "Pilot",
             episodeNumber = 1,
@@ -229,7 +239,7 @@ class EpisodeServiceTest {
 
         val updated = episode(episodeId)
         every {
-            episodeRepository.updateTmdbMetadata(episodeId, match { it.directorPersonId == directorId })
+            episodeRepository.updateTmdbMetadata(episodeId, match { it.directorPersonId == directorId }, null)
         } returns updated
 
         assertEquals(updated, episodeService.refreshMetadata(episodeId, memberId))
@@ -241,16 +251,22 @@ class EpisodeServiceTest {
         every { episodeRepository.findById(episodeId) } returns episode(episodeId)
         every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
         every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        every { seriesRepository.findGlobalCatalogById(globalSeriesId) } returns
+            RefreshCandidateRow(id = globalSeriesId, imdbId = "tt0903747", tmdbId = "1396")
         coEvery { tmdbClient.getEpisodeDetails(1396, 1, 1) } returns TmdbEpisodeDetails(
             name = "Pilot",
             episodeNumber = 1,
             externalIds = TmdbExternalIds(imdbId = "tt0959621"),
         )
         coEvery { omdbClient.getImdbRating("tt0959621") } returns BigDecimal("8.2")
+        val mediaItemId = Uuid.random()
+        every {
+            mediaItemRepository.findOrCreate(EPISODE, "tt0959621", "Pilot", null, null, null, BigDecimal("8.2"))
+        } returns MediaItemRow(mediaItemId, EPISODE, "tt0959621", title = "Pilot", createdAt = Clock.System.now())
 
         val updated = episode(episodeId)
         every {
-            episodeRepository.updateTmdbMetadata(episodeId, match { it.imdbRating == BigDecimal("8.2") })
+            episodeRepository.updateTmdbMetadata(episodeId, match { it.imdbRating == BigDecimal("8.2") }, mediaItemId)
         } returns updated
 
         assertEquals(updated, episodeService.refreshMetadata(episodeId, memberId))
@@ -262,8 +278,10 @@ class EpisodeServiceTest {
         every { episodeRepository.findById(episodeId) } returns episode(episodeId)
         every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
         every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        every { seriesRepository.findGlobalCatalogById(globalSeriesId) } returns
+            RefreshCandidateRow(id = globalSeriesId, imdbId = "tt0903747", tmdbId = "1396")
         coEvery { tmdbClient.getEpisodeDetails(1396, 1, 1) } returns TmdbEpisodeDetails(name = "Pilot", episodeNumber = 1)
-        every { episodeRepository.updateTmdbMetadata(episodeId, any()) } returns episode(episodeId)
+        every { episodeRepository.updateTmdbMetadata(episodeId, any(), any()) } returns episode(episodeId)
 
         episodeService.refreshMetadata(episodeId, memberId)
 
@@ -279,11 +297,13 @@ class EpisodeServiceTest {
             every { episodeRepository.findById(episodeId) } returns episode(episodeId).copy(number = 4, imdbId = "tt0618968")
             every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
             every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+            every { seriesRepository.findGlobalCatalogById(globalSeriesId) } returns
+                RefreshCandidateRow(id = globalSeriesId, imdbId = "tt0903747", tmdbId = "1396")
             coEvery { tmdbClient.findEpisodeByImdbId("tt0618968") } returns TmdbEpisodeSummary(seasonNumber = 1, episodeNumber = 14)
             coEvery { tmdbClient.getEpisodeDetails(1396, 1, 14) } returns TmdbEpisodeDetails(name = "Gateway Shuffle", episodeNumber = 14)
 
             val updated = episode(episodeId)
-            every { episodeRepository.updateTmdbMetadata(episodeId, any()) } returns updated
+            every { episodeRepository.updateTmdbMetadata(episodeId, any(), any()) } returns updated
 
             assertEquals(updated, episodeService.refreshMetadata(episodeId, memberId))
             coVerify(exactly = 0) { tmdbClient.getEpisodeDetails(1396, 1, 4) }
@@ -295,6 +315,8 @@ class EpisodeServiceTest {
         every { episodeRepository.findById(episodeId) } returns episode(episodeId).copy(imdbId = "tt0618968")
         every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
         every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        every { seriesRepository.findGlobalCatalogById(globalSeriesId) } returns
+            RefreshCandidateRow(id = globalSeriesId, imdbId = "tt0903747", tmdbId = "1396")
         coEvery { tmdbClient.findEpisodeByImdbId("tt0618968") } returns null
 
         assertFailsWith<BadRequestException> { episodeService.refreshMetadata(episodeId, memberId) }

@@ -66,6 +66,7 @@ internal data class SeriesResponse(
     val creator: String?,
     val posterS3Key: String?,
     val posterUrl: String?,
+    val mediaItemId: String?,
 )
 
 @Serializable
@@ -107,6 +108,7 @@ internal data class EpisodeResponse(
     val directorImdbId: String?,
     val imdbId: String?,
     val imdbRating: String?,
+    val mediaItemId: String?,
 )
 
 @Serializable

@@ -4,6 +4,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.VarCharColumnType
 import org.jetbrains.exposed.v1.core.dao.id.UuidTable
+import org.jetbrains.exposed.v1.datetime.date
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.json.jsonb
 
@@ -16,6 +17,9 @@ object Series : UuidTable("series") {
     val translations = jsonb<List<Translation>>("translations", Json.Default)
 
     val year = integer("year").nullable()
+
+    // See Movies.releaseDate's comment -- same reasoning, kept alongside `year` for day-level precision.
+    val releaseDate = date("release_date").nullable()
     val genre = array("genre", VarCharColumnType(255)).nullable()
     val originCountry = array("origin_country", VarCharColumnType(255)).nullable()
     val productionCountries = array("production_countries", VarCharColumnType(255)).nullable()

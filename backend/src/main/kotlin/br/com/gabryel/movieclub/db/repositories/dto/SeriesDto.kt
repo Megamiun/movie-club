@@ -1,6 +1,7 @@
 package br.com.gabryel.movieclub.db.repositories.dto
 
 import br.com.gabryel.movieclub.db.DisplayTitlePreference
+import kotlinx.datetime.LocalDate
 import java.math.BigDecimal
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
@@ -33,6 +34,7 @@ data class SeriesRow(
     val posterUrl: String? = null,
     val status: String? = null,
     val metadataFetchedAt: Instant? = null,
+    val mediaItemId: Uuid? = null,
     val createdAt: Instant,
 )
 
@@ -55,6 +57,7 @@ data class TmdbSeriesMetadata(
     val originalLanguage: String? = null,
     val translations: List<Translation>,
     val year: Int? = null,
+    val releaseDate: LocalDate? = null,
     val genre: List<String>? = null,
     val originCountry: List<String>? = null,
     val productionCountries: List<String>? = null,

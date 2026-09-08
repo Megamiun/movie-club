@@ -85,11 +85,6 @@ fun Route.seriesRoutes(seriesService: SeriesService, seasonService: SeasonServic
             call.respond(series.toResponse())
         }
 
-        post("/series/{seriesId}/refresh-metadata") {
-            val series = seriesService.refreshMetadata(call.uuidPathParam("seriesId"), call.actingMemberId())
-            call.respond(series.toResponse())
-        }
-
         post("/series/{seriesId}/import-seasons") {
             val created = seriesService.importSeasonsAndEpisodes(call.uuidPathParam("seriesId"), call.actingMemberId())
             call.respond(ImportSeasonsResponse(created))
@@ -240,6 +235,7 @@ internal fun SeriesRow.toResponse() = SeriesResponse(
     creator = creator,
     posterS3Key = posterS3Key,
     posterUrl = posterUrl,
+    mediaItemId = mediaItemId?.toString(),
 )
 
 private fun Translation.toResponse() = TranslationResponse(languageCode, countryCode, englishName, title)
@@ -282,6 +278,7 @@ internal fun EpisodeRow.toResponse() = EpisodeResponse(
     directorImdbId = directorImdbId,
     imdbId = imdbId,
     imdbRating = imdbRating?.toPlainString(),
+    mediaItemId = mediaItemId?.toString(),
 )
 
 private fun SeriesReviewRow.toResponse() = SeriesReviewResponse(

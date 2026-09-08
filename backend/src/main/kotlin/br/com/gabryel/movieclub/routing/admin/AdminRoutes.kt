@@ -4,10 +4,12 @@ import br.com.gabryel.movieclub.db.repositories.dto.MediaItemRow
 import br.com.gabryel.movieclub.db.repositories.dto.RegisteredMember
 import br.com.gabryel.movieclub.routing.actingMemberId
 import br.com.gabryel.movieclub.service.AdminService
+import br.com.gabryel.movieclub.service.MetadataRefreshResult
 import io.ktor.server.auth.authenticate
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 
 fun Route.adminRoutes(adminService: AdminService) {
     authenticate("auth-jwt") {
@@ -19,6 +21,11 @@ fun Route.adminRoutes(adminService: AdminService) {
         get("/admin/media-items") {
             val mediaItems = adminService.listAllMediaItems(call.actingMemberId())
             call.respond(mediaItems.map { it.toResponse() })
+        }
+
+        post("/admin/metadata-refresh") {
+            val result = adminService.triggerMetadataRefresh(call.actingMemberId())
+            call.respond(result.toResponse())
         }
     }
 }
@@ -40,4 +47,12 @@ private fun MediaItemRow.toResponse() = AdminMediaItemResponse(
     year = year,
     posterUrl = posterUrl,
     imdbRating = imdbRating?.toPlainString(),
+)
+
+private fun MetadataRefreshResult.toResponse() = MetadataRefreshResultResponse(
+    totalCatalogSize = totalCatalogSize,
+    budget = budget,
+    candidatesConsidered = candidatesConsidered,
+    succeeded = succeeded,
+    failed = failed,
 )

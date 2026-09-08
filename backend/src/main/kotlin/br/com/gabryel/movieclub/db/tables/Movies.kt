@@ -4,6 +4,7 @@ import br.com.gabryel.movieclub.db.repositories.dto.Translation
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.VarCharColumnType
 import org.jetbrains.exposed.v1.core.dao.id.UuidTable
+import org.jetbrains.exposed.v1.datetime.date
 import org.jetbrains.exposed.v1.datetime.timestamp
 import org.jetbrains.exposed.v1.json.jsonb
 
@@ -16,6 +17,11 @@ object Movies : UuidTable("movies") {
     val translations = jsonb<List<Translation>>("translations", Json.Default)
 
     val year = integer("year").nullable()
+
+    // TMDB's own release_date, kept alongside the derived `year` above rather than replacing it -- year is what
+    // every existing read path already displays, while this is only needed for day-level precision (e.g. "was
+    // this released in the last N months", see the nightly metadata-refresh job's recency check).
+    val releaseDate = date("release_date").nullable()
     val directorPersonId = reference("director_person_id", People).nullable()
     val runtimeMinutes = integer("runtime_minutes").nullable()
     val genre = array("genre", VarCharColumnType(255)).nullable()

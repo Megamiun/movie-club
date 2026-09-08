@@ -22,3 +22,12 @@ internal data class AdminMediaItemResponse(
     val posterUrl: String?,
     val imdbRating: String?,
 )
+
+@Serializable
+internal data class MetadataRefreshResultResponse(
+    val totalCatalogSize: Long,
+    val budget: Int,
+    val candidatesConsidered: Int,
+    val succeeded: Int,
+    val failed: Int,
+)
