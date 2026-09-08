@@ -6,4 +6,10 @@
 resource "aws_cloudwatch_log_group" "backend" {
   name              = "/${var.project_name}/backend"
   retention_in_days = var.log_retention_days
+
+  # Forces the terraform role's own logs:* policy (github_oidc_terraform.tf's ManageOwnCloudWatchLogGroup) to
+  # apply *before* this log group is created -- same reasoning, and the same real failure mode, as
+  # s3_backups.tf/s3_frontend.tf's identical depends_on: without it Terraform has no ordering constraint between
+  # the two, so it's free to fire CreateLogGroup before the policy update granting it has actually taken effect.
+  depends_on = [aws_iam_role_policy.github_actions_terraform]
 }
