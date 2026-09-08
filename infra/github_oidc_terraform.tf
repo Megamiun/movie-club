@@ -154,6 +154,25 @@ data "aws_iam_policy_document" "github_actions_terraform" {
     resources = [aws_ecr_repository.backend.arn]
   }
 
+  # Manages cloudwatch.tf's log group. Get*/List*/Describe* rather than enumerating exact actions -- same reasoning
+  # as ManageOwnHostedZoneRecords above (that one got bitten twice by an under-scoped enumeration before switching
+  # to this pattern): logs:DescribeLogGroups/ListTagsForResource-style calls the provider makes internally on every
+  # refresh don't support resource-level scoping at all, so a missing one here would be the exact same bootstrap
+  # deadlock (this data/resource refreshes at the start of every plan using whatever policy is currently live, not
+  # the pending .tf change that would grant it) -- not discovered narrowly-enumerated action-by-action this time.
+  statement {
+    sid       = "ManageOwnCloudWatchLogGroup"
+    actions   = ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:TagResource", "logs:UntagResource"]
+    resources = ["arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/${var.project_name}/backend:*"]
+  }
+
+  statement {
+    sid       = "DescribeCloudWatchLogGroups"
+    actions   = ["logs:Describe*", "logs:List*", "logs:Get*"]
+    resources = ["*"] # these don't support resource-level scoping -- same unscopable-bootstrap-read pattern as
+    # FindOwnHostedZone/ResolveSsmKmsAlias above
+  }
+
   # Read-only, and only GetParameter -- ssm.tf's four secrets are `data` sources, not `resource`s (Terraform never
   # creates/deletes/modifies an SSM parameter in this config, see ssm.tf's own comment), and with_decryption =
   # false means it doesn't even need KMS access to read them. GetParameter is the only API a data source of this
