@@ -146,3 +146,74 @@ jobs:
       - name: Terraform apply
         working-directory: infra
         run: terraform apply -input=false tfplan
+
+      # Reconciles the *already-running* instance's own /opt/movie-club/docker-compose.yml with whatever this
+      # apply just changed -- ec2.tf's aws_instance.app deliberately ignores user_data changes (see its own
+      # comment: user_data only ever runs once, at first boot, and AWS requires stopping the instance to even
+      # attempt applying an updated one in place), so a template edit alone would otherwise never reach a live
+      # instance without actually replacing it. docker_compose_content (outputs.tf) is the exact same rendered
+      # content a fresh instance's own first boot would write (see main.tf's local.docker_compose_content) --
+      # pushing it here keeps the two paths from ever drifting apart, for this change and any future one.
+      #
+      # Reads via the still-active Terraform role (state lives in the S3 backend, which only that role -- not
+      # the deploy role below -- has access to) and writes the content to a plain file, since the next step
+      # switches credentials away from it.
+      - name: Read rendered docker-compose.yml from Terraform state
+        working-directory: infra
+        run: terraform output -raw docker_compose_content > /tmp/docker-compose.yml
+
+      # Deliberately the *deploy* role here, not the Terraform role active above -- SSM Run Command is a much
+      # more powerful, different-shaped permission (arbitrary shell execution on the production instance) than
+      # anything else this job's own role is scoped for, and deploy-backend.yml's role is already narrowly
+      # scoped for exactly this (ssm:SendCommand/GetCommandInvocation against just this one instance, see
+      # github_oidc.tf) -- reusing it here keeps that boundary intact instead of widening the Terraform role's
+      # own permissions to cover it too.
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # Same SSM Run Command approach as deploy-backend.yml's own deploy step, and the same reason: a GitHub-
+      # hosted runner's IP is too dynamic for the instance's SSH-only security group rule.
+      - name: Resolve EC2 instance id
+        id: instance
+        run: |
+          echo "id=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=movie-club-app" "Name=instance-state-name,Values=running" \
+            --query "Reservations[].Instances[].InstanceId" --output text)" >> "$GITHUB_OUTPUT"
+
+      - name: Sync docker-compose.yml to the live instance
+        env:
+          INSTANCE_ID: ${{ steps.instance.outputs.id }}
+        run: |
+          set -euo pipefail
+          COMPOSE_CONTENT=$(cat /tmp/docker-compose.yml)
+
+          SCRIPT=$(cat <<SCRIPT_EOF
+          set -euo pipefail
+          cat > /opt/movie-club/docker-compose.yml <<'COMPOSE_EOF'
+          $COMPOSE_CONTENT
+          COMPOSE_EOF
+          cd /opt/movie-club
+          # No pull/no image change here (that's deploy-backend.yml's own job) -- this only picks up config
+          # (env vars, logging options, etc.) that changed, restarting whichever service's config actually
+          # changed. A no-op apply (nothing in the compose content changed) still runs this harmlessly.
+          docker compose up -d
+          SCRIPT_EOF
+          )
+
+          PARAMS_JSON=$(jq -n --arg script "$SCRIPT" '{commands: ($script | split("\n"))}')
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "$PARAMS_JSON" \
+            --query "Command.CommandId" --output text)
+
+          aws ssm wait command-executed --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" || true
+
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query "[Status,StandardOutputContent,StandardErrorContent]" --output text
+
+          STATUS=$(aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query "Status" --output text)
+          [ "$STATUS" = "Success" ]

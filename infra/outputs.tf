@@ -31,6 +31,23 @@ output "s3_backups_bucket" {
   value       = aws_s3_bucket.backups.id
 }
 
+output "s3_photos_bucket" {
+  description = "Member photo uploads land here (S3StorageClient, see s3_photos.tf)."
+  value       = aws_s3_bucket.photos.id
+}
+
+output "docker_compose_content" {
+  description = <<-EOT
+    The exact docker-compose.yml content a fresh instance's own first boot would write (see
+    templates/docker-compose.yml.tpl and user_data.sh.tpl) -- source of truth for terraform.yml's apply job,
+    which pushes this same content to the *already-running* instance via SSM after every apply and restarts the
+    stack. Needed because user_data only ever runs once at first boot (ec2.tf's aws_instance.app deliberately
+    ignores user_data changes -- see its own comment), so a template edit alone would otherwise never reach a
+    live instance without actually replacing it.
+  EOT
+  value       = local.docker_compose_content
+}
+
 output "cloudfront_distribution_id" {
   description = "GitHub Actions invalidates this distribution's cache after every frontend deploy."
   value       = aws_cloudfront_distribution.frontend.id

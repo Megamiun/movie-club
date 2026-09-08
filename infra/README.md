@@ -201,10 +201,13 @@ just this one log group) -- nothing to configure on the instance itself.
 **Tailing**: `aws logs tail /<your-project_name>/backend --follow` (the log group name is just `/${project_name}/backend`,
 no Terraform output needed to look it up -- you already know `project_name`).
 
-**Important**: same `user_data`-only-runs-once caveat as Backups above -- this does **not** retroactively apply to
-an already-running instance. To back-fill it now, SSH/SSM in and add the same `logging:` block (copy it from the
-rendered template, or from `templates/user_data.sh.tpl`'s heredoc by hand) to `/opt/movie-club/docker-compose.yml`,
-then `docker compose up -d backend` to recreate just that container against the new config.
+**Important**: same `user_data`-only-runs-once caveat as Backups above -- a template change alone never reaches an
+already-running instance. Unlike Backups (still a genuinely manual back-fill if you ever need one), this one is
+handled automatically now: `templates/docker-compose.yml.tpl` (spliced into `user_data.sh.tpl` at first boot, and
+exposed as the `docker_compose_content` output) is the single source of truth for the compose file's content, and
+`terraform.yml`'s `apply` job pushes that same content to the live instance via SSM Run Command after every apply,
+then restarts whichever service actually changed -- no manual SSH/SSM step needed for a `docker-compose.yml.tpl`
+edit like this one anymore.
 
 ## What's NOT here
 

@@ -99,6 +99,7 @@ data "aws_iam_policy_document" "github_actions_terraform" {
     resources = [
       "arn:aws:s3:::${var.project_name}-frontend", "arn:aws:s3:::${var.project_name}-frontend/*",
       "arn:aws:s3:::${var.project_name}-backups", "arn:aws:s3:::${var.project_name}-backups/*",
+      "arn:aws:s3:::${var.project_name}-photos", "arn:aws:s3:::${var.project_name}-photos/*",
       "arn:aws:s3:::${var.tf_state_bucket_name}", "arn:aws:s3:::${var.tf_state_bucket_name}/*",
     ]
   }

@@ -82,6 +82,33 @@ resource "aws_iam_role_policy" "s3_write_backups" {
   policy = data.aws_iam_policy_document.s3_write_backups.json
 }
 
+# Lets the backend container itself (via the instance's own role -- DefaultCredentialsProvider, no keys configured,
+# see S3StorageClient's own comment) upload member photos to s3_photos.tf's bucket. `s3:ListBucket` on the bucket
+# itself (not `/*`) is the one addition beyond a plain write grant like s3_write_backups above -- `S3StorageClient.
+# ensureBucketExists` calls `HeadBucket` before every upload (to skip its own create-bucket/set-policy fallback,
+# which s3_photos.tf already handles up front in production), and `HeadBucket` is authorized by `s3:ListBucket`,
+# not `s3:GetObject`/`s3:PutObject`. Without this, that call gets a 403 (not the 404 `ensureBucketExists` treats
+# as "doesn't exist yet, create it"), which its `if (statusCode != 404) throw` rethrows -- every upload would fail
+# even though the bucket genuinely exists and PutObject alone would otherwise have worked. Still no read/delete on
+# the objects themselves: a browser reads an uploaded photo directly via the bucket's own public-read policy, the
+# app never reads its own uploads back.
+data "aws_iam_policy_document" "s3_write_photos" {
+  statement {
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.photos.arn}/*"]
+  }
+  statement {
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.photos.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "s3_write_photos" {
+  name   = "movie-club-s3-write-photos"
+  role   = aws_iam_role.ec2.id
+  policy = data.aws_iam_policy_document.s3_write_photos.json
+}
+
 # Lets the instance's own backend container ship its logs to CloudWatch Logs (cloudwatch.tf) via the `awslogs`
 # docker logging driver -- scoped to just that one log group, and no logs:CreateLogGroup: the group already exists
 # (Terraform-managed), and the production compose file (templates/user_data.sh.tpl) sets `awslogs-create-group:
