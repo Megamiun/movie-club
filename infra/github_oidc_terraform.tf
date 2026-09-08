@@ -161,9 +161,17 @@ data "aws_iam_policy_document" "github_actions_terraform" {
   # deadlock (this data/resource refreshes at the start of every plan using whatever policy is currently live, not
   # the pending .tf change that would grant it) -- not discovered narrowly-enumerated action-by-action this time.
   statement {
-    sid       = "ManageOwnCloudWatchLogGroup"
-    actions   = ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:TagResource", "logs:UntagResource"]
-    resources = ["arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/${var.project_name}/backend:*"]
+    sid     = "ManageOwnCloudWatchLogGroup"
+    actions = ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:TagResource", "logs:UntagResource"]
+    # Both ARN forms -- confirmed by a real AccessDenied that the log-group-level actions above (CreateLogGroup
+    # etc.) are evaluated against the bare log-group ARN with no trailing ":*" suffix. That suffix form is only
+    # for stream-level actions (e.g. PutLogEvents/CreateLogStream, granted to the *EC2 role* instead --
+    # iam.tf's cloudwatch_write_backend_logs, not this role), unlike the S3 bucket/bucket-object pattern
+    # elsewhere in this file where both forms are genuinely different resources rather than the same one.
+    resources = [
+      "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/${var.project_name}/backend",
+      "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/${var.project_name}/backend:*",
+    ]
   }
 
   statement {
