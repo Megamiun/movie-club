@@ -397,7 +397,7 @@ function RatingDisplaySettingsButton() {
         onClose={() => setAnchorEl(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
       >
-        <Stack spacing={2} sx={{ p: 2, width: 240 }}>
+        <Stack spacing={2} sx={{ p: 2, width: 300 }}>
           <Box>
             <Typography variant="caption" color="text.secondary">
               Gradient blend ({gradientPercent}%)
@@ -425,6 +425,7 @@ function RatingDisplaySettingsButton() {
             >
               <ToggleButton value="number">Number</ToggleButton>
               <ToggleButton value="description">Description</ToggleButton>
+              <ToggleButton value="initials">Initials</ToggleButton>
               <ToggleButton value="none">No text</ToggleButton>
             </ToggleButtonGroup>
           </Box>

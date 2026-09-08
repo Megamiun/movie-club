@@ -536,22 +536,33 @@ enforces those automatically. This section is for conventions ktlint can't check
   white-vs-dark chip text per option by luminance (`frontend/src/utils/color.ts`) rather than assuming either
 - The Meetings table's per-member rating box (`InlineRatingEditor`) is driven by two personal display settings —
   gradient blend percent (0–50%, how much of the box blends between the quality and sentiment colors around the
-  midpoint) and fill content (`Number` = rank digit, `Description` = written label, `No text` = color only, no
-  label) — held in `frontend/src/settings/RatingDisplayContext.tsx` and persisted to `localStorage`, not on Member
-  server-side, since it's a personal display preference like a theme toggle rather than club data. Edited via a
-  Tune-icon button next to the Meetings page heading. A rating that hasn't been given renders with no fill color at
+  midpoint) and fill content (`Number` = rank digit, `Description` = full written label, `Initials` = the label's
+  first letter, `No text` = color only, no label) — held in `frontend/src/settings/RatingDisplayContext.tsx` and
+  persisted to `localStorage`, not on Member server-side, since it's a personal display preference like a theme
+  toggle rather than club data. Edited via a Tune-icon button next to the Meetings page heading (the popover
+  widened 240px → 300px to fit four toggle buttons instead of three without crowding). `Description`/`Initials`
+  used to be one option (`Description`) that silently swapped to a first-letter fallback under the `sm` breakpoint
+  — real testing at the time (see the "check the acronym fallback" item below) found the full label genuinely only
+  leaves room for one member's column on a 390px phone, so the fallback itself was the right call, but *which one
+  applies* wasn't actually the viewer's choice. Split into two always-on, explicitly-selected options instead, so
+  a reader can deliberately pick either trade-off (e.g. still wanting full labels on a phone held landscape)
+  rather than have screen width decide for them. A rating that hasn't been given renders with no fill color at
   all (fully transparent, no text regardless of the fill-content setting) — never the other rating filling the whole
   box — so fill color only ever represents a rating that was actually given; the blend band itself is only ever
   drawn when both quality and sentiment are set. The box's own dashed outline (in the member's own club color) is
   always shown regardless, though, even for a fully unrated cell — it's the click target, not a rating indicator,
-  so there's still something to click even when nothing's been rated yet
+  so there's still something to click even when nothing's been rated yet. Hovering the box shows a structured
+  tooltip (member name, then one line per scale with a small dot in the option's own color and its label, or a
+  muted "Not rated") instead of the old single-line "Member: label / label" string, which read as a run-on and
+  gave no visual weight to color
 - The box's width isn't a fixed guess (it used to be two hardcoded constants, 34px compact / 136px description) —
   it's computed from the widest content the *scale itself* could ever produce: digit count of `scale.options.length`
-  for `Number` mode, the longest actual option label for `Description` (still 1 character on small screens, per the
-  mobile-acronym finding above), floored at 1 for `No text`/empty. `calc(${maxContentLength * 2}ch + 20px)` — `ch`
-  rather than a raw px count, so the box also scales with the viewer's browser font-size/zoom. Every
-  `InlineRatingEditor` in the table reads the same `scales`/`fillWith`, so every cell computes the identical width
-  independently — no shared-parent measurement needed for cells to stay consistent with each other. Deliberately
+  for `Number` mode, `1` for `Initials`, the longest actual option label for `Description` (now always full-length,
+  see above — no small-screen exception left to account for), floored at 1 for `No text`/empty.
+  `calc(${maxContentLength * 2}ch + 20px)` — `ch` rather than a raw px count, so the box also scales with the
+  viewer's browser font-size/zoom. Every `InlineRatingEditor` in the table reads the same `scales`/`fillWith`, so
+  every cell computes the identical width independently — no shared-parent measurement needed for cells to stay
+  consistent with each other. Deliberately
   sized to the scale's worst case, not the specific option a given cell shows: a club with a long custom label (or
   more than 9 options in a scale) needs the box wide enough to never truncate that content anywhere it could
   appear, even in cells currently showing something shorter

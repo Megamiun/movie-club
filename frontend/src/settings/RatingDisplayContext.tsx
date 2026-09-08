@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
-export type RatingFillWith = 'number' | 'description' | 'none'
+export type RatingFillWith = 'number' | 'description' | 'initials' | 'none'
 
 interface RatingDisplaySettings {
   gradientPercent: number
@@ -22,7 +22,10 @@ function loadSettings(): RatingDisplaySettings {
     const parsed = JSON.parse(raw)
     return {
       gradientPercent: typeof parsed.gradientPercent === 'number' ? parsed.gradientPercent : DEFAULTS.gradientPercent,
-      fillWith: parsed.fillWith === 'description' || parsed.fillWith === 'none' ? parsed.fillWith : 'number',
+      fillWith:
+        parsed.fillWith === 'description' || parsed.fillWith === 'initials' || parsed.fillWith === 'none'
+          ? parsed.fillWith
+          : 'number',
     }
   } catch {
     return DEFAULTS

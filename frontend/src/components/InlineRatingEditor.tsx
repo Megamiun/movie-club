@@ -1,4 +1,4 @@
-import { Box, MenuItem, Popover, Select, Stack, Tooltip, useMediaQuery, useTheme } from '@mui/material'
+import { Box, MenuItem, Popover, Select, Stack, Tooltip, Typography } from '@mui/material'
 import { useState } from 'react'
 import type { RatingOption, RatingScale } from '../api/types'
 import { useRatingDisplay } from '../settings/RatingDisplayContext'
@@ -6,13 +6,19 @@ import { strongPastelHex } from '../utils/pastelColor'
 
 /**
  * Quality and sentiment each get their own half of the box, filled with that rating's own color and (per the
- * user's rating-display settings, see [useRatingDisplay]) its numeric rank, its written label, or no text at all --
- * the fill color/gradient is the same regardless, only the label is affected by that third option. When both
- * halves are set, `gradientPercent` controls how much of the middle blends between the two colors (0 = hard
- * edge, colors touch directly). A half with no rating shows nothing at all (no color, no placeholder text) -- the
- * fill only ever represents a rating that was actually given. A solid 2px border in the member's strong color
- * identifies whose box this is at a glance, accompanied by column headers. Clicking (when [editable]) opens the
- * same quality/sentiment [Select] popover as before.
+ * user's rating-display settings, see [useRatingDisplay]) its numeric rank, its written label, its label's first
+ * letter, or no text at all -- the fill color/gradient is the same regardless, only the label is affected by that
+ * setting. `description` (full label) and `initials` (first letter only) are two separate, explicit choices, not
+ * a responsive fallback -- `description` used to auto-shrink to a single letter on a small viewport (a full label
+ * is too wide for the meetings table's one-column-per-member layout there), but that meant the choice wasn't
+ * really the user's: verified live at the time that showing the full label really does only leave room for the
+ * first member's column on a 390px phone, yet some readers may still want that trade-off deliberately (a phone
+ * held landscape, or just preferring to scroll for the full word) rather than have it decided for them by screen
+ * width alone. When both halves are set, `gradientPercent` controls how much of the middle blends between the two
+ * colors (0 = hard edge, colors touch directly). A half with no rating shows nothing at all (no color, no
+ * placeholder text) -- the fill only ever represents a rating that was actually given. A solid 2px border in the
+ * member's strong color identifies whose box this is at a glance, accompanied by column headers. Clicking (when
+ * [editable]) opens the same quality/sentiment [Select] popover as before.
  */
 export function InlineRatingEditor({
   scales,
@@ -35,10 +41,6 @@ export function InlineRatingEditor({
 }) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
   const { gradientPercent, fillWith } = useRatingDisplay()
-  // On a small viewport, a full written label (e.g. "Excepcional!") is too wide for the meetings table's
-  // one-column-per-member layout -- fall back to just its first letter, same as `fillWith: 'number'` already
-  // being a single-character rank. Only affects 'description'; 'number'/'none' are already this compact.
-  const isSmallScreen = useMediaQuery(useTheme().breakpoints.down('sm'))
   const quality = scales.find((s) => s.type === 'QUALITY')
   const sentiment = scales.find((s) => s.type === 'SENTIMENT')
   const qualityOption = quality?.options.find((o) => o.id === qualityOptionId)
@@ -54,7 +56,8 @@ export function InlineRatingEditor({
   const contentFor = (option: RatingOption | undefined, scale: RatingScale | undefined) => {
     if (!option || !scale || fillWith === 'none') return ''
     if (fillWith === 'number') return String(rankOf(option, scale))
-    return isSmallScreen ? option.label.charAt(0) : option.label
+    if (fillWith === 'initials') return option.label.charAt(0)
+    return option.label
   }
 
   // Sized to the *widest content this scale could ever show*, not whichever option this particular cell happens to
@@ -66,7 +69,7 @@ export function InlineRatingEditor({
   const maxOptionContentLength = (scale: RatingScale | undefined): number => {
     if (!scale || fillWith === 'none') return 0
     if (fillWith === 'number') return String(scale.options.length).length
-    if (isSmallScreen) return 1
+    if (fillWith === 'initials') return 1
     return Math.max(...scale.options.map((o) => o.label.length))
   }
   const maxContentLength = Math.max(1, maxOptionContentLength(quality), maxOptionContentLength(sentiment))
@@ -78,7 +81,15 @@ export function InlineRatingEditor({
   }
 
   const memberBorderColor = memberColor ? strongPastelHex(memberColor) : 'rgba(0, 0, 0, 0.18)'
-  const tooltip = `${memberName}: ${qualityOption?.label ?? 'no quality rating'} / ${sentimentOption?.label ?? 'no sentiment rating'}`
+  const tooltip = (
+    <Stack spacing={0.5} sx={{ py: 0.25 }}>
+      <Typography variant="caption" sx={{ fontWeight: 700, lineHeight: 1.4 }}>
+        {memberName}
+      </Typography>
+      {quality && <TooltipRatingLine label="Quality" option={qualityOption} />}
+      {sentiment && <TooltipRatingLine label="Sentiment" option={sentimentOption} />}
+    </Stack>
+  )
 
   return (
     <>
@@ -203,6 +214,20 @@ export function InlineRatingEditor({
         </Popover>
       )}
     </>
+  )
+}
+
+/** One line of the box's tooltip -- "Quality"/"Sentiment" plus a colored dot and the option's label when rated,
+ * or a muted "Not rated" when not, instead of the old single-line "Member: label / label" string (which read as
+ * a run-on, and rendered the same flat "no quality rating / no sentiment rating" whether one or both were unset). */
+function TooltipRatingLine({ label, option }: { label: string; option: RatingOption | undefined }) {
+  return (
+    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+      {option && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: option.color, flexShrink: 0 }} />}
+      <Typography variant="caption" sx={{ lineHeight: 1.4 }}>
+        {label}: {option ? option.label : <Box component="span" sx={{ opacity: 0.7, fontStyle: 'italic' }}>Not rated</Box>}
+      </Typography>
+    </Stack>
   )
 }
 

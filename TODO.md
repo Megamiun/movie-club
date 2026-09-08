@@ -86,6 +86,9 @@
     phone that's wide enough that only the *first* member's rating column fits on screen at all; every other
     member's column scrolls off entirely, which defeats the point of a table meant for comparing everyone's
     ratings at a glance. The single-letter fallback was already the right call; no code change made.
+  - Revisited later this session: the fallback itself was right, but it wasn't the *viewer's* choice — split into
+    two explicit, always-on options (see "Separate full description and description initials" below) instead of
+    a screen-width-triggered automatic swap.
 - [x] Add a drag-and-drop icon/handle instead of dragging from anywhere on the row — same ask as the existing
   item below ("Consider using a drag handle on phone, instead of the whole line"); done together.
   - Watchlist cards already had a dedicated `DragIndicatorIcon` handle (`{...attributes} {...listeners}` on just
@@ -216,6 +219,21 @@
   - Nothing is scraping this yet (no Prometheus/Grafana in this project's infra) — this is the minimum useful
     building block (structured, aggregatable metrics available on request) rather than a full observability setup,
     matching "minimum" in the ask.
+
+- [x] Separate full description and description initials (rating box fill-content setting) instead of
+  `Description` silently swapping to a first-letter fallback under the mobile breakpoint
+  - `RatingFillWith` gained a fourth value, `'initials'` — `InlineRatingEditor` no longer has any
+    `useMediaQuery`/small-screen branch at all; `Description` is now always the full label, `Initials` is always
+    just the first letter, and the box-width calculation (`maxOptionContentLength`) follows suit. The Tune-icon
+    settings popover's toggle group gained a fourth button (`Number` / `Description` / `Initials` / `No text`),
+    widened 240px → 300px so four labels don't crowd.
+  - Also cleaned up the box's tooltip while touching this code (asked for separately, same area): was one
+    single-line string ("Member: label / label", reading as a run-on and showing no color); now a small structured
+    popup — member name, then one line per scale with a dot in the option's own color and its label, or a muted
+    "Not rated" when unset.
+  - No browser available in this session to verify visually — typecheck/lint pass, and a static mockup (real
+    colors/labels from `ClubService.kt`'s seeded palette) was published as an Artifact for a rough preview, but
+    the actual rendered popover/tooltip spacing hasn't been checked live yet.
 
 - [ ] Member-color and language-preference PATCHes raise the same "one action per click" question the movie/episode
   rating endpoints already answered (a per-field PATCH rather than a full overwrite) — still unresolved.
