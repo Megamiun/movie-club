@@ -1,48 +1,14 @@
 # TODO
 
-- [x] Merged the Watchlist into one full-width, drag-and-drop-reorderable section per member (viewer's own first,
-  movies and series mixed into a single list) — see CLAUDE.md's WatchlistEntry section.
 - [x] Added a "← Back to watchlist" link on the meeting detail page, next to the existing "← Back to meetings" one.
-- [x] Replaced the Watchlist's plain meeting-id `<Select>` with a proximity-ordered `Autocomplete`, same as the
-  swap/merge picker — see CLAUDE.md's WatchlistEntry section.
-- [x] Added member photo uploads (S3/MinIO), shown via an opt-in per-viewer toggle — see CLAUDE.md's Member section.
-- [x] Checked the acronym fallback for the rating box's full description on phones — verdict: keep it (later
-  revisited: split into explicit Description/Initials options, see CLAUDE.md's RatingScale section).
-- [x] Moved the meetings-table drag handle onto its own icon column instead of the whole row, matching the
-  Watchlist card's own handle — see CLAUDE.md's Movie section.
-- [x] Removed the redundant Movies tab (Series tab stays — it's also the only place to browse followed series) —
-  see CLAUDE.md's Movie section.
-- [x] Allowed moving a movie from any club member's Watchlist onto a meeting, not just your own — see CLAUDE.md's
-  WatchlistEntry section.
 - [x] Moved the watch-link input onto its own line in the add/edit movie form so it's not cramped on narrow
   screens.
-- [x] Added an Add: Movie/Series toggle on the meeting page so the add-movie/assign-episode forms stay hidden
-  until chosen — see CLAUDE.md's Movie section.
-- [x] Verified the month share/export link on desktop falls back to a plain download correctly — no bug found.
-- [x] Replaced the swap/merge "other meeting ID" text box with a proximity-ordered `Autocomplete` showing dates —
-  see CLAUDE.md's Schedule Model section.
-- [x] Rebalanced the Calendar tab's poster grid rows instead of an uneven `flex-wrap` (and fixed a
-  `ResizeObserver` mount-timing bug found while verifying it) — see CLAUDE.md's Schedule Model section.
-
-- [x] Consider using a drag handle on phone, instead of the whole line — done together with the item above.
-- [x] Made the rating box size dynamic instead of two fixed guesses (34px/136px) — sized to the scale's widest
-  possible content instead, consistent with the acronym-fallback behavior on small screens — see CLAUDE.md's
-  RatingScale section.
-
-- [x] Added minimal request metrics (`GET /metrics`, Ktor's Micrometer + Prometheus registry) — see CLAUDE.md's
-  Backend Architecture section.
-
-- [x] Split the rating box's "Description" fill mode into explicit Description/Initials options instead of an
-  automatic small-screen swap, and cleaned up the rating tooltip — see CLAUDE.md's RatingScale section.
 
 - [ ] Member-color and language-preference PATCHes raise the same "one action per click" question the movie/episode
   rating endpoints already answered (a per-field PATCH rather than a full overwrite) — still unresolved.
 
 - [ ] Rating-save code-review leftovers (the optimistic-update work itself shipped — see CLAUDE.md's RatingScale
   section; these are the lower-stakes findings from reviewing it, deliberately not folded in blind):
-  - [x] Extracted a shared `patchPickReview` helper instead of duplicating `patchMovieReview`/`patchEpisodeReview`
-    — see CLAUDE.md's RatingScale section.
-  - [x] `MovieRow`/`EpisodeRow` now compute `myReview` once instead of each rating handler re-scanning for it.
   - [ ] The capture-previous/optimistic-patch/rollback dance is hand-inlined separately in
     `MovieRow.handleSaveRating`/`EpisodeRow.handleSaveRating`, and `RatingForm.tsx`'s 4 call sites use a
     completely different, non-optimistic pattern — worth its own pass to extract one reusable optimistic-save
@@ -50,9 +16,6 @@
     combined `rate` endpoint) have a genuinely different shape than the split quality/sentiment PATCH pattern
     used here, and generalizing across both risks introducing a regression in code this pass didn't otherwise
     touch. Left as its own follow-up.
-
-- [x] Added on-demand (`POST /admin/metadata-refresh`) and nightly TMDB/OMDb metadata refresh, budgeted against
-  OMDb's daily quota — see CLAUDE.md's MediaItem section.
 
 # Stretch goals (only start after asked)
 

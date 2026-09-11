@@ -607,7 +607,7 @@ enforces those automatically. This section is for conventions ktlint can't check
   toggle rather than club data. Edited via a Tune-icon button next to the Meetings page heading (the popover
   widened 240px → 300px to fit four toggle buttons instead of three without crowding). `Description`/`Initials`
   used to be one option (`Description`) that silently swapped to a first-letter fallback under the `sm` breakpoint
-  — real testing at the time (see the "check the acronym fallback" item below) found the full label genuinely only
+  — real testing at the time found the full label genuinely only
   leaves room for one member's column on a 390px phone, so the fallback itself was the right call, but *which one
   applies* wasn't actually the viewer's choice. Split into two always-on, explicitly-selected options instead, so
   a reader can deliberately pick either trade-off (e.g. still wanting full labels on a phone held landscape)
