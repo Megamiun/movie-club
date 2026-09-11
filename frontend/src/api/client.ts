@@ -10,9 +10,19 @@ export class ApiError extends Error {
 }
 
 let authToken: string | null = null
+let onUnauthorized: (() => void) | null = null
+let onTokenRefreshed: ((token: string) => void) | null = null
 
 export function setAuthToken(token: string | null) {
   authToken = token
+}
+
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  onUnauthorized = handler
+}
+
+export function setTokenRefreshedHandler(handler: ((token: string) => void) | null) {
+  onTokenRefreshed = handler
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -26,7 +36,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   const response = await fetch(`${BASE_URL}${path}`, { ...options, headers })
 
+  const refreshedToken = response.headers.get('X-Refreshed-Token')
+  if (refreshedToken) {
+    authToken = refreshedToken
+    onTokenRefreshed?.(refreshedToken)
+  }
+
   if (!response.ok) {
+    if (response.status === 401) {
+      onUnauthorized?.()
+    }
     const message = await response.text().catch(() => response.statusText)
     throw new ApiError(response.status, message || response.statusText)
   }

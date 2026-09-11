@@ -1,6 +1,6 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { authApi } from '../api/auth'
-import { setAuthToken } from '../api/client'
+import { setAuthToken, setTokenRefreshedHandler, setUnauthorizedHandler } from '../api/client'
 import type { Member } from '../api/types'
 
 interface StoredSession {
@@ -36,7 +36,7 @@ setAuthToken(initialSession?.token ?? null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [member, setMember] = useState<Member | null>(initialSession?.member ?? null)
 
-  const applySession = (session: StoredSession | null) => {
+  const applySession = useCallback((session: StoredSession | null) => {
     if (session) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
       setAuthToken(session.token)
@@ -46,7 +46,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthToken(null)
       setMember(null)
     }
-  }
+  }, [])
+
+  const handleTokenRefreshed = useCallback((token: string) => {
+    const stored = loadSession()
+    if (stored) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored, token }))
+    }
+  }, [])
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => applySession(null))
+    setTokenRefreshedHandler(handleTokenRefreshed)
+    return () => {
+      setUnauthorizedHandler(null)
+      setTokenRefreshedHandler(null)
+    }
+  }, [applySession, handleTokenRefreshed])
 
   const value = useMemo<AuthContextValue>(
     () => ({
