@@ -88,6 +88,11 @@ enforces those automatically. This section is for conventions ktlint can't check
   app code computing any of it. Deliberately unauthenticated like `/health`, since there's no monitoring stack
   routing auth through yet and this isn't user data. Nothing scrapes it yet (no Prometheus/Grafana in this
   project's infra) — this is the minimum useful building block, not a full observability setup.
+- `kotlin.time.Instant` and `kotlinx.datetime.Instant` are not interchangeable in this project's dependency
+  versions — repository interfaces (e.g. `MovieRepository.findRefreshCandidates`'s `staleBefore: Instant` param)
+  standardize on `kotlin.time.Instant`. Use `kotlin.time.Clock` for `now()`, reaching for `kotlinx.datetime`'s
+  `toLocalDateTime(TimeZone)` extension only to derive a `LocalDate` (it does accept the stdlib `Instant` in this
+  version) — mixing in `kotlinx.datetime.Clock` elsewhere causes a type mismatch.
 
 ## Domain Model
 
