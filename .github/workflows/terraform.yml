@@ -158,9 +158,13 @@ jobs:
       # Reads via the still-active Terraform role (state lives in the S3 backend, which only that role -- not
       # the deploy role below -- has access to) and writes the content to a plain file, since the next step
       # switches credentials away from it.
-      - name: Read rendered docker-compose.yml from Terraform state
+      - name: Read rendered config from Terraform state
         working-directory: infra
-        run: terraform output -raw docker_compose_content > /tmp/docker-compose.yml
+        run: |
+          terraform output -raw docker_compose_content > /tmp/docker-compose.yml
+          terraform output -raw caddyfile_content > /tmp/Caddyfile
+          terraform output -raw prometheus_config_content > /tmp/prometheus.yml
+          terraform output -raw grafana_datasources_content > /tmp/grafana-datasources.yml
 
       # Deliberately the *deploy* role here, not the Terraform role active above -- SSM Run Command is a much
       # more powerful, different-shaped permission (arbitrary shell execution on the production instance) than
@@ -182,23 +186,41 @@ jobs:
             --filters "Name=tag:Name,Values=movie-club-app" "Name=instance-state-name,Values=running" \
             --query "Reservations[].Instances[].InstanceId" --output text)" >> "$GITHUB_OUTPUT"
 
-      - name: Sync docker-compose.yml to the live instance
+      - name: Sync live config to the instance
         env:
           INSTANCE_ID: ${{ steps.instance.outputs.id }}
         run: |
           set -euo pipefail
           COMPOSE_CONTENT=$(cat /tmp/docker-compose.yml)
+          CADDYFILE_CONTENT=$(cat /tmp/Caddyfile)
+          PROMETHEUS_CONTENT=$(cat /tmp/prometheus.yml)
+          GRAFANA_DATASOURCES_CONTENT=$(cat /tmp/grafana-datasources.yml)
 
           SCRIPT=$(cat <<SCRIPT_EOF
           set -euo pipefail
           cat > /opt/movie-club/docker-compose.yml <<'COMPOSE_EOF'
           $COMPOSE_CONTENT
           COMPOSE_EOF
+          cat > /etc/caddy/Caddyfile <<'CADDY_EOF'
+          $CADDYFILE_CONTENT
+          CADDY_EOF
+          cat > /opt/movie-club/prometheus.yml <<'PROMETHEUS_EOF'
+          $PROMETHEUS_CONTENT
+          PROMETHEUS_EOF
+          cat > /opt/movie-club/grafana-datasources.yml <<'GRAFANA_EOF'
+          $GRAFANA_DATASOURCES_CONTENT
+          GRAFANA_EOF
+          systemctl reload caddy
           cd /opt/movie-club
           # No pull/no image change here (that's deploy-backend.yml's own job) -- this only picks up config
-          # (env vars, logging options, etc.) that changed, restarting whichever service's config actually
-          # changed. A no-op apply (nothing in the compose content changed) still runs this harmlessly.
+          # (env vars, logging options, bind-mounted config files, etc.) that changed, restarting whichever
+          # service's config actually changed. A no-op apply (nothing in any of the above changed) still runs
+          # this harmlessly.
           docker compose up -d
+          # up -d alone only restarts a container whose *compose service definition* changed -- prometheus.yml/
+          # grafana-datasources.yml are bind-mounted files whose *content* can change without the compose file
+          # itself changing, so these two need an explicit restart to actually pick that up.
+          docker compose restart prometheus grafana
           SCRIPT_EOF
           )
 

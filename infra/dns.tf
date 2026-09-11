@@ -21,3 +21,13 @@ resource "aws_route53_record" "api" {
   ttl     = 300
   records = [aws_eip.app.public_ip]
 }
+
+# metrics.<domain> -- same shape as api_domain above: straight to the EC2 instance's Elastic IP, Caddy on the box
+# terminates TLS and reverse-proxies to Grafana (self-hosted alongside Prometheus on the same instance).
+resource "aws_route53_record" "metrics" {
+  zone_id = data.aws_route53_zone.apex.zone_id
+  name    = local.metrics_domain
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.app.public_ip]
+}

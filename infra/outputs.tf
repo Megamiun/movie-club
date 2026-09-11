@@ -48,6 +48,21 @@ output "docker_compose_content" {
   value       = local.docker_compose_content
 }
 
+output "caddyfile_content" {
+  description = "Same live-sync reasoning as docker_compose_content above -- the exact Caddyfile a fresh instance's first boot would write (templates/Caddyfile.tpl), pushed to the already-running instance via SSM after every apply so a subdomain/routing change doesn't silently wait for a future instance replacement to take effect."
+  value       = local.caddyfile_content
+}
+
+output "prometheus_config_content" {
+  description = "Same live-sync reasoning as docker_compose_content above, for Prometheus' scrape config (templates/prometheus.yml)."
+  value       = local.prometheus_config_content
+}
+
+output "grafana_datasources_content" {
+  description = "Same live-sync reasoning as docker_compose_content above, for Grafana's datasource-provisioning file (templates/grafana-datasources.yml)."
+  value       = local.grafana_datasources_content
+}
+
 output "cloudfront_distribution_id" {
   description = "GitHub Actions invalidates this distribution's cache after every frontend deploy."
   value       = aws_cloudfront_distribution.frontend.id

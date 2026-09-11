@@ -86,8 +86,11 @@ enforces those automatically. This section is for conventions ktlint can't check
   request metrics via Ktor's `MicrometerMetrics` plugin + a `PrometheusMeterRegistry` — per-route request count,
   status code, and response-time percentiles, plus JVM/process metrics, entirely from the plugin/registry with no
   app code computing any of it. Deliberately unauthenticated like `/health`, since there's no monitoring stack
-  routing auth through yet and this isn't user data. Nothing scrapes it yet (no Prometheus/Grafana in this
-  project's infra) — this is the minimum useful building block, not a full observability setup.
+  routing auth through yet and this isn't user data. Scraped by a self-hosted Prometheus + Grafana, both running
+  as extra containers on the same EC2 instance rather than a managed service (CloudWatch's own custom-metrics
+  pricing is per unique time series/month — this app's route×status×JVM cardinality would run real recurring
+  cost for what's a hobby project's observability; self-hosting on spare capacity on a box already being paid for
+  is free) — see `infra/README.md`'s Metrics section for the subdomain, credentials, and live-sync mechanism.
 - `kotlin.time.Instant` and `kotlinx.datetime.Instant` are not interchangeable in this project's dependency
   versions — repository interfaces (e.g. `MovieRepository.findRefreshCandidates`'s `staleBefore: Instant` param)
   standardize on `kotlin.time.Instant`. Use `kotlin.time.Clock` for `now()`, reaching for `kotlinx.datetime`'s

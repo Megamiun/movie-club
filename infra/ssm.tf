@@ -34,3 +34,8 @@ data "aws_ssm_parameter" "omdb_api_key" {
   name            = "${local.ssm_parameter_prefix}/omdb_api_key"
   with_decryption = false
 }
+
+data "aws_ssm_parameter" "grafana_admin_password" {
+  name            = "${local.ssm_parameter_prefix}/grafana_admin_password"
+  with_decryption = false
+}

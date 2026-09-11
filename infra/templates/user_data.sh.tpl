@@ -1,6 +1,7 @@
 #!/bin/bash
 # Provisions the box: Docker, the Compose CLI plugin, Caddy (automatic HTTPS reverse proxy in front of the
-# backend container), the Postgres data volume mount, and a starter docker-compose.yml under /opt/movie-club.
+# backend container and Grafana), the Postgres data volume mount, and a starter docker-compose.yml under
+# /opt/movie-club (backend/db plus a self-hosted Prometheus+Grafana, see that file).
 # Deploys themselves (pulling a new backend image, refreshing the .env from SSM, `docker compose up -d`) are
 # GitHub Actions' job over SSM Run Command -- this script only needs to run once, at first boot.
 set -euo pipefail
@@ -36,10 +37,12 @@ tar -xzf /tmp/caddy.tar.gz -C /usr/local/bin caddy
 rm /tmp/caddy.tar.gz
 
 mkdir -p /etc/caddy
+# Content is rendered once by Terraform (infra/main.tf's local.caddyfile_content, from templates/Caddyfile.tpl)
+# and spliced in here verbatim -- same reasoning as docker_compose_content below: kept in one file rather than
+# duplicated between this first-boot copy and the caddyfile_content output terraform.yml's apply job pushes to
+# an already-running instance via SSM.
 cat > /etc/caddy/Caddyfile <<'CADDYFILE'
-${api_domain} {
-	reverse_proxy localhost:8080
-}
+${caddyfile_content}
 CADDYFILE
 
 cat > /etc/systemd/system/caddy.service <<'UNIT'
@@ -99,6 +102,17 @@ cat > /opt/movie-club/docker-compose.yml <<'COMPOSE'
 ${docker_compose_content}
 COMPOSE
 
+# Same single-source-of-truth reasoning as docker-compose.yml above -- rendered once by Terraform
+# (local.prometheus_config_content/local.grafana_datasources_content) and pushed live via SSM by terraform.yml's
+# apply job, not just baked into this first-boot copy.
+cat > /opt/movie-club/prometheus.yml <<'PROMETHEUS'
+${prometheus_config_content}
+PROMETHEUS
+
+cat > /opt/movie-club/grafana-datasources.yml <<'GRAFANA_DATASOURCES'
+${grafana_datasources_content}
+GRAFANA_DATASOURCES
+
 # Regenerates .env from SSM Parameter Store -- run by the GitHub Actions deploy step before every
 # `docker compose up -d`, so secrets are fetched fresh at deploy time rather than living in this file at rest.
 cat > /opt/movie-club/fetch-secrets.sh <<'SCRIPT'
@@ -112,6 +126,7 @@ DATABASE_PASSWORD=$(get database_password)
 JWT_SECRET=$(get jwt_secret)
 TMDB_ACCESS_TOKEN=$(get tmdb_access_token)
 OMDB_API_KEY=$(get omdb_api_key)
+GRAFANA_ADMIN_PASSWORD=$(get grafana_admin_password)
 ENV
 chmod 600 /opt/movie-club/.env
 SCRIPT

@@ -34,6 +34,7 @@ data "aws_iam_policy_document" "ssm_read_secrets" {
       data.aws_ssm_parameter.database_password.arn,
       data.aws_ssm_parameter.tmdb_access_token.arn,
       data.aws_ssm_parameter.omdb_api_key.arn,
+      data.aws_ssm_parameter.grafana_admin_password.arn,
     ]
   }
 

@@ -21,6 +21,12 @@ variable "api_subdomain" {
   default     = "api"
 }
 
+variable "metrics_subdomain" {
+  description = "Subdomain Grafana (self-hosted alongside Prometheus on the same EC2 instance, behind Caddy) is served from, e.g. \"metrics\" for metrics.example.com."
+  type        = string
+  default     = "metrics"
+}
+
 variable "cloudfront_price_class" {
   description = "CloudFront price class -- PriceClass_100 (US/Canada/Europe edge locations only) is the cheapest tier and plenty for a small friend group; widen it if the club is elsewhere."
   type        = string

@@ -43,16 +43,18 @@ terraform init -backend-config=backend.hcl
 
 ## One-time bootstrap: the secrets
 
-`jwt_secret`, `database_password`, `tmdb_access_token`, and `omdb_api_key` are **not** Terraform variables --
-`ssm.tf` reads them as `data` sources, not `resource`s, so Terraform never creates or holds their plaintext (which
-would otherwise sit in Terraform state -- `sensitive = true` on a variable only redacts CLI/log *output*, not the
-state file itself). Create the four parameters by hand, once, before the first `terraform plan`/`apply`:
+`jwt_secret`, `database_password`, `tmdb_access_token`, `omdb_api_key`, and `grafana_admin_password` are **not**
+Terraform variables -- `ssm.tf` reads them as `data` sources, not `resource`s, so Terraform never creates or holds
+their plaintext (which would otherwise sit in Terraform state -- `sensitive = true` on a variable only redacts
+CLI/log *output*, not the state file itself). Create the five parameters by hand, once, before the first
+`terraform plan`/`apply`:
 
 ```bash
 aws ssm put-parameter --name /movie-club/jwt_secret --type SecureString --value "$(openssl rand -base64 32)"
 aws ssm put-parameter --name /movie-club/database_password --type SecureString --value "$(openssl rand -base64 32)"
 aws ssm put-parameter --name /movie-club/tmdb_access_token --type SecureString --value "your-tmdb-api-read-access-token"
 aws ssm put-parameter --name /movie-club/omdb_api_key --type SecureString --value "your-omdb-api-key"  # optional -- can be an empty string
+aws ssm put-parameter --name /movie-club/grafana_admin_password --type SecureString --value "$(openssl rand -base64 32)"
 ```
 
 The parameter *names* (`/movie-club/jwt_secret`, etc.) are fixed by `ssm.tf`'s `ssm_parameter_prefix` local -- if
@@ -208,6 +210,29 @@ exposed as the `docker_compose_content` output) is the single source of truth fo
 `terraform.yml`'s `apply` job pushes that same content to the live instance via SSM Run Command after every apply,
 then restarts whichever service actually changed -- no manual SSH/SSM step needed for a `docker-compose.yml.tpl`
 edit like this one anymore.
+
+## Metrics
+
+Prometheus + Grafana run as two extra containers on the same EC2 instance (`templates/docker-compose.yml.tpl`),
+scraping the backend's own `GET /metrics` (see CLAUDE.md's Backend Architecture section) -- no managed service,
+no extra AWS resource to provision beyond the one new Route53 record and SSM parameter below.
+
+**Grafana**: `https://metrics.<your domain>` (`metrics_subdomain` variable, default `metrics`) -- log in as `admin`
+with the password you set in `/movie-club/grafana_admin_password` (see "One-time bootstrap: the secrets" above). A
+Prometheus datasource is auto-provisioned (`templates/grafana-datasources.yml`) -- no manual setup needed before
+building a dashboard.
+
+**Resource footprint**: this is a t4g.small (2GB RAM total, already shared with Postgres and the JVM backend), so
+both containers carry a `mem_limit: 256m` in the compose file -- deliberately conservative, to protect the actual
+app from memory pressure rather than let an unbounded Prometheus/Grafana starve it. If Grafana's own dashboards
+show the instance running consistently low on free memory, that's the signal to revisit `instance_type` before it
+becomes an actual outage, not something to guess at up front.
+
+**Live-sync**: the Caddyfile (routing `metrics.<domain>` to Grafana), Prometheus' scrape config, and Grafana's
+datasource file are all rendered by Terraform (`main.tf`'s `caddyfile_content`/`prometheus_config_content`/
+`grafana_datasources_content` locals) and pushed to the already-running instance by `terraform.yml`'s `apply` job,
+the same way `docker_compose_content` already was (see "Logs" above) -- no manual SSH/SSM step needed for a
+template edit to any of these to take effect.
 
 ## What's NOT here
 
