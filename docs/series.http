@@ -32,6 +32,7 @@ Content-Type: application/json
 
 > {%
   client.global.set("seriesId", response.body.id);
+  client.global.set("mediaItemId", response.body.mediaItemId);
 %}
 
 ### 4. List series for the club
@@ -131,6 +132,6 @@ Content-Type: application/json
 
 { "qualityOptionId": "{{qualityOptionId}}", "comment": "great pilot" }
 
-### 17. Refresh TMDB metadata
-POST http://localhost:8080/series/{{seriesId}}/refresh-metadata
+### 17. Refresh TMDB metadata (via the series' linked MediaItem, not the pick id)
+POST http://localhost:8080/media-items/{{mediaItemId}}/refresh-metadata
 Authorization: Bearer {{jwt}}

@@ -48,6 +48,7 @@ Content-Type: application/json
 
 > {%
   client.global.set("movieId", response.body.id);
+  client.global.set("mediaItemId", response.body.mediaItemId);
 %}
 
 ### 6. Get rating scale option ids
@@ -77,8 +78,8 @@ Content-Type: application/json
 
 { "customTitle": "My Custom Title", "preference": "CUSTOM" }
 
-### 10. Refresh TMDB metadata
-POST http://localhost:8080/movies/{{movieId}}/refresh-metadata
+### 10. Refresh TMDB metadata (via the movie's linked MediaItem, not the pick id)
+POST http://localhost:8080/media-items/{{mediaItemId}}/refresh-metadata
 Authorization: Bearer {{jwt}}
 
 ### 11. Postpone the meeting
@@ -100,7 +101,7 @@ Content-Type: application/json
 %}
 
 ### 13. Move movie pick to the second meeting
-POST http://localhost:8080/movies/{{movieId}}/move
+PATCH http://localhost:8080/movies/{{movieId}}
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
 

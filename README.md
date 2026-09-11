@@ -12,7 +12,7 @@ model, feature list, and coding conventions — this file is just about getting 
 | Database       | PostgreSQL + Exposed ORM, Flyway migrations          |
 | Auth           | Email/password (Argon2id) + JWT                      |
 | Movie metadata | TMDB API                                             |
-| Poster storage | AWS S3 (not yet wired up in code — see CLAUDE.md)    |
+| Poster storage | AWS S3 / MinIO (member photos only — see CLAUDE.md)  |
 
 ## Prerequisites
 
@@ -140,7 +140,8 @@ All defined in [.env.example](.env.example):
 | `JWT_SECRET`                                                                    | Signing secret for auth tokens. Change for anything beyond local dev.                                                                                                                          |
 | `TMDB_API_KEY` / `TMDB_ACCESS_TOKEN`                                            | From [TMDB's API settings](https://www.themoviedb.org/settings/api). The access token (v4, Bearer) is what's actually used for lookups.                                                        |
 | `OMDB_API_KEY`                                                                  | From [OMDb's API key page](https://www.omdbapi.com/apikey.aspx) (free tier). Used only to fetch IMDB's own rating — TMDB doesn't expose it. Optional: lookups are silently skipped when unset. |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `S3_BUCKET_NAME` | Reserved for poster storage — the S3 SDK is a dependency but no code uses it yet.                                                                                                              |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `S3_BUCKET_NAME` | S3 storage for member photo uploads (movie/series posters still come straight from TMDB's CDN, unrelated). See CLAUDE.md's Member section.                                                     |
+| `S3_ENDPOINT_URL` / `S3_PUBLIC_BASE_URL`                                        | Point the S3 client at a local MinIO instead of real AWS (`docker compose up -d minio`). Blank/unset for a real deployment.                                                                    |
 | `VITE_API_BASE_URL`                                                             | Backend URL baked into the frontend build. See the note above.                                                                                                                                 |
 
 ## Seeding a dev user

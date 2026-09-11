@@ -19,12 +19,12 @@ Content-Type: application/json
   client.global.set("clubId", response.body.id);
 %}
 
-### 2. Add a watchlist entry
+### 2. Add a watchlist entry (added by TMDB search only, no freeform title)
 POST http://localhost:8080/clubs/{{clubId}}/watchlist
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
-{ "title": "Dune" }
+{ "type": "MOVIE", "tmdbId": 324857 }
 
 > {%
   client.global.set("entryId", response.body.id);
@@ -34,12 +34,12 @@ Content-Type: application/json
 GET http://localhost:8080/clubs/{{clubId}}/watchlist
 Authorization: Bearer {{jwt}}
 
-### 4. Update the entry (owner-only)
+### 4. Reorder the entry (any club member may reorder; deleting stays owner-only)
 PATCH http://localhost:8080/watchlist/{{entryId}}
 Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
-{ "notes": "Watch before part two" }
+{ "position": 0 }
 
 ### 5. Delete the entry
 DELETE http://localhost:8080/watchlist/{{entryId}}

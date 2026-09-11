@@ -18,7 +18,10 @@ Content-Type: application/json
 ```
 *Response (201 Created):*
 ```json
-{ "inviteToken": "550e8400-e29b-41d4-a716-446655440000" }
+{
+  "memberId": "a1b2c3d4-...",
+  "inviteToken": "550e8400-e29b-41d4-a716-446655440000"
+}
 ```
 
 #### Step 2: Register
@@ -31,6 +34,7 @@ Content-Type: application/json
 {
   "inviteToken": "550e8400-e29b-41d4-a716-446655440000",
   "name": "Carol",
+  "username": "carol",
   "password": "hunter2"
 }
 ```
@@ -41,7 +45,10 @@ Content-Type: application/json
   "member": {
     "id": "a1b2c3d4-...",
     "name": "Carol",
-    "email": "carol@example.com"
+    "username": "carol",
+    "email": "carol@example.com",
+    "isSiteAdmin": false,
+    "photoUrl": null
   }
 }
 ```
@@ -116,7 +123,8 @@ Meetings anchor movies and series episode picks.
 2. **Pick Movie**: `POST /meetings/{meetingId}/movies` with `{ "imdbUrlOrId": "tt4857264" }` or `{ "tmdbId": 324857 }`.
 3. **Pick Episode**: `POST /seasons/{seasonId}/episodes` with `{ "number": 1, "title": "Pilot", "meetingId": "<id>" }` or assign existing via `POST /episodes/{episodeId}/meetings/{meetingId}`.
 4. **Move Pick**:
-   - Move Movie: `POST /movies/{movieId}/move` with `{ "meetingId": "<targetId>" }`
+   - Move Movie: `PATCH /movies/{movieId}` with `{ "meetingId": "<targetId>" }` (same PATCH used for custom
+     title/display preference/watch link edits — which meeting a pick belongs to is just another field).
    - Unassign Episode: `DELETE /episodes/{episodeId}/meetings/{meetingId}`
 5. **Swap Meetings**: `POST /meetings/{meetingId}/swap/{otherMeetingId}` (swaps assigned members).
 6. **Merge Meetings**: `POST /meetings/{meetingId}/merge/{fromMeetingId}` (transfers picks and deletes empty meeting).
@@ -126,9 +134,10 @@ Meetings anchor movies and series episode picks.
 ## 5. Metadata & Bulk Imports
 
 1. **Refresh Metadata**:
-   - `POST /movies/{movieId}/refresh-metadata`
-   - `POST /series/{seriesId}/refresh-metadata`
-   - `POST /episodes/{episodeId}/refresh-metadata`
+   - `POST /media-items/{mediaItemId}/refresh-metadata` — consolidated route for Movie and Series (dispatches on
+     the MediaItem's own type).
+   - `POST /episodes/{episodeId}/refresh-metadata` — Episode keeps its own dedicated route, since a
+     never-yet-refreshed episode has no `mediaItemId` yet for the consolidated route to address.
 2. **Bulk TV Season Import**:
    - `POST /series/{seriesId}/import-seasons` (fetches all seasons and episode metadata from TMDB in bulk).
 3. **CSV Imports**:
@@ -140,9 +149,11 @@ Meetings anchor movies and series episode picks.
 
 Each club maintains a shared backlog/watchlist for suggestions.
 
-1. **Add Entry**: `POST /clubs/{clubId}/watchlist` with `{ "title": "Dune: Part Two" }`
+1. **Add Entry**: `POST /clubs/{clubId}/watchlist` with `{ "type": "MOVIE", "tmdbId": 324857 }` — added by TMDB
+   search only, no freeform/manual title entry.
 2. **List Entries**: `GET /clubs/{clubId}/watchlist`
-3. **Update Entry**: `PATCH /watchlist/{entryId}` with `{ "notes": "Must watch in IMAX" }`
+3. **Reorder Entry**: `PATCH /watchlist/{entryId}` with `{ "position": 2 }` (a target index; every sibling between
+   the old and new position shifts in the same call).
 4. **Delete Entry**: `DELETE /watchlist/{entryId}`
 
 ---
@@ -153,3 +164,4 @@ System-wide administrative endpoints (accessible to site admins):
 
 1. **List Users**: `GET /admin/users`
 2. **List Media Items**: `GET /admin/media-items`
+3. **Trigger Metadata Refresh**: `POST /admin/metadata-refresh` (runs the same sweep as the nightly job on demand).

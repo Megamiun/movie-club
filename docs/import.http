@@ -35,7 +35,7 @@ Content-Type: application/json
 POST http://localhost:8080/auth/register
 Content-Type: application/json
 
-{ "inviteToken": "{{inviteToken}}", "name": "Person B", "password": "hunter2" }
+{ "inviteToken": "{{inviteToken}}", "name": "Person B", "username": "personb", "password": "hunter2" }
 
 > {%
   client.global.set("personBId", response.body.member.id);

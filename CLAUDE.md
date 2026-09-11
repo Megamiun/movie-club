@@ -10,7 +10,7 @@ groups), each with their own members, schedule, and history.
 | Frontend       | Vite + React + TypeScript (SPA, JSON REST API, no SSR)              |
 | Backend        | Ktor (Kotlin)                                                       |
 | Database       | PostgreSQL + Exposed ORM                                            |
-| Auth           | Email/password (Argon2id) + JWT (7-day) + invite-token registration |
+| Auth           | Email/password (Argon2id) + JWT (30-day, sliding renewal) + invite-token registration |
 | Movie metadata | TMDB API (lookup by IMDB `tt` ID via `/find` endpoint)              |
 | Poster storage | AWS S3 (MinIO for local dev)                                        |
 
