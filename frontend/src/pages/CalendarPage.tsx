@@ -21,19 +21,35 @@ import { resolveTitle } from '../utils/title'
 const MONTH_FORMATTER = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' })
 
 const POSTER_CARD_WIDTH = 120
-const POSTER_GRID_GAP = 16 // matches the Box's `gap: 2` MUI spacing below
+// Gap grows on phones (centered rows read cramped with the desktop spacing) -- kept as the two MUI spacing units
+// actually applied below (gap: 3/2 => 24px/16px) rather than a separate pixel constant, so this can't drift from
+// what's on screen.
+const POSTER_GRID_GAP = 24
 
 /** How many fixed-width poster cards fit per row at the given container width, then spreads the month's cards
  * evenly across however many rows that takes -- e.g. 7 cards at a 5-per-row width becomes 4+3 instead of a
  * naturally-wrapped 5+2, and a count that already fits in one row is never broken up at all. Returns `null` while
  * the container hasn't been measured yet, so the caller can fall back to plain CSS wrapping for that first paint
- * instead of flashing a single column. */
-function balancedColumns(count: number, containerWidth: number): number | null {
+ * instead of flashing a single column. `gap` must match whatever the caller actually renders (see
+ * `POSTER_GRID_GAP` above) or the column count and the real per-row width fall out of sync. */
+function balancedColumns(count: number, containerWidth: number, gap: number): number | null {
   if (count === 0 || containerWidth <= 0) return null
-  const maxPerRow = Math.max(1, Math.floor((containerWidth + POSTER_GRID_GAP) / (POSTER_CARD_WIDTH + POSTER_GRID_GAP)))
+  const maxPerRow = Math.max(1, Math.floor((containerWidth + gap) / (POSTER_CARD_WIDTH + gap)))
   if (count <= maxPerRow) return count
   const rows = Math.ceil(count / maxPerRow)
   return Math.ceil(count / rows)
+}
+
+/** Splits a month's cards into `perRow`-sized rows for independent rendering -- each row is its own flex container
+ * rather than all cards sharing one CSS grid template, specifically so a short trailing row (the last row of a
+ * month that doesn't divide evenly by `perRow`) can be centered on its own instead of being placed into the same
+ * left-to-right column tracks as the full rows above it, which just left it looking left-stuck with blank grid
+ * cells to its right. */
+function chunkRows<T>(items: readonly T[], perRow: number): T[][] {
+  if (perRow <= 0) return [items.slice()]
+  const rows: T[][] = []
+  for (let i = 0; i < items.length; i += perRow) rows.push(items.slice(i, i + perRow))
+  return rows
 }
 
 /** Which pick types the poster grid shows -- same independent show/hide toggle as the Meetings table (each can be
@@ -71,6 +87,7 @@ export function CalendarPage() {
   const [sharingMonth, setSharingMonth] = useState<string | null>(null)
   const [shareError, setShareError] = useState<string | null>(null)
   const [gridRef, gridWidth] = useContainerWidth<HTMLDivElement>()
+  const gridGap = POSTER_GRID_GAP
 
   useEffect(() => {
     localStorage.setItem(CALENDAR_MEDIA_FILTERS_KEY, JSON.stringify(mediaFilters))
@@ -125,7 +142,7 @@ export function CalendarPage() {
   return (
     <Box>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
-        <Typography variant="h5" gutterBottom sx={{ mb: 0 }}>
+        <Typography variant="h4" gutterBottom sx={{ mb: 0 }}>
           Calendar
         </Typography>
         <MediaTypeFilterButtons filters={mediaFilters} onChange={setMediaFilters} />
@@ -152,11 +169,17 @@ export function CalendarPage() {
               {months.map(({ month, meetings: monthMeetings }) => {
                 const cards = monthMeetings.flatMap((meeting) => cardsFor(meeting, club, seasonNumbers, mediaFilters))
                 if (cards.length === 0) return null
-                const columns = balancedColumns(cards.length, gridWidth)
+                const columns = balancedColumns(cards.length, gridWidth, gridGap)
+                // Rendered as one flex row per chunk (not one shared CSS grid) specifically so a short trailing
+                // row -- the month's card count doesn't divide evenly by `columns` -- centers on its own instead
+                // of sitting left-stuck in the same column tracks as the full rows above it. A full row's own
+                // slack is tiny (it's sized to almost fill the container), so centering it too on desktop makes
+                // no visible difference; only the short trailing row's centering actually matters there.
+                const rows = columns ? chunkRows(cards, columns) : [cards]
                 return (
                   <Box key={month} sx={{ mb: 4 }}>
-                    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                      <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+                    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+                      <Typography variant="h6">
                         {MONTH_FORMATTER.format(new Date(`${month}-01T00:00:00`))}
                       </Typography>
                       <IconButton
@@ -168,15 +191,16 @@ export function CalendarPage() {
                         {sharingMonth === month ? <CircularProgress size={16} /> : <IosShareIcon fontSize="small" />}
                       </IconButton>
                     </Stack>
-                    <Box
-                      sx={
-                        columns
-                          ? { display: 'grid', gridTemplateColumns: `repeat(${columns}, ${POSTER_CARD_WIDTH}px)`, gap: 2 }
-                          : { display: 'flex', flexWrap: 'wrap', gap: 2 }
-                      }
-                    >
-                      {cards.map((card) => (
-                        <PosterCard key={card.key} card={card} />
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: `${gridGap}px` }}>
+                      {rows.map((row, index) => (
+                        <Box
+                          key={index}
+                          sx={{ display: 'flex', flexWrap: 'wrap', gap: `${gridGap}px`, justifyContent: 'center' }}
+                        >
+                          {row.map((card) => (
+                            <PosterCard key={card.key} card={card} />
+                          ))}
+                        </Box>
                       ))}
                     </Box>
                   </Box>
