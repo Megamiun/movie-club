@@ -18,8 +18,11 @@
           clickable/actionable on hover.
         - [x] Change the IMDB link icon on the Watchlist to the actual IMDB logo/icon instead of the current generic
           one. Fixed via a shared `ImdbIcon` component, so this also covers the same ask on the Meetings table below.
-        - [ ] Add a movie/series add box at the top of the Watchlist page, and allow any member to add entries to
-          anyone's list (not just their own section).
+        - [x] Add a movie/series add box at the top of the Watchlist page, and allow any member to add entries to
+          anyone's list (not just their own section). Backend: `WatchlistService.addEntry` takes an optional
+          `targetMemberId` (not owner-restricted, same posture `moveEntry`/`moveEntryToMeeting` already had).
+          Frontend: one `AddToWatchlistForm` above every section now, with a member picker defaulting to the
+          viewer's own list, replacing the old per-section "add to my list" form.
     - Date formatting:
         - [x] Change the default date picker format to "13 SEP 2026" style (day, abbreviated month, year). Shipped as
           "13 Sep 2026" (title case, matching the app's English UI) via a new `DateDisplayContext` + `formatMeetingDate`
