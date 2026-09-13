@@ -4,6 +4,49 @@
 - [x] Moved the watch-link input onto its own line in the add/edit movie form so it's not cramped on narrow
   screens.
 
+- [ ] When resolving a movie title, if the original is excluded, but there is no preferred title in a preferred language, still use original
+
+- [ ] Feedback from Camila Defensor (2026-09-13), grouped by area:
+    - Watchlist:
+        - [ ] Fix the meeting-selector icon on the Watchlist page — the arrow renders crooked/misaligned and it's
+          visually bothersome.
+        - [ ] Clicking the Watchlist's meeting selector doesn't change the cursor to a pointer — it should look
+          clickable/actionable on hover.
+        - [ ] Change the IMDB link icon on the Watchlist to the actual IMDB logo/icon instead of the current generic one.
+        - [ ] Add a movie/series add box at the top of the Watchlist page, and allow any member to add entries to
+          anyone's list (not just their own section).
+    - Date formatting:
+        - [ ] Change the default date picker format to "13 SEP 2026" style (day, abbreviated month, year).
+            - [ ] Add a setting for it, can be 13 Sep 2026 or 2026-09-13
+    - Meetings (table page):
+        - [ ] Add a visual indicator for the current week's meeting.
+        - [ ] Change the date format shown in the Meetings table.
+        - [ ] Change the IMDB link icon to the actual IMDB logo/icon (same ask as Watchlist above).
+        - [ ] Remove the dashed border around each member's rating block.
+        - [ ] Fix rating text overflowing its box (e.g. "Excepcional" exceeds the box's edges) in Description fill mode.
+            - Suggestion: Also allow for it to be inside gradient, not only on the solid color
+        - [ ] Adjust the message/icon shown for a week with no movie — stop showing the "Nothing picked yet" text.
+        - [ ] Improve/clean up the link from a Meetings row to the meeting detail page.
+    - Meeting detail page:
+        - [ ] Remove the "assigned member" display at the meeting level.
+        - [ ] Remove the empty-session info block.
+        - [ ] Increase the poster size in the movie list on this page.
+        - [ ] Clicking a movie in the list should expand that movie's own block and enlarge the same poster further,
+          rather than adding a separate/new poster.
+            - On mobile portrait mode, keep a row just for the poster
+        - [ ] Add line breaks between each piece of textual info shown next to the banner/poster.
+            - [ ] First line is user photo, title, country flags
+        - [ ] Move the action buttons to sit above the poster.
+        - [ ] Turn the custom-title feature into an icon; editing the title happens in a modal instead of inline.
+        - [ ] Turn the watch-link feature into an icon; editing the link happens in a modal instead of inline.
+        - [ ] Below the poster, add the viewer's own photo plus a rating icon next to it — the icon should stay visible
+          even after a rating has been given, so it can still be used to edit the existing rating.
+        - [ ] Remove the "other meeting" button.
+        - [ ] Turn the add movie/series action into an icon that opens a modal.
+        - [ ] Turn the delete action into an icon that opens a modal.
+        - [ ] Turn the swap fields into an icon, with the swap performed inside a modal.
+        - [ ] In the movie block's background, try a gradient built from the poster's own colors.
+
 - [ ] Member-color and language-preference PATCHes raise the same "one action per click" question the movie/episode
   rating endpoints already answered (a per-field PATCH rather than a full overwrite) — still unresolved.
 
