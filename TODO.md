@@ -28,8 +28,9 @@
         - [x] Change the date format shown in the Meetings table — same `DateDisplayContext` fix as above.
         - [x] Change the IMDB link icon to the actual IMDB logo/icon (same ask as Watchlist above) — same shared
           `ImdbIcon` fix.
-        - [x] Remove the dashed border around each member's rating block — swapped for a solid 2px border, matching
-          what the component's own doc comment already described.
+        - [x] Remove the dashed border around each member's rating block — dropped entirely once at least one rating
+          is set (the fill color alone defines the box then); kept dashed only for a fully-unrated box, since it
+          would otherwise be invisible with nothing to click.
         - [x] Fix rating text overflowing its box (e.g. "Excepcional" exceeds the box's edges) in Description fill mode.
             - [x] Suggestion: Also allow for it to be inside gradient, not only on the solid color — implemented: the
               color fill is now a single background gradient, with the two text labels laid out as a fixed 50/50 split
