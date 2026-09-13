@@ -95,6 +95,17 @@ interface MeetingDropData {
  * follows series can turn episodes back on and the choice persists. */
 const MEETING_TYPE_FILTERS_KEY = 'movieclub.meetingTypeFilters'
 
+/** Renders a meeting's date in a monospace font with tabular digits, so the day/month/year segments of every row
+ * line up vertically like separate columns (combined with `formatMeetingDate`'s zero-padded day) even though each
+ * is really just one text string per cell, not an actual multi-column layout. Uses each OS's own UI monospace font
+ * (`ui-monospace` -- SF Mono/Cascadia Mono/etc.) rather than the bare `monospace` keyword, which browsers map to an
+ * old-style typewriter face (Courier New) that reads as visually jarring next to the rest of the app's sans-serif
+ * UI text -- no new font asset to load, every platform already ships its own UI monospace face. */
+const DATE_TEXT_SX = {
+  fontFamily: 'ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Consolas, "Liberation Mono", monospace',
+  fontVariantNumeric: 'tabular-nums',
+} as const
+
 interface MeetingTypeFilters {
   showMovies: boolean
   showEpisodes: boolean
@@ -480,7 +491,7 @@ function MeetingDropRow({
     >
       <TableCell width={28} />
       <TableCell sx={{ whiteSpace: 'nowrap' }}>
-        <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover" color="inherit">
+        <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover" color="inherit" sx={DATE_TEXT_SX}>
           {formatMeetingDate(meeting.date, dateStyle)}
         </Link>
         {isCurrentWeek(meeting.date) && <CurrentWeekBadge />}
@@ -549,7 +560,7 @@ const MeetingRows = memo(function MeetingRows({
           >
             <TableCell width={28} sx={{ border: 0, pb: 0 }} />
             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0, whiteSpace: 'nowrap' }}>
-              <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover" color="inherit">
+              <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover" color="inherit" sx={DATE_TEXT_SX}>
                 {formattedDate}
               </Link>
               {thisWeek && <CurrentWeekBadge />}
@@ -802,6 +813,7 @@ const MovieRow = memo(function MovieRow({
             underline="hover"
             color="inherit"
             onClick={(e) => e.stopPropagation()}
+            sx={DATE_TEXT_SX}
           >
             {blockHeader.date}
           </Link>
@@ -954,6 +966,7 @@ const EpisodeRow = memo(function EpisodeRow({
             underline="hover"
             color="inherit"
             onClick={(e) => e.stopPropagation()}
+            sx={DATE_TEXT_SX}
           >
             {blockHeader.date}
           </Link>

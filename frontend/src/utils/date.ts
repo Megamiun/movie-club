@@ -10,7 +10,10 @@ export function formatMeetingDate(isoDate: string, style: DateDisplayStyle): str
   if (style === 'iso') return isoDate
   const [year, month, day] = isoDate.split('-')
   const monthName = MONTHS[Number(month) - 1] ?? month
-  return `${Number(day)} ${monthName} ${year}`
+  // Zero-padded ("05" not "5") so the day is always 2 characters -- combined with rendering in a monospace font
+  // (see MeetingsPage's `DATE_TEXT_SX`), this keeps the day/month/year segments the same width on every row, so a
+  // column of dates lines up like a table even though it's really just one text string per cell.
+  return `${day.padStart(2, '0')} ${monthName} ${year}`
 }
 
 function startOfWeek(date: Date): number {
