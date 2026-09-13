@@ -51,6 +51,7 @@ import { moviesApi } from '../api/movies'
 import { ApiError } from '../api/client'
 import type { MeetingEpisodePick, MeetingMoviePick, MeetingWithPicks, RatingScale, Series } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
+import { CountryFlags } from '../components/CountryFlags'
 import { ImdbLink } from '../components/ImdbLink'
 import { InlineRatingEditor } from '../components/InlineRatingEditor'
 import { MemberAutocomplete } from '../components/MemberAutocomplete'
@@ -65,7 +66,6 @@ import { useYearTabs } from '../hooks/useYearTabs'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
 import { useDateDisplay } from '../settings/DateDisplayContext'
 import { useRatingDisplay, type RatingFillWith } from '../settings/RatingDisplayContext'
-import { countryFlag, countryName } from '../utils/country'
 import { formatMeetingDate, isCurrentWeek } from '../utils/date'
 import { formatDuration } from '../utils/duration'
 import { episodeCode } from '../utils/episode'
@@ -1052,19 +1052,5 @@ function WatchLinkCell({ href }: { href: string | null }) {
         <OpenInNewIcon fontSize="inherit" />
       </IconButton>
     </Tooltip>
-  )
-}
-
-
-function CountryFlags({ codes }: { codes: string[] | null | undefined }) {
-  if (!codes || codes.length === 0) return <>—</>
-  return (
-    <Stack direction="row" spacing={0.5} component="span">
-      {codes.map((code) => (
-        <Tooltip key={code} title={countryName(code)}>
-          <span>{countryFlag(code)}</span>
-        </Tooltip>
-      ))}
-    </Stack>
   )
 }
