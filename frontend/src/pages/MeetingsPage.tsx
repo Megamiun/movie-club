@@ -868,7 +868,7 @@ const MovieRow = memo(function MovieRow({
         ) : '—' }
       </TableCell>
       <TableCell align="right">{movie.runtimeMinutes ? formatDuration(movie.runtimeMinutes) : '—'}</TableCell>
-      <TableCell><TruncatedList items={movie.genre ?? []} maxChars={20} /></TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}><TruncatedList items={movie.genre ?? []} maxChars={20} /></TableCell>
       <TableCell><CountryFlags codes={movie.originCountry} /></TableCell>
       <TableCell>{ratingLabel(movie) ?? '—'}</TableCell>
       <TableCell align="center"><WatchLinkCell href={movie.watchLink} /></TableCell>
@@ -1029,7 +1029,7 @@ const EpisodeRow = memo(function EpisodeRow({
         )}
       </TableCell>
       <TableCell align="right">{episode.runtimeMinutes ? formatDuration(episode.runtimeMinutes) : '—'}</TableCell>
-      <TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>
         <TruncatedList items={series?.genre ?? []} maxChars={20} />
       </TableCell>
       <TableCell>
