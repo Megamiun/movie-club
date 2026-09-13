@@ -12,21 +12,33 @@
           visually bothersome.
         - [ ] Clicking the Watchlist's meeting selector doesn't change the cursor to a pointer — it should look
           clickable/actionable on hover.
-        - [ ] Change the IMDB link icon on the Watchlist to the actual IMDB logo/icon instead of the current generic one.
+        - [x] Change the IMDB link icon on the Watchlist to the actual IMDB logo/icon instead of the current generic
+          one. Fixed via a shared `ImdbIcon` component, so this also covers the same ask on the Meetings table below.
         - [ ] Add a movie/series add box at the top of the Watchlist page, and allow any member to add entries to
           anyone's list (not just their own section).
     - Date formatting:
-        - [ ] Change the default date picker format to "13 SEP 2026" style (day, abbreviated month, year).
-            - [ ] Add a setting for it, can be 13 Sep 2026 or 2026-09-13
+        - [x] Change the default date picker format to "13 SEP 2026" style (day, abbreviated month, year). Shipped as
+          "13 Sep 2026" (title case, matching the app's English UI) via a new `DateDisplayContext` + `formatMeetingDate`
+          util, applied to the Meetings table and the Watchlist's "move to meeting" picker.
+            - [x] Add a setting for it, can be 13 Sep 2026 or 2026-09-13 — a nav-bar icon toggle next to the theme/photo
+              toggles, `localStorage`-persisted like those.
     - Meetings (table page):
-        - [ ] Add a visual indicator for the current week's meeting.
-        - [ ] Change the date format shown in the Meetings table.
-        - [ ] Change the IMDB link icon to the actual IMDB logo/icon (same ask as Watchlist above).
-        - [ ] Remove the dashed border around each member's rating block.
-        - [ ] Fix rating text overflowing its box (e.g. "Excepcional" exceeds the box's edges) in Description fill mode.
-            - Suggestion: Also allow for it to be inside gradient, not only on the solid color
-        - [ ] Adjust the message/icon shown for a week with no movie — stop showing the "Nothing picked yet" text.
-        - [ ] Improve/clean up the link from a Meetings row to the meeting detail page.
+        - [x] Add a visual indicator for the current week's meeting — a small "This week" calendar-icon badge next to
+          the date (`isCurrentWeek`, Monday-Sunday).
+        - [x] Change the date format shown in the Meetings table — same `DateDisplayContext` fix as above.
+        - [x] Change the IMDB link icon to the actual IMDB logo/icon (same ask as Watchlist above) — same shared
+          `ImdbIcon` fix.
+        - [x] Remove the dashed border around each member's rating block — swapped for a solid 2px border, matching
+          what the component's own doc comment already described.
+        - [x] Fix rating text overflowing its box (e.g. "Excepcional" exceeds the box's edges) in Description fill mode.
+            - [x] Suggestion: Also allow for it to be inside gradient, not only on the solid color — implemented: the
+              color fill is now a single background gradient, with the two text labels laid out as a fixed 50/50 split
+              on top (always the full half-width, gradient band included), instead of shrinking with the blend percent.
+        - [x] Adjust the message/icon shown for a week with no movie — stop showing the "Nothing picked yet" text.
+          Removed outright rather than reworded (CLAUDE.md's Schedule Model already documents an empty future slot as
+          expected, not a gap worth flagging).
+        - [x] Improve/clean up the link from a Meetings row to the meeting detail page — the date link only existed on
+          an empty meeting's row; now every meeting's date links to its detail page consistently, pick or no pick.
     - Meeting detail page:
         - [ ] Remove the "assigned member" display at the meeting level.
         - [ ] Remove the empty-session info block.
