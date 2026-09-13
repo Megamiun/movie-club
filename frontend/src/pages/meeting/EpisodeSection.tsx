@@ -84,7 +84,6 @@ export function EpisodeSection({
 
       <AsyncState loading={loading} error={error}>
         <Stack spacing={1}>
-          {episodes?.length === 0 && <Typography color="text.secondary">No episodes scheduled yet.</Typography>}
           {episodes?.map((episode) => (
             <EpisodeItem
               key={episode.id}

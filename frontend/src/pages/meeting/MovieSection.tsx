@@ -87,7 +87,6 @@ export function MovieSection({
 
       <AsyncState loading={loading} error={error}>
         <Stack spacing={1}>
-          {movies?.length === 0 && <Typography color="text.secondary">No movies picked yet.</Typography>}
           {movies?.map((movie) => (
             <MovieItem
               key={movie.id}

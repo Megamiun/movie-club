@@ -9,7 +9,6 @@ import { ApiError } from '../api/client'
 import { AsyncState } from '../components/AsyncState'
 import { useAsync } from '../hooks/useAsync'
 import { useSmartPolling } from '../hooks/useSmartPolling'
-import { memberName } from '../utils/members'
 import { orderMeetingsByProximity } from '../utils/meetings'
 import { MovieSection } from './meeting/MovieSection'
 import { EpisodeSection } from './meeting/EpisodeSection'
@@ -112,11 +111,6 @@ export function MeetingDetailPage() {
             </Stack>
             <Typography variant="h4" gutterBottom>
               Meeting — {meeting.date}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              {meeting.assignedMemberId
-                ? `Assigned to ${memberName(club?.members ?? [], meeting.assignedMemberId)}`
-                : 'Shared / merged meeting'}
             </Typography>
 
             {actionError && (
