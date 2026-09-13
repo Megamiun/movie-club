@@ -6,6 +6,10 @@
 
 - [ ] When resolving a movie title, if the original is excluded, but there is no preferred title in a preferred language, still use original
 
+- [x] "Animation, Comedy +1" and "Drama, Adventure +1" still break in two lines — `TruncatedList`'s char-count
+  budget is only an approximation of rendered width, so a string sitting right at the boundary could still be a
+  hair too wide; added `whiteSpace: nowrap` to the Genre cell as a hard guarantee on top of it.
+
 - [ ] Feedback from Camila Defensor (2026-09-13), grouped by area:
     - Watchlist:
         - [ ] Fix the meeting-selector icon on the Watchlist page — the arrow renders crooked/misaligned and it's
