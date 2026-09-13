@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import TodayIcon from '@mui/icons-material/Today'
 import TuneIcon from '@mui/icons-material/Tune'
 import {
   Alert,
@@ -62,8 +63,10 @@ import { useSmartPolling } from '../hooks/useSmartPolling'
 import { useSeasonNumbers, type SeasonCodeInfo } from '../hooks/useSeasonNumbers'
 import { useYearTabs } from '../hooks/useYearTabs'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
+import { useDateDisplay } from '../settings/DateDisplayContext'
 import { useRatingDisplay, type RatingFillWith } from '../settings/RatingDisplayContext'
 import { countryFlag, countryName } from '../utils/country'
+import { formatMeetingDate, isCurrentWeek } from '../utils/date'
 import { formatDuration } from '../utils/duration'
 import { episodeCode } from '../utils/episode'
 import { memberName } from '../utils/members'
@@ -436,6 +439,17 @@ function RatingDisplaySettingsButton() {
 }
 
 
+/** Small inline marker shown next to a meeting's date when it falls in the current calendar week (see
+ * `isCurrentWeek`) -- there's no server-side "current meeting" concept, so this is purely a client-side date
+ * comparison recomputed on every render. */
+function CurrentWeekBadge() {
+  return (
+    <Tooltip title="This week">
+      <TodayIcon fontSize="inherit" color="primary" sx={{ verticalAlign: 'text-bottom', ml: 0.5 }} />
+    </Tooltip>
+  )
+}
+
 /** A meeting's header row is always a drop target (even for an empty meeting with no pick rows of its own to
  * double as one) -- registers its own [useDroppable] rather than relying on a pick row being present. */
 function MeetingDropRow({
@@ -457,6 +471,7 @@ function MeetingDropRow({
 }) {
   const { setNodeRef } = useDroppable({ id: `drop-${meeting.id}-header`, data: { meetingId: meeting.id } satisfies MeetingDropData })
   const rowRef = useForkRef(setNodeRef, registerRow)
+  const { dateStyle } = useDateDisplay()
 
   return (
     <TableRow
@@ -466,13 +481,13 @@ function MeetingDropRow({
       <TableCell width={28} />
       <TableCell>
         <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover" color="inherit">
-          {meeting.date}
+          {formatMeetingDate(meeting.date, dateStyle)}
         </Link>
+        {isCurrentWeek(meeting.date) && <CurrentWeekBadge />}
       </TableCell>
       <TableCell colSpan={columnCount - 2}>
         <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 400 }}>
           {meeting.assignedMemberId ? memberName(club.members, meeting.assignedMemberId) : 'Shared / merged'}
-          {!hasAnyPicks && ' · Nothing picked yet'}
           {hasAnyPicks && !hasVisiblePicks && ' · Hidden by filters'}
         </Typography>
       </TableCell>
@@ -519,7 +534,10 @@ const MeetingRows = memo(function MeetingRows({
   // nothing visible (no picks at all, or everything filtered out) still needs `MeetingDropRow`: it's the only row
   // that exists to say so, and the only drop target left once there's no pick row to double as one.
   const firstGroupHasLabelRow = visibleMovies.length === 0 && Boolean(visibleEpisodeGroups[0]?.series)
-  const blockHeader = { date: meeting.date, isHovered }
+  const { dateStyle } = useDateDisplay()
+  const formattedDate = formatMeetingDate(meeting.date, dateStyle)
+  const thisWeek = isCurrentWeek(meeting.date)
+  const blockHeader = { date: formattedDate, isThisWeek: thisWeek, isHovered }
 
   return (
     <Fragment>
@@ -530,7 +548,10 @@ const MeetingRows = memo(function MeetingRows({
             sx={{ borderTop: '2px solid', borderTopColor: 'divider', bgcolor: isHovered ? 'action.selected' : undefined }}
           >
             <TableCell width={28} sx={{ border: 0, pb: 0 }} />
-            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>{meeting.date}</TableCell>
+            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
+              {formattedDate}
+              {thisWeek && <CurrentWeekBadge />}
+            </TableCell>
             <TableCell colSpan={columnCount - 2} sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
               {resolveTitle(visibleEpisodeGroups[0].series!, club)}
             </TableCell>
@@ -705,7 +726,7 @@ const MovieRow = memo(function MovieRow({
   myMemberId: string | null
   meetingId: string
   onRate: (meetingId: string, movieId: string, memberId: string, quality: string | null | undefined, sentiment: string | null | undefined, onlyIfCurrent?: { quality?: string | null; sentiment?: string | null }) => void
-  blockHeader?: { date: string; isHovered: boolean }
+  blockHeader?: { date: string; isThisWeek: boolean; isHovered: boolean }
   registerRow?: (el: HTMLTableRowElement | null) => void
 }) {
   const { movie } = pick
@@ -771,7 +792,10 @@ const MovieRow = memo(function MovieRow({
           <DragIndicatorIcon fontSize="small" />
         </Box>
       </TableCell>
-      <TableCell sx={{ fontWeight: 600 }}>{blockHeader?.date}</TableCell>
+      <TableCell sx={{ fontWeight: 600 }}>
+        {blockHeader?.date}
+        {blockHeader?.isThisWeek && <CurrentWeekBadge />}
+      </TableCell>
       <TableCell>
         <MemberBadge member={club.members.find((m) => m.memberId === movie.chosenById)} />
       </TableCell>
@@ -846,7 +870,7 @@ const EpisodeRow = memo(function EpisodeRow({
   meetingId: string
   seasonCode: SeasonCodeInfo | undefined
   onRate: (meetingId: string, episodeId: string, memberId: string, quality: string | null | undefined, sentiment: string | null | undefined, onlyIfCurrent?: { quality?: string | null; sentiment?: string | null }) => void
-  blockHeader?: { date: string; isHovered: boolean }
+  blockHeader?: { date: string; isThisWeek: boolean; isHovered: boolean }
   registerRow?: (el: HTMLTableRowElement | null) => void
 }) {
   const { episode, series } = pick
@@ -910,7 +934,10 @@ const EpisodeRow = memo(function EpisodeRow({
           <DragIndicatorIcon fontSize="small" />
         </Box>
       </TableCell>
-      <TableCell sx={{ fontWeight: 600 }}>{blockHeader?.date}</TableCell>
+      <TableCell sx={{ fontWeight: 600 }}>
+        {blockHeader?.date}
+        {blockHeader?.isThisWeek && <CurrentWeekBadge />}
+      </TableCell>
       <TableCell>
         {series ? <MemberBadge member={club.members.find((m) => m.memberId === series.chosenById)} /> : '—'}
       </TableCell>

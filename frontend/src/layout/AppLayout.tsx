@@ -1,6 +1,8 @@
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import LightModeIcon from '@mui/icons-material/LightMode'
 import LogoutIcon from '@mui/icons-material/Logout'
+import NumbersIcon from '@mui/icons-material/Numbers'
 import PersonIcon from '@mui/icons-material/Person'
 import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined'
 import { Alert, AppBar, Avatar, Box, Button, Container, IconButton, Snackbar, Toolbar, Typography } from '@mui/material'
@@ -10,6 +12,7 @@ import { Link as RouterLink, Outlet, useNavigate } from 'react-router-dom'
 import { membersApi } from '../api/members'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useDateDisplay } from '../settings/DateDisplayContext'
 import { useMemberPhotos } from '../settings/MemberPhotoContext'
 import { initials } from '../utils/members'
 
@@ -38,6 +41,21 @@ function MemberPhotoToggle() {
       title={showPhotos ? 'Show colored initials instead of photos' : 'Show member photos instead of initials'}
     >
       {showPhotos ? <PersonIcon /> : <PersonOutlineIcon />}
+    </IconButton>
+  )
+}
+
+function DateDisplayToggle() {
+  const { dateStyle, setDateStyle } = useDateDisplay()
+  const isIso = dateStyle === 'iso'
+
+  return (
+    <IconButton
+      color="inherit"
+      onClick={() => setDateStyle(isIso ? 'compact' : 'iso')}
+      title={isIso ? 'Show dates as "13 Sep 2026"' : 'Show dates as "2026-09-13"'}
+    >
+      {isIso ? <NumbersIcon /> : <CalendarMonthIcon />}
     </IconButton>
   )
 }
@@ -115,6 +133,7 @@ export function AppLayout() {
           </Typography>
           <ThemeModeToggle />
           <MemberPhotoToggle />
+          <DateDisplayToggle />
           {member && (
             <>
               <OwnPhotoUploader />

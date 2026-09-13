@@ -43,6 +43,8 @@ import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import type { ClubOutletContext } from '../layout/ClubOutletContext'
+import { useDateDisplay } from '../settings/DateDisplayContext'
+import { formatMeetingDate } from '../utils/date'
 import { orderMeetingsByProximity } from '../utils/meetings'
 import { ratingLabel } from '../utils/rating'
 import { resolveTitle, type LanguagePreferences } from '../utils/title'
@@ -272,6 +274,7 @@ function WatchlistCard({
   const [targetMeetingId, setTargetMeetingId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: entry.id })
+  const { dateStyle } = useDateDisplay()
 
   const handleDelete = async () => {
     setError(null)
@@ -378,10 +381,11 @@ function WatchlistCard({
         <Stack spacing={0.5} sx={{ mt: 0.5 }}>
           <Autocomplete
             size="small"
+            disableClearable
             options={orderedMeetings}
-            getOptionLabel={(m) => m.date}
+            getOptionLabel={(m) => formatMeetingDate(m.date, dateStyle)}
             isOptionEqualToValue={(a, b) => a.id === b.id}
-            value={orderedMeetings.find((m) => m.id === targetMeetingId) ?? null}
+            value={orderedMeetings.find((m) => m.id === targetMeetingId)}
             onChange={(_, option) => setTargetMeetingId(option?.id ?? '')}
             renderInput={(params) => <TextField {...params} label="Move to meeting" />}
           />
