@@ -19,6 +19,13 @@ import { strongPastelHex } from '../utils/pastelColor'
  * placeholder text) -- the fill only ever represents a rating that was actually given. A solid 2px border in the
  * member's strong color identifies whose box this is at a glance, accompanied by column headers. Clicking (when
  * [editable]) opens the same quality/sentiment [Select] popover as before.
+ *
+ * The color fill (solid halves + blended band) is painted as a single background `linear-gradient` on the outer
+ * box, while the two text labels are laid out separately as a plain 50/50 flex split on top -- each label always
+ * gets the full half-width to work with this way, including whatever the gradient band ate into the color layer,
+ * rather than shrinking as `gradientPercent` grows. Keeping the label width fixed at 50/50 regardless of
+ * `gradientPercent` is what fixes a long `description`-mode label (e.g. "Excepcional!") visually overflowing its
+ * own narrower solid-color half once a nonzero blend percentage was configured.
  */
 export function InlineRatingEditor({
   scales,
@@ -100,64 +107,57 @@ export function InlineRatingEditor({
         <Box
           onClick={editable ? (e) => setAnchorEl(e.currentTarget) : undefined}
           sx={{
-            display: 'flex',
+            position: 'relative',
             width: boxWidth,
             height: 20,
             borderRadius: 0.5,
             overflow: 'hidden',
             flexShrink: 0,
             cursor: editable ? 'pointer' : 'default',
-            border: `1.75px dashed ${memberBorderColor}`,
+            border: `2px solid ${memberBorderColor}`,
             boxSizing: 'border-box',
             transition: 'transform 0.1s ease-in-out',
+            background: `linear-gradient(90deg, ${qualityOption?.color ?? 'transparent'} 0%, ${qualityOption?.color ?? 'transparent'} ${half}%, ${sentimentOption?.color ?? 'transparent'} ${100 - half}%, ${sentimentOption?.color ?? 'transparent'} 100%)`,
             '&:hover': editable ? { transform: 'scale(1.08)' } : {},
           }}
         >
-          <Box
-            sx={{
-              flex: `${half} 1 0%`,
-              minWidth: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              textOverflow: 'ellipsis',
-              px: 0.25,
-              fontSize: 10,
-              fontWeight: 800,
-              bgcolor: qualityOption?.color ?? 'transparent',
-              color: textColorFor(qualityOption),
-            }}
-          >
-            {contentFor(qualityOption, quality)}
-          </Box>
-          {band > 0 && bothSet && (
+          <Box sx={{ position: 'absolute', inset: 0, display: 'flex' }}>
             <Box
               sx={{
-                flex: `${band} 1 0%`,
-                background: `linear-gradient(90deg, ${qualityOption!.color}, ${sentimentOption!.color})`,
+                flex: '1 1 0%',
+                minWidth: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+                px: 0.25,
+                fontSize: 10,
+                fontWeight: 800,
+                color: textColorFor(qualityOption),
               }}
-            />
-          )}
-          <Box
-            sx={{
-              flex: `${half} 1 0%`,
-              minWidth: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              textOverflow: 'ellipsis',
-              px: 0.25,
-              fontSize: 10,
-              fontWeight: 800,
-              bgcolor: sentimentOption?.color ?? 'transparent',
-              color: textColorFor(sentimentOption),
-            }}
-          >
-            {contentFor(sentimentOption, sentiment)}
+            >
+              {contentFor(qualityOption, quality)}
+            </Box>
+            <Box
+              sx={{
+                flex: '1 1 0%',
+                minWidth: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+                px: 0.25,
+                fontSize: 10,
+                fontWeight: 800,
+                color: textColorFor(sentimentOption),
+              }}
+            >
+              {contentFor(sentimentOption, sentiment)}
+            </Box>
           </Box>
         </Box>
       </Tooltip>
