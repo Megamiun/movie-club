@@ -37,6 +37,7 @@ import { ApiError } from '../api/client'
 import type { ClubMember, Meeting, TmdbSearchResult, WatchlistEntry } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
+import { MemberAutocomplete } from '../components/MemberAutocomplete'
 import { MemberBadge } from '../components/MemberBadge'
 import { TmdbSearchAutocomplete } from '../components/TmdbSearchAutocomplete'
 import { useAuth } from '../auth/AuthContext'
@@ -76,8 +77,10 @@ export function WatchlistPage() {
         Watchlist
       </Typography>
 
+      <AddToWatchlistForm clubId={club.id} members={orderedMembers} defaultMemberId={member?.id ?? null} onChange={silentReload} />
+
       <AsyncState loading={loading} error={error}>
-        <Stack spacing={4}>
+        <Stack spacing={4} sx={{ mt: 3 }}>
           {orderedMembers.map((sectionMember) => (
             <WatchlistMemberSection
               key={sectionMember.memberId}
@@ -86,7 +89,6 @@ export function WatchlistPage() {
                 .filter((entry) => entry.memberId === sectionMember.memberId)
                 .sort((a, b) => a.position - b.position)}
               isOwnSection={sectionMember.memberId === member?.id}
-              clubId={club.id}
               meetings={sortedMeetings}
               languagePrefs={languagePrefs}
               onChange={silentReload}
@@ -111,7 +113,6 @@ function WatchlistMemberSection({
   member,
   entries,
   isOwnSection,
-  clubId,
   meetings,
   languagePrefs,
   onChange,
@@ -120,7 +121,6 @@ function WatchlistMemberSection({
   member: ClubMember
   entries: WatchlistEntry[]
   isOwnSection: boolean
-  clubId: string
   meetings: Meeting[]
   languagePrefs: LanguagePreferences
   onChange: () => void
@@ -196,23 +196,37 @@ function WatchlistMemberSection({
           </Box>
         </SortableContext>
       </DndContext>
-
-      {isOwnSection && <AddToWatchlistForm clubId={clubId} onChange={onChange} />}
     </Box>
   )
 }
 
-function AddToWatchlistForm({ clubId, onChange }: { clubId: string; onChange: () => void }) {
+/** Lives once at the top of the page rather than repeated per-member section -- any club member may add to any
+ * other member's watchlist (see `WatchlistService.addEntry`'s `targetMemberId`, not owner-restricted, the same
+ * posture `moveEntry`/`moveEntryToMeeting` already had), so there's one form with an explicit target-member picker
+ * instead of only ever offering "add to my own list" from inside the viewer's own section. Defaults to the
+ * viewer's own list, since that's still the overwhelmingly common case. */
+function AddToWatchlistForm({
+  clubId,
+  members,
+  defaultMemberId,
+  onChange,
+}: {
+  clubId: string
+  members: ClubMember[]
+  defaultMemberId: string | null
+  onChange: () => void
+}) {
   const [type, setType] = useState<'MOVIE' | 'SERIES'>('MOVIE')
   const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
+  const [targetMemberId, setTargetMemberId] = useState(defaultMemberId)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const handleAdd = async (event: FormEvent) => {
     event.preventDefault()
-    if (!selectedResult) return
+    if (!selectedResult || !targetMemberId) return
     setSubmitError(null)
     try {
-      await watchlistApi.add(clubId, type, selectedResult.tmdbId)
+      await watchlistApi.add(clubId, type, selectedResult.tmdbId, targetMemberId)
       setSelectedResult(null)
       onChange()
     } catch (err) {
@@ -221,7 +235,7 @@ function AddToWatchlistForm({ clubId, onChange }: { clubId: string; onChange: ()
   }
 
   return (
-    <Box component="form" onSubmit={handleAdd} sx={{ mt: 2 }}>
+    <Box component="form" onSubmit={handleAdd} sx={{ mb: 1 }}>
       {submitError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {submitError}
@@ -249,8 +263,9 @@ function AddToWatchlistForm({ clubId, onChange }: { clubId: string; onChange: ()
             onChange={setSelectedResult}
             label={`Search ${type === 'MOVIE' ? 'movies' : 'series'}`}
           />
-          <Button type="submit" variant="contained" startIcon={<AddIcon />}>
-            Add to my list
+          <MemberAutocomplete members={members} value={targetMemberId} onChange={setTargetMemberId} label="Add to" />
+          <Button type="submit" variant="contained" startIcon={<AddIcon />} disabled={!selectedResult || !targetMemberId}>
+            Add
           </Button>
         </Stack>
       </Stack>

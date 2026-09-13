@@ -4,8 +4,8 @@ import type { Movie, WatchlistEntry } from './types'
 export const watchlistApi = {
   list: (clubId: string) => api.get<WatchlistEntry[]>(`/clubs/${clubId}/watchlist`),
 
-  add: (clubId: string, type: 'MOVIE' | 'SERIES', tmdbId: string) =>
-    api.post<WatchlistEntry>(`/clubs/${clubId}/watchlist`, { type, tmdbId }),
+  add: (clubId: string, type: 'MOVIE' | 'SERIES', tmdbId: string, memberId?: string) =>
+    api.post<WatchlistEntry>(`/clubs/${clubId}/watchlist`, { type, tmdbId, memberId }),
 
   move: (entryId: string, position: number) => api.patch<WatchlistEntry>(`/watchlist/${entryId}`, { position }),
 
