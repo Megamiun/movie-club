@@ -298,7 +298,7 @@ export function MeetingsPage() {
                   <TableHead>
                     <TableRow sx={{ '& .MuiTableCell-root': { py: 0.5, fontWeight: 600, fontSize: '0.75rem', color: 'text.secondary', bgcolor: 'action.hover' } }}>
                       <TableCell width={28} />
-                      <TableCell width={90}>Date</TableCell>
+                      <TableCell width={130} sx={{ whiteSpace: 'nowrap' }}>Date</TableCell>
                       <TableCell width={36}>By</TableCell>
                       <TableCell>Title</TableCell>
                       {club.members.map((m) => (
@@ -479,7 +479,7 @@ function MeetingDropRow({
       sx={{ '& td': { bgcolor: isHovered ? 'action.selected' : 'action.hover', fontWeight: 600 } }}
     >
       <TableCell width={28} />
-      <TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>
         <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover" color="inherit">
           {formatMeetingDate(meeting.date, dateStyle)}
         </Link>
@@ -548,7 +548,7 @@ const MeetingRows = memo(function MeetingRows({
             sx={{ borderTop: '2px solid', borderTopColor: 'divider', bgcolor: isHovered ? 'action.selected' : undefined }}
           >
             <TableCell width={28} sx={{ border: 0, pb: 0 }} />
-            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
+            <TableCell sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0, whiteSpace: 'nowrap' }}>
               <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover" color="inherit">
                 {formattedDate}
               </Link>
@@ -794,7 +794,7 @@ const MovieRow = memo(function MovieRow({
           <DragIndicatorIcon fontSize="small" />
         </Box>
       </TableCell>
-      <TableCell sx={{ fontWeight: 600 }}>
+      <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
         {blockHeader && (
           <Link
             component={RouterLink}
@@ -946,7 +946,7 @@ const EpisodeRow = memo(function EpisodeRow({
           <DragIndicatorIcon fontSize="small" />
         </Box>
       </TableCell>
-      <TableCell sx={{ fontWeight: 600 }}>
+      <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
         {blockHeader && (
           <Link
             component={RouterLink}
