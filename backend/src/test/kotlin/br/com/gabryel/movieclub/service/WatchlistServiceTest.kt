@@ -104,6 +104,25 @@ class WatchlistServiceTest {
             assertFailsWith<BadRequestException> { watchlistService.addEntry(clubId, memberId, MOVIE, "438631") }
         }
 
+    /** Any club member may add to any other member's watchlist -- not owner-restricted, the same posture
+     * `moveEntry`/`moveEntryToMeeting` already document. Both the acting member and the target must belong to the
+     * club, and the entry is created (and the duplicate check runs) against `targetMemberId`, not the caller. */
+    @Test
+    fun `addEntry creates the entry under targetMemberId, not the acting member, when adding to someone else's list`(): Unit =
+        runBlocking {
+            val targetMemberId = Uuid.random()
+            every { clubService.requireMembership(clubId, memberId) } returns membership()
+            every { clubService.requireMembership(clubId, targetMemberId) } returns membership(targetMemberId)
+            val item = mediaItem()
+            coEvery { movieService.findOrCreateCatalogMediaItem(438631) } returns item
+
+            val expected = entry(mediaItemId = item.id, memberId = targetMemberId)
+            every { watchlistRepository.create(clubId, targetMemberId, item.id) } returns expected
+
+            assertEquals(expected, watchlistService.addEntry(clubId, memberId, MOVIE, "438631", targetMemberId))
+            verify { watchlistRepository.findByClubMemberAndMediaItem(clubId, targetMemberId, item.id) }
+        }
+
     @Test
     fun `deleteEntry throws ForbiddenException when acting member is not the owner`() {
         val entryId = Uuid.random()
@@ -334,7 +353,7 @@ class WatchlistServiceTest {
         assertEquals(emptyList(), result.translations)
     }
 
-    private fun membership() = ClubMembershipRow(clubId, memberId, MEMBER, 0, Clock.System.now())
+    private fun membership(memberId: Uuid = this.memberId) = ClubMembershipRow(clubId, memberId, MEMBER, 0, Clock.System.now())
 
     private fun mediaItem(id: Uuid = Uuid.random()) = MediaItemRow(
         id = id,

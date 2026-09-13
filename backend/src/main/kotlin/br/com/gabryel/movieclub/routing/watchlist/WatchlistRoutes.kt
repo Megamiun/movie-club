@@ -6,6 +6,7 @@ import br.com.gabryel.movieclub.routing.actingMemberId
 import br.com.gabryel.movieclub.routing.movie.TranslationResponse
 import br.com.gabryel.movieclub.routing.movie.toResponse
 import br.com.gabryel.movieclub.routing.toMediaItemTypeOrBadRequest
+import br.com.gabryel.movieclub.routing.toUuidOrBadRequest
 import br.com.gabryel.movieclub.routing.uuidPathParam
 import br.com.gabryel.movieclub.service.WatchlistService
 import io.ktor.http.HttpStatusCode.Companion.Created
@@ -23,11 +24,13 @@ fun Route.watchlistRoutes(watchlistService: WatchlistService) {
     authenticate("auth-jwt") {
         post("/clubs/{clubId}/watchlist") {
             val body = call.receive<AddWatchlistEntryRequest>()
+            val actingMemberId = call.actingMemberId()
             val entry = watchlistService.addEntry(
                 call.uuidPathParam("clubId"),
-                call.actingMemberId(),
+                actingMemberId,
                 body.type.toMediaItemTypeOrBadRequest(),
                 body.tmdbId,
+                targetMemberId = body.memberId?.toUuidOrBadRequest() ?: actingMemberId,
             )
             call.respond(Created, entry.toResponse())
         }

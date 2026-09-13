@@ -7,6 +7,10 @@ import kotlinx.serialization.Serializable
 internal data class AddWatchlistEntryRequest(
     val type: String,
     val tmdbId: String,
+    // Absent/null means "add to my own list" -- any club member may target any other member's list, matching
+    // WatchlistService.moveEntry/moveEntryToMeeting's existing "not owner-restricted" posture, so this must stay
+    // optional for existing clients that only ever added to their own list.
+    val memberId: String? = null,
 )
 
 @Serializable

@@ -29,14 +29,22 @@ class WatchlistService(
     private val seriesService: SeriesService,
 ) {
     /** Adding is always by [tmdbId] -- there's no freeform title entry, since a MediaItem only ever exists from a
-     * successful TMDB lookup (see [br.com.gabryel.movieclub.db.tables.MediaItems]). */
+     * successful TMDB lookup (see [br.com.gabryel.movieclub.db.tables.MediaItems]).
+     *
+     * [targetMemberId] (defaults to [actingMemberId], i.e. "add to my own list") is deliberately not restricted to
+     * the acting member -- any club member may add to any other member's watchlist, the same "not owner-restricted"
+     * posture [moveEntry]/[moveEntryToMeeting] already document for a shared, collaboratively curated list; only
+     * [deleteEntry] stays owner-only. Still requires [targetMemberId] to actually belong to [clubId], same as
+     * [actingMemberId]. */
     suspend fun addEntry(
         clubId: Uuid,
         actingMemberId: Uuid,
         type: MediaItemType,
         tmdbId: String,
+        targetMemberId: Uuid = actingMemberId,
     ): WatchlistEntryRow {
         clubService.requireMembership(clubId, actingMemberId)
+        clubService.requireMembership(clubId, targetMemberId)
         val id = tmdbId.toIntOrNull() ?: throw BadRequestException("Invalid tmdbId")
 
         val mediaItem = when (type) {
@@ -45,10 +53,10 @@ class WatchlistService(
             EPISODE -> throw BadRequestException("Episodes cannot be added to the watchlist yet")
         }
 
-        if (watchlistRepository.findByClubMemberAndMediaItem(clubId, actingMemberId, mediaItem.id) != null)
-            throw BadRequestException("This is already in your watchlist")
+        if (watchlistRepository.findByClubMemberAndMediaItem(clubId, targetMemberId, mediaItem.id) != null)
+            throw BadRequestException("This is already in that watchlist")
 
-        return enrichCatalogTitle(watchlistRepository.create(clubId, actingMemberId, mediaItem.id))
+        return enrichCatalogTitle(watchlistRepository.create(clubId, targetMemberId, mediaItem.id))
     }
 
     /** Best-effort variant for CSV import, which only ever has a bare title (the Reserve CSV has no id column at
