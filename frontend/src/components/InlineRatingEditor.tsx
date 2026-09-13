@@ -16,9 +16,10 @@ import { strongPastelHex } from '../utils/pastelColor'
  * held landscape, or just preferring to scroll for the full word) rather than have it decided for them by screen
  * width alone. When both halves are set, `gradientPercent` controls how much of the middle blends between the two
  * colors (0 = hard edge, colors touch directly). A half with no rating shows nothing at all (no color, no
- * placeholder text) -- the fill only ever represents a rating that was actually given. A solid 2px border in the
- * member's strong color identifies whose box this is at a glance, accompanied by column headers. Clicking (when
- * [editable]) opens the same quality/sentiment [Select] popover as before.
+ * placeholder text) -- the fill only ever represents a rating that was actually given. Once at least one rating is
+ * given, the fill color(s) alone define the box and its border is dropped entirely; a box with *no* rating at all
+ * gets a dashed outline in the member's strong color instead, since it would otherwise be fully invisible and have
+ * nothing to click. Clicking (when [editable]) opens the same quality/sentiment [Select] popover as before.
  *
  * The color fill (solid halves + blended band) is painted as a single background `linear-gradient` on the outer
  * box, while the two text labels are laid out separately as a plain 50/50 flex split on top -- each label always
@@ -88,6 +89,11 @@ export function InlineRatingEditor({
   }
 
   const memberBorderColor = memberColor ? strongPastelHex(memberColor) : 'rgba(0, 0, 0, 0.18)'
+  // No rating at all yet -> a dashed outline in the member's color is the box's only click target (its fill is
+  // otherwise fully transparent, see the background gradient below). Once at least one rating is set, the fill
+  // color itself defines the box, so the border is dropped entirely rather than outlining an already-colored shape.
+  const hasAnyRating = Boolean(qualityOption || sentimentOption)
+  const border = hasAnyRating ? 'none' : `1.75px dashed ${memberBorderColor}`
   const tooltip = (
     <Stack spacing={0.5} sx={{ py: 0.25 }}>
       <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.4 }}>
@@ -114,7 +120,7 @@ export function InlineRatingEditor({
             overflow: 'hidden',
             flexShrink: 0,
             cursor: editable ? 'pointer' : 'default',
-            border: `2px solid ${memberBorderColor}`,
+            border,
             boxSizing: 'border-box',
             transition: 'transform 0.1s ease-in-out',
             background: `linear-gradient(90deg, ${qualityOption?.color ?? 'transparent'} 0%, ${qualityOption?.color ?? 'transparent'} ${half}%, ${sentimentOption?.color ?? 'transparent'} ${100 - half}%, ${sentimentOption?.color ?? 'transparent'} 100%)`,
