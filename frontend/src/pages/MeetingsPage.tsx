@@ -309,7 +309,7 @@ export function MeetingsPage() {
                   <TableHead>
                     <TableRow sx={{ '& .MuiTableCell-root': { py: 0.5, fontWeight: 600, fontSize: '0.75rem', color: 'text.secondary', bgcolor: 'action.hover' } }}>
                       <TableCell width={28} />
-                      <TableCell width={130} sx={{ whiteSpace: 'nowrap' }}>Date</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>Date</TableCell>
                       <TableCell width={36}>By</TableCell>
                       <TableCell>Title</TableCell>
                       {club.members.map((m) => (
