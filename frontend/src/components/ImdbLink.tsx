@@ -39,7 +39,7 @@ export function ImdbLink({
       rel="noreferrer"
       title="Open on IMDB"
       onClick={(e) => e.stopPropagation()}
-      sx={{ verticalAlign: 'top' }}
+      sx={{ paddingTop: 0 }}
     >
       <ImdbIcon fontSize="inherit" />
     </IconButton>
