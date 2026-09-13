@@ -1,6 +1,6 @@
-import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { IconButton, Link } from '@mui/material'
 import type { ReactNode } from 'react'
+import { ImdbIcon } from './icons/ImdbIcon'
 
 export function ImdbLink({
   imdbId,
@@ -40,7 +40,7 @@ export function ImdbLink({
       title="Open on IMDB"
       onClick={(e) => e.stopPropagation()}
     >
-      <OpenInNewIcon fontSize="inherit" />
+      <ImdbIcon fontSize="inherit" />
     </IconButton>
   )
 }
