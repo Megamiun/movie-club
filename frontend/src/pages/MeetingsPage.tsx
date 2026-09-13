@@ -549,7 +549,9 @@ const MeetingRows = memo(function MeetingRows({
           >
             <TableCell width={28} sx={{ border: 0, pb: 0 }} />
             <TableCell sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
-              {formattedDate}
+              <Link component={RouterLink} to={`/meetings/${meeting.id}`} underline="hover" color="inherit">
+                {formattedDate}
+              </Link>
               {thisWeek && <CurrentWeekBadge />}
             </TableCell>
             <TableCell colSpan={columnCount - 2} sx={{ fontWeight: 600, color: 'text.secondary', border: 0, pb: 0 }}>
@@ -793,7 +795,17 @@ const MovieRow = memo(function MovieRow({
         </Box>
       </TableCell>
       <TableCell sx={{ fontWeight: 600 }}>
-        {blockHeader?.date}
+        {blockHeader && (
+          <Link
+            component={RouterLink}
+            to={`/meetings/${meetingId}`}
+            underline="hover"
+            color="inherit"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {blockHeader.date}
+          </Link>
+        )}
         {blockHeader?.isThisWeek && <CurrentWeekBadge />}
       </TableCell>
       <TableCell>
@@ -935,7 +947,17 @@ const EpisodeRow = memo(function EpisodeRow({
         </Box>
       </TableCell>
       <TableCell sx={{ fontWeight: 600 }}>
-        {blockHeader?.date}
+        {blockHeader && (
+          <Link
+            component={RouterLink}
+            to={`/meetings/${meetingId}`}
+            underline="hover"
+            color="inherit"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {blockHeader.date}
+          </Link>
+        )}
         {blockHeader?.isThisWeek && <CurrentWeekBadge />}
       </TableCell>
       <TableCell>
