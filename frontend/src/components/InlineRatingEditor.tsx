@@ -125,7 +125,19 @@ export function InlineRatingEditor({
         slotProps={{ tooltip: { sx: { fontSize: '0.875rem', p: 1.25, maxWidth: 280 } } }}
       >
         <Box
-          onClick={editable ? (e) => setAnchorEl(e.currentTarget) : undefined}
+          onClick={
+            editable
+              ? (e) => {
+                  // Re-seeds from the latest `initialComment` on every open, not just once at mount -- `comment`
+                  // otherwise stays whatever it was initialized to (often blank, if this box's data was still
+                  // loading then) for the component's whole lifetime, since nothing else ever re-runs a useState
+                  // initializer. Doing this on open rather than via a useEffect keyed on `initialComment` also
+                  // means a background poll refreshing the prop can't stomp on a comment already being typed.
+                  setComment(initialComment ?? '')
+                  setAnchorEl(e.currentTarget)
+                }
+              : undefined
+          }
           sx={{
             position: 'relative',
             width: boxWidth,
