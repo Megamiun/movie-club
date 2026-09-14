@@ -401,7 +401,13 @@ class ImportService(
                 }
 
                 val existingReview = movieRepository.findReview(movie.id, memberId)
-                movieRepository.upsertReview(movie.id, memberId, existingReview?.qualityOptionId, existingReview?.sentimentOptionId, comment)
+                movieRepository.upsertReview(
+                    movie.id,
+                    memberId,
+                    existingReview?.qualityOptionId,
+                    existingReview?.sentimentOptionId,
+                    comment,
+                )
                 updated++
             }
         }
