@@ -6,6 +6,18 @@
 
 - [ ] When resolving a movie title, if the original is excluded, but there is no preferred title in a preferred language, still use original
 
+- [ ] Merge the edit title and choose language dialogs into a single one, invoked then a translate icon is clicked
+  - [ ] Have 2 + X radio button options:
+    - [ ] Default
+    - [ ] Custom
+    - [ ] X Exhibition Languages
+
+- [ ] Create importer for sample Comments csv file
+
+- On Movie Details:
+  - [ ] Movie Details start uncollapsed if has space for two posters
+  - [ ] Have bigger
+
 - [x] "Animation, Comedy +1" and "Drama, Adventure +1" still break in two lines — `TruncatedList`'s char-count
   budget is only an approximation of rendered width, so a string sitting right at the boundary could still be a
   hair too wide; added `whiteSpace: nowrap` to the Genre cell as a hard guarantee on top of it.
@@ -76,15 +88,17 @@
 - [ ] Member-color and language-preference PATCHes raise the same "one action per click" question the movie/episode
   rating endpoints already answered (a per-field PATCH rather than a full overwrite) — still unresolved.
 
-- [ ] Rating-save code-review leftovers (the optimistic-update work itself shipped — see CLAUDE.md's RatingScale
+- [x] Rating-save code-review leftovers (the optimistic-update work itself shipped — see CLAUDE.md's RatingScale
   section; these are the lower-stakes findings from reviewing it, deliberately not folded in blind):
-  - [ ] The capture-previous/optimistic-patch/rollback dance is hand-inlined separately in
+  - [x] The capture-previous/optimistic-patch/rollback dance is hand-inlined separately in
     `MovieRow.handleSaveRating`/`EpisodeRow.handleSaveRating`, and `RatingForm.tsx`'s 4 call sites use a
     completely different, non-optimistic pattern — worth its own pass to extract one reusable optimistic-save
-    hook. Deliberately not attempted here: `RatingForm.tsx`'s 4 call sites (Series/Season/Episode/MovieSection's
-    combined `rate` endpoint) have a genuinely different shape than the split quality/sentiment PATCH pattern
-    used here, and generalizing across both risks introducing a regression in code this pass didn't otherwise
-    touch. Left as its own follow-up.
+    hook. Resolved by going further than originally scoped here: rather than extracting a shared hook for the two
+    patterns, `RatingForm.tsx` is gone entirely -- every rating control (Movie/Episode/Season/Series, meeting
+    table included) now shares `InlineRatingEditor`'s own popover (quality/sentiment save immediately on change,
+    comment has its own Save button). Series/Season gained `GET .../review` (was missing entirely -- their forms
+    always started blank) plus quality/sentiment auto-save built on the combined PUT endpoint, since neither has a
+    split PATCH like Movie/Episode.
 
 # Stretch goals (only start after asked)
 
