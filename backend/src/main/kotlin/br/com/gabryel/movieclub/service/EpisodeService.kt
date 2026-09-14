@@ -207,6 +207,13 @@ class EpisodeService(
         return episodeRepository.updateReviewSentiment(episodeId, actingMemberId, sentimentOptionId)
     }
 
+    /** The acting member's own review -- an all-null placeholder (never a 404/absent response) when they haven't
+     * rated yet, so the frontend can always render a review-shaped object and pre-fill its rating form. */
+    fun findReview(episodeId: Uuid, actingMemberId: Uuid): EpisodeReviewRow {
+        requireEpisodeClub(episodeId, actingMemberId)
+        return episodeRepository.findReview(episodeId, actingMemberId) ?: EpisodeReviewRow(episodeId, actingMemberId)
+    }
+
     private fun requireEpisodeClub(episodeId: Uuid, actingMemberId: Uuid): Uuid {
         val episode = episodeRepository.findById(episodeId) ?: throw NotFoundException("Episode not found")
         return requireClubSeriesForMember(season(episode.seasonId).seriesId, actingMemberId).clubId

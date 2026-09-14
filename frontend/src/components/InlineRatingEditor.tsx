@@ -1,4 +1,4 @@
-import { Box, MenuItem, Popover, Select, Stack, Tooltip, Typography } from '@mui/material'
+import { Box, Button, MenuItem, Popover, Select, Stack, TextField, Tooltip, Typography } from '@mui/material'
 import { useState } from 'react'
 import type { RatingOption, RatingScale } from '../api/types'
 import { useRatingDisplay } from '../settings/RatingDisplayContext'
@@ -14,12 +14,17 @@ import { strongPastelHex } from '../utils/pastelColor'
  * really the user's: verified live at the time that showing the full label really does only leave room for the
  * first member's column on a 390px phone, yet some readers may still want that trade-off deliberately (a phone
  * held landscape, or just preferring to scroll for the full word) rather than have it decided for them by screen
- * width alone. When both halves are set, `gradientPercent` controls how much of the middle blends between the two
+ * width alone. Clicking (when [editable]) opens a popover with quality/sentiment [Select]s (each saving immediately
+ * on change, same as the label boxes) and, when [onSaveComment] is given, a comment [TextField] with its own Save
+ * button below them -- unlike the selects, a comment shouldn't fire a request per keystroke, so it only saves on
+ * that explicit click. [onSaveComment] is optional (omitted everywhere the Meetings table renders this box) so
+ * that dense, one-column-per-member context stays exactly as before; only call sites that want comment editing in
+ * the same popover as the rating (see `ReviewsList`) pass it. When both halves are set, `gradientPercent` controls how much of the middle blends between the two
  * colors (0 = hard edge, colors touch directly). A half with no rating shows nothing at all (no color, no
  * placeholder text) -- the fill only ever represents a rating that was actually given. Once at least one rating is
  * given, the fill color(s) alone define the box and its border is dropped entirely; a box with *no* rating at all
  * gets a dashed outline in the member's strong color instead, since it would otherwise be fully invisible and have
- * nothing to click. Clicking (when [editable]) opens the same quality/sentiment [Select] popover as before.
+ * nothing to click.
  *
  * The color fill (solid halves + blended band) is painted as a single background `linear-gradient` on the outer
  * box, while the two text labels are laid out separately as a plain 50/50 flex split on top -- each label always
@@ -37,6 +42,8 @@ export function InlineRatingEditor({
   editable,
   onSaveQuality,
   onSaveSentiment,
+  initialComment,
+  onSaveComment,
 }: {
   scales: RatingScale[]
   memberName: string
@@ -46,8 +53,15 @@ export function InlineRatingEditor({
   editable: boolean
   onSaveQuality: (optionId: string | null) => void
   onSaveSentiment: (optionId: string | null) => void
+  /** Starting value for the popover's comment field -- ignored unless [onSaveComment] is also given. */
+  initialComment?: string | null
+  /** Adds a comment TextField + its own "Save comment" button to the popover when given -- omitted everywhere
+   * the Meetings table renders this box (see the doc comment above). */
+  onSaveComment?: (comment: string | null) => void | Promise<void>
 }) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
+  const [comment, setComment] = useState(initialComment ?? '')
+  const [savingComment, setSavingComment] = useState(false)
   const { gradientPercent, fillWith } = useRatingDisplay()
   const quality = scales.find((s) => s.type === 'QUALITY')
   const sentiment = scales.find((s) => s.type === 'SENTIMENT')
@@ -174,7 +188,7 @@ export function InlineRatingEditor({
           onClose={() => setAnchorEl(null)}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         >
-          <Stack spacing={1} sx={{ p: 1.5, minWidth: 160 }}>
+          <Stack spacing={1} sx={{ p: 1.5, minWidth: onSaveComment ? 260 : 160 }}>
             {quality && (
               <Select
                 size="small"
@@ -218,6 +232,34 @@ export function InlineRatingEditor({
                     </MenuItem>
                   ))}
               </Select>
+            )}
+            {onSaveComment && (
+              <>
+                <TextField
+                  size="small"
+                  label="Comment"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  multiline
+                  minRows={2}
+                  fullWidth
+                />
+                <Button
+                  size="small"
+                  variant="outlined"
+                  disabled={savingComment}
+                  onClick={async () => {
+                    setSavingComment(true)
+                    try {
+                      await onSaveComment(comment || null)
+                    } finally {
+                      setSavingComment(false)
+                    }
+                  }}
+                >
+                  Save comment
+                </Button>
+              </>
             )}
           </Stack>
         </Popover>

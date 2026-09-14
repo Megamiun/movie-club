@@ -10,57 +10,51 @@ interface ReviewLike {
   comment: string | null
 }
 
+/** One row per club member, always -- reserves the same space whether or not that member has rated yet, using the
+ * same InlineRatingEditor box the Meetings table renders per column (dashed border when unrated). Only
+ * [viewerMemberId]'s own row is editable; every other member's box is a read-only display. Its popover doubles as
+ * the comment editor too (via `onSaveComment`, see InlineRatingEditor's own doc comment) -- there's no separate
+ * "edit comment" control since only the viewer's own row could ever be edited anyway. */
 export function ReviewsList({
   reviews,
   scales,
   members,
-  showRatings = true,
+  viewerMemberId,
+  onSaveQuality,
+  onSaveSentiment,
+  onSaveComment,
 }: {
   reviews: ReviewLike[]
   scales: RatingScale[]
   members: ClubMember[]
-  /** False when a caller already shows quality/sentiment some other way (e.g. MovieSection's per-member
-   * InlineRatingEditor grid) and only wants this list for its comments -- rows with neither a comment nor a
-   * rating to show are dropped entirely rather than rendering a bare, empty-looking badge. */
-  showRatings?: boolean
+  viewerMemberId: string | undefined
+  onSaveQuality: (optionId: string | null) => void
+  onSaveSentiment: (optionId: string | null) => void
+  onSaveComment: (comment: string | null) => void | Promise<void>
 }) {
-  const visibleReviews = showRatings ? reviews : reviews.filter((r) => r.comment)
-
-  if (visibleReviews.length === 0) {
-    if (!showRatings) return null
-    return (
-      <Typography variant="body2" color="text.secondary">
-        No reviews yet.
-      </Typography>
-    )
-  }
-
   return (
     <Stack spacing={1}>
-      {visibleReviews.map((r) => {
-        const member = members.find((m) => m.memberId === r.memberId)
+      {members.map((m) => {
+        const r = reviews.find((review) => review.memberId === m.memberId)
+        const isViewer = m.memberId === viewerMemberId
         return (
-          <Stack key={r.memberId} direction="row" spacing={1.5}>
-            <MemberBadge member={member} size={28} />
+          <Stack key={m.memberId} direction="row" spacing={1.5}>
+            <MemberBadge member={m} size={28} />
             <Box sx={{ borderLeft: '3px solid', borderColor: 'divider', pl: 1.5, flexGrow: 1, minWidth: 0 }}>
-              {showRatings && (
-                <Box sx={{ mb: r.comment ? 0.5 : 0 }}>
-                  {/* Same box the Meetings table/InlineRatingEditor grid use everywhere else -- dashed border
-                   * when neither rating is set, rather than a pair of Chips duplicating a different visual
-                   * language for the same thing. Read-only here: editing happens via that grid, not this list. */}
-                  <InlineRatingEditor
-                    scales={scales}
-                    memberName={member?.name ?? ''}
-                    memberColor={member?.color}
-                    qualityOptionId={r.qualityOptionId}
-                    sentimentOptionId={r.sentimentOptionId}
-                    editable={false}
-                    onSaveQuality={() => {}}
-                    onSaveSentiment={() => {}}
-                  />
-                </Box>
-              )}
-              {r.comment && <Typography variant="body2">{r.comment}</Typography>}
+              <Box sx={{ mb: r?.comment ? 0.5 : 0 }}>
+                <InlineRatingEditor
+                  scales={scales}
+                  memberName={m.name}
+                  memberColor={m.color}
+                  qualityOptionId={r?.qualityOptionId ?? null}
+                  sentimentOptionId={r?.sentimentOptionId ?? null}
+                  editable={isViewer}
+                  onSaveQuality={onSaveQuality}
+                  onSaveSentiment={onSaveSentiment}
+                  {...(isViewer ? { initialComment: r?.comment, onSaveComment } : {})}
+                />
+              </Box>
+              {r?.comment && <Typography variant="body2">{r.comment}</Typography>}
             </Box>
           </Stack>
         )

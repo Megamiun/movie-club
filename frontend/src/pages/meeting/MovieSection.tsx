@@ -4,8 +4,6 @@ import EditIcon from '@mui/icons-material/Edit'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import LinkIcon from '@mui/icons-material/Link'
 import RefreshIcon from '@mui/icons-material/Refresh'
-import StarIcon from '@mui/icons-material/Star'
-import StarBorderIcon from '@mui/icons-material/StarBorder'
 import {
   Alert,
   Box,
@@ -16,7 +14,6 @@ import {
   DialogTitle,
   IconButton,
   MenuItem,
-  Popover,
   Select,
   Stack,
   TextField,
@@ -33,10 +30,8 @@ import type { ClubMember, Movie, RatingScale, TmdbSearchResult } from '../../api
 import { AsyncState } from '../../components/AsyncState'
 import { CountryFlags } from '../../components/CountryFlags'
 import { ImdbLink } from '../../components/ImdbLink'
-import { InlineRatingEditor } from '../../components/InlineRatingEditor'
 import { LanguagePickerDialog } from '../../components/LanguagePickerDialog'
 import { MemberBadge } from '../../components/MemberBadge'
-import { RatingForm } from '../../components/RatingForm'
 import { ReviewsList } from '../../components/ReviewsList'
 import { TmdbSearchAutocomplete } from '../../components/TmdbSearchAutocomplete'
 import { useAuth } from '../../auth/AuthContext'
@@ -197,14 +192,11 @@ function MovieItem({
   const [watchLink, setWatchLink] = useState(movie.watchLink ?? '')
   const [titleDialogOpen, setTitleDialogOpen] = useState(false)
   const [watchLinkDialogOpen, setWatchLinkDialogOpen] = useState(false)
-  const [ratingAnchorEl, setRatingAnchorEl] = useState<HTMLElement | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const title = resolveTitle(movie, languagePrefs)
   const chooser = members.find((m) => m.memberId === movie.chosenById)
-  const viewerMember = members.find((m) => m.memberId === viewer?.id)
   const myReview = reviews?.find((r) => r.memberId === viewer?.id)
-  const haveIRated = Boolean(myReview?.qualityOptionId || myReview?.sentimentOptionId)
 
   const handleSaveDetails = async () => {
     setError(null)
@@ -269,14 +261,6 @@ function MovieItem({
     }
   }
 
-  const handleRate = async (qualityOptionId?: string, sentimentOptionId?: string, comment?: string) => {
-    await moviesApi.rate(movie.id, qualityOptionId, sentimentOptionId, comment)
-    reloadReviews()
-  }
-
-  // Backs the InlineRatingEditor grid below (one box per club member, same component/visualization the Meetings
-  // table uses) -- only ever called for the viewer's own box (see `editable` below), so there's no memberId to
-  // pass: `rateQuality`/`rateSentiment` always act on the authenticated caller's own review.
   const handleSaveQuality = async (optionId: string | null) => {
     await moviesApi.rateQuality(movie.id, optionId)
     reloadReviews()
@@ -284,6 +268,14 @@ function MovieItem({
 
   const handleSaveSentiment = async (optionId: string | null) => {
     await moviesApi.rateSentiment(movie.id, optionId)
+    reloadReviews()
+  }
+
+  // The combined PUT is the only endpoint that can touch a comment at all (no comment-only PATCH exists), so this
+  // has to pass the viewer's *current* quality/sentiment through unchanged -- otherwise saving just a comment
+  // would silently wipe out whatever rating handleSaveQuality/handleSaveSentiment already saved.
+  const handleSaveComment = async (comment: string | null) => {
+    await moviesApi.rate(movie.id, myReview?.qualityOptionId ?? undefined, myReview?.sentimentOptionId ?? undefined, comment ?? undefined)
     reloadReviews()
   }
 
@@ -354,19 +346,6 @@ function MovieItem({
               }}
             />
           )}
-          {/* Below the poster: the viewer's own photo plus a rating icon -- always visible (not gated behind
-           * expanding the block), and it stays exactly the same icon whether or not a rating exists yet, so it
-           * always doubles as the way to go back and edit one already given. */}
-          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-            <MemberBadge member={viewerMember} size={22} />
-            <IconButton
-              size="small"
-              onClick={(e) => setRatingAnchorEl(e.currentTarget)}
-              title={haveIRated ? 'Edit your rating' : 'Rate this movie'}
-            >
-              {haveIRated ? <StarIcon fontSize="small" color="primary" /> : <StarBorderIcon fontSize="small" />}
-            </IconButton>
-          </Stack>
         </Stack>
 
         <Stack spacing={0.5} sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -414,32 +393,15 @@ function MovieItem({
                 <Box component="span" sx={{ fontWeight: 700 }}>Genre:</Box>{' '}
                 {movie.genre && movie.genre.length > 0 ? movie.genre.join(', ') : '—'}
               </Typography>
-
-              {/* One box per club member, always -- reserves the same space whether or not that member has rated
-               * yet, using the exact same InlineRatingEditor the Meetings table renders per column. Only the
-               * viewer's own box is editable; everyone else's is a read-only display, same as the table. */}
-              <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', mt: 0.5 }}>
-                {members.map((m) => {
-                  const review = reviews?.find((r) => r.memberId === m.memberId)
-                  return (
-                    <Stack key={m.memberId} spacing={0.5} sx={{ alignItems: 'center' }}>
-                      <MemberBadge member={m} size={20} />
-                      <InlineRatingEditor
-                        scales={scales}
-                        memberName={m.name}
-                        memberColor={m.color}
-                        qualityOptionId={review?.qualityOptionId ?? null}
-                        sentimentOptionId={review?.sentimentOptionId ?? null}
-                        editable={m.memberId === viewer?.id}
-                        onSaveQuality={handleSaveQuality}
-                        onSaveSentiment={handleSaveSentiment}
-                      />
-                    </Stack>
-                  )
-                })}
-              </Stack>
-
-              <ReviewsList reviews={reviews ?? []} scales={scales} members={members} />
+              <ReviewsList
+                reviews={reviews ?? []}
+                scales={scales}
+                members={members}
+                viewerMemberId={viewer?.id}
+                onSaveQuality={handleSaveQuality}
+                onSaveSentiment={handleSaveSentiment}
+                onSaveComment={handleSaveComment}
+              />
             </Stack>
           </Collapse>
         </Stack>
@@ -484,26 +446,6 @@ function MovieItem({
           </Stack>
         </DialogContent>
       </Dialog>
-
-      <Popover
-        open={Boolean(ratingAnchorEl)}
-        anchorEl={ratingAnchorEl}
-        onClose={() => setRatingAnchorEl(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      >
-        <Box sx={{ p: 1.5, minWidth: 280 }}>
-          <RatingForm
-            scales={scales}
-            initialQualityOptionId={myReview?.qualityOptionId}
-            initialSentimentOptionId={myReview?.sentimentOptionId}
-            initialComment={myReview?.comment}
-            onSave={async (quality, sentiment, comment) => {
-              await handleRate(quality, sentiment, comment)
-              setRatingAnchorEl(null)
-            }}
-          />
-        </Box>
-      </Popover>
     </Box>
   )
 }

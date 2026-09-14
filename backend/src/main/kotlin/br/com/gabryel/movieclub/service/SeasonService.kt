@@ -67,6 +67,14 @@ class SeasonService(
         return seasonRepository.upsertReview(seasonId, actingMemberId, qualityOptionId, sentimentOptionId, comment)
     }
 
+    /** The acting member's own review -- an all-null placeholder (never a 404/absent response) when they haven't
+     * rated yet, so the frontend can always render a review-shaped object and pre-fill its rating form. */
+    fun findReview(seasonId: Uuid, actingMemberId: Uuid): SeasonReviewRow {
+        val season = seasonRepository.findById(seasonId) ?: throw NotFoundException("Season not found")
+        requireClubSeriesForMember(season.seriesId, actingMemberId)
+        return seasonRepository.findReview(seasonId, actingMemberId) ?: SeasonReviewRow(seasonId, actingMemberId)
+    }
+
     private fun requireClubSeriesAccess(seriesId: Uuid, actingMemberId: Uuid) =
         (seriesRepository.findById(seriesId) ?: throw NotFoundException("Series not found"))
             .also { clubService.requireMembership(it.clubId, actingMemberId) }

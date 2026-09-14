@@ -271,6 +271,16 @@ class SeriesService(
         return seriesRepository.listReviews(series.globalSeriesId)
     }
 
+    /** The acting member's own review -- an all-null placeholder (never a 404/absent response) when they haven't
+     * rated yet, so the frontend can always render a review-shaped object and pre-fill its rating form instead of
+     * always starting blank (see [rate]'s own doc for why [seriesId] needs resolving to the global series id
+     * first). */
+    fun findReview(seriesId: Uuid, actingMemberId: Uuid): SeriesReviewRow {
+        val series = requireSeriesAccess(seriesId, actingMemberId)
+        return seriesRepository.findReview(series.globalSeriesId, actingMemberId)
+            ?: SeriesReviewRow(series.globalSeriesId, actingMemberId)
+    }
+
     private fun requireSeriesAccess(seriesId: Uuid, actingMemberId: Uuid): SeriesRow {
         val series = seriesRepository.findById(seriesId)
             ?: throw NotFoundException("Series not found")

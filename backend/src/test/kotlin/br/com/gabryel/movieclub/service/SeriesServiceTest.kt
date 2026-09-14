@@ -246,6 +246,29 @@ class SeriesServiceTest {
     }
 
     @Test
+    fun `findReview returns the acting member's existing review`() {
+        val seriesId = Uuid.random()
+        val globalSeriesId = Uuid.random()
+        every { seriesRepository.findById(seriesId) } returns series(id = seriesId, globalSeriesId = globalSeriesId)
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        val review = SeriesReviewRow(globalSeriesId, memberId, comment = "great")
+        every { seriesRepository.findReview(globalSeriesId, memberId) } returns review
+
+        assertEquals(review, seriesService.findReview(seriesId, memberId))
+    }
+
+    @Test
+    fun `findReview returns an all-null placeholder when the acting member hasn't rated yet`() {
+        val seriesId = Uuid.random()
+        val globalSeriesId = Uuid.random()
+        every { seriesRepository.findById(seriesId) } returns series(id = seriesId, globalSeriesId = globalSeriesId)
+        every { clubService.requireMembership(clubId, memberId) } returns membership()
+        every { seriesRepository.findReview(globalSeriesId, memberId) } returns null
+
+        assertEquals(SeriesReviewRow(globalSeriesId, memberId), seriesService.findReview(seriesId, memberId))
+    }
+
+    @Test
     fun `importSeasonsAndEpisodes throws BadRequestException when the series has no tmdbId`(): Unit =
         runBlocking {
             val seriesId = Uuid.random()

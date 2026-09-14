@@ -420,6 +420,29 @@ class EpisodeServiceTest {
         assertEquals(review, episodeService.rateSentiment(episodeId, memberId, optionId))
     }
 
+    @Test
+    fun `findReview returns the acting member's existing review`() {
+        val episodeId = Uuid.random()
+        every { episodeRepository.findById(episodeId) } returns episode(episodeId)
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        val review = EpisodeReviewRow(episodeId, memberId, comment = "good pilot")
+        every { episodeRepository.findReview(episodeId, memberId) } returns review
+
+        assertEquals(review, episodeService.findReview(episodeId, memberId))
+    }
+
+    @Test
+    fun `findReview returns an all-null placeholder when the acting member hasn't rated yet`() {
+        val episodeId = Uuid.random()
+        every { episodeRepository.findById(episodeId) } returns episode(episodeId)
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        every { episodeRepository.findReview(episodeId, memberId) } returns null
+
+        assertEquals(EpisodeReviewRow(episodeId, memberId), episodeService.findReview(episodeId, memberId))
+    }
+
     private fun episode(id: Uuid = Uuid.random()) = EpisodeRow(id = id, seasonId = seasonId, number = 1, title = "Pilot")
 
     private fun membership() = ClubMembershipRow(clubId, memberId, MEMBER, 0, Clock.System.now())

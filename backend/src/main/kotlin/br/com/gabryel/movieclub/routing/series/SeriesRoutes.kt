@@ -102,6 +102,11 @@ fun Route.seriesRoutes(seriesService: SeriesService, seasonService: SeasonServic
             call.respond(review.toResponse())
         }
 
+        get("/series/{seriesId}/review") {
+            val review = seriesService.findReview(call.uuidPathParam("seriesId"), call.actingMemberId())
+            call.respond(review.toResponse())
+        }
+
         post("/series/{seriesId}/seasons") {
             val body = call.receive<AddSeasonRequest>()
             val season =
@@ -133,6 +138,11 @@ fun Route.seriesRoutes(seriesService: SeriesService, seasonService: SeasonServic
                 body.sentimentOptionId?.toUuidOrBadRequest(),
                 body.comment,
             )
+            call.respond(review.toResponse())
+        }
+
+        get("/seasons/{seasonId}/review") {
+            val review = seasonService.findReview(call.uuidPathParam("seasonId"), call.actingMemberId())
             call.respond(review.toResponse())
         }
 
@@ -205,6 +215,11 @@ fun Route.seriesRoutes(seriesService: SeriesService, seasonService: SeasonServic
                 call.actingMemberId(),
                 body.optionId?.toUuidOrBadRequest(),
             )
+            call.respond(review.toResponse())
+        }
+
+        get("/episodes/{episodeId}/review") {
+            val review = episodeService.findReview(call.uuidPathParam("episodeId"), call.actingMemberId())
             call.respond(review.toResponse())
         }
 

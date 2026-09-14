@@ -96,6 +96,27 @@ class SeasonServiceTest {
         assertEquals(review, seasonService.rate(seasonId, memberId, comment = "solid season"))
     }
 
+    @Test
+    fun `findReview returns the acting member's existing review`() {
+        val seasonId = Uuid.random()
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        val review = SeasonReviewRow(seasonId, memberId, comment = "solid season")
+        every { seasonRepository.findReview(seasonId, memberId) } returns review
+
+        assertEquals(review, seasonService.findReview(seasonId, memberId))
+    }
+
+    @Test
+    fun `findReview returns an all-null placeholder when the acting member hasn't rated yet`() {
+        val seasonId = Uuid.random()
+        every { seasonRepository.findById(seasonId) } returns SeasonRow(seasonId, globalSeriesId, 1)
+        every { seriesRepository.findClubSeriesForMember(globalSeriesId, memberId) } returns series()
+        every { seasonRepository.findReview(seasonId, memberId) } returns null
+
+        assertEquals(SeasonReviewRow(seasonId, memberId), seasonService.findReview(seasonId, memberId))
+    }
+
     private fun membership() = ClubMembershipRow(clubId, memberId, MEMBER, 0, Clock.System.now())
 
     private fun series() = SeriesRow(
