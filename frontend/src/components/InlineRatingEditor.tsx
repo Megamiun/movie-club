@@ -1,4 +1,20 @@
-import { Box, Button, MenuItem, Popover, Select, Stack, TextField, Tooltip, Typography } from '@mui/material'
+import CloseIcon from '@mui/icons-material/Close'
+import {
+  AppBar,
+  Box,
+  Button,
+  Dialog,
+  IconButton,
+  MenuItem,
+  Popover,
+  Select,
+  Stack,
+  TextField,
+  Toolbar,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+} from '@mui/material'
 import { useState } from 'react'
 import type { RatingOption, RatingScale } from '../api/types'
 import { useRatingDisplay } from '../settings/RatingDisplayContext'
@@ -63,6 +79,10 @@ export function InlineRatingEditor({
   const [comment, setComment] = useState(initialComment ?? '')
   const [savingComment, setSavingComment] = useState(false)
   const { gradientPercent, fillWith } = useRatingDisplay()
+  // Same small-screen-and-portrait signal MovieSection.tsx uses for its own responsive layout -- a small anchored
+  // Popover (two Selects + a multiline comment box + button) is cramped on a phone that size, so this switches to
+  // a full-screen Dialog there instead rather than trying to shrink the same layout to fit.
+  const isNarrowPortrait = useMediaQuery('(max-width: 600px) and (orientation: portrait)')
   const quality = scales.find((s) => s.type === 'QUALITY')
   const sentiment = scales.find((s) => s.type === 'SENTIMENT')
   const qualityOption = quality?.options.find((o) => o.id === qualityOptionId)
@@ -115,6 +135,89 @@ export function InlineRatingEditor({
       </Typography>
       {quality && <TooltipRatingLine label="Quality" option={qualityOption} />}
       {sentiment && <TooltipRatingLine label="Sentiment" option={sentimentOption} />}
+    </Stack>
+  )
+
+  // Shared between the anchored Popover (desktop/tablet) and the full-screen Dialog (small portrait screens, see
+  // isNarrowPortrait above) -- same controls either way, just a different shell around them.
+  const editorContent = (
+    <Stack spacing={1}>
+      <Stack direction={onSaveComment ? 'row' : 'column'} spacing={1}>
+        {quality && (
+          <Select
+            size="small"
+            displayEmpty
+            value={qualityOptionId ?? ''}
+            onChange={(e) => onSaveQuality(e.target.value || null)}
+            fullWidth={Boolean(onSaveComment)}
+            renderValue={(value) =>
+              value ? <OptionLabel option={quality.options.find((o) => o.id === value)} /> : <em>Quality</em>
+            }
+          >
+            <MenuItem value="">
+              <em>Quality</em>
+            </MenuItem>
+            {[...quality.options]
+              .sort((a, b) => a.position - b.position)
+              .map((o) => (
+                <MenuItem key={o.id} value={o.id}>
+                  <OptionLabel option={o} />
+                </MenuItem>
+              ))}
+          </Select>
+        )}
+        {sentiment && (
+          <Select
+            size="small"
+            displayEmpty
+            value={sentimentOptionId ?? ''}
+            onChange={(e) => onSaveSentiment(e.target.value || null)}
+            fullWidth={Boolean(onSaveComment)}
+            renderValue={(value) =>
+              value ? <OptionLabel option={sentiment.options.find((o) => o.id === value)} /> : <em>Sentiment</em>
+            }
+          >
+            <MenuItem value="">
+              <em>Sentiment</em>
+            </MenuItem>
+            {[...sentiment.options]
+              .sort((a, b) => a.position - b.position)
+              .map((o) => (
+                <MenuItem key={o.id} value={o.id}>
+                  <OptionLabel option={o} />
+                </MenuItem>
+              ))}
+          </Select>
+        )}
+      </Stack>
+      {onSaveComment && (
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'stretch' }}>
+          <TextField
+            size="small"
+            label="Comment"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            multiline
+            minRows={2}
+            fullWidth
+          />
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={savingComment}
+            onClick={async () => {
+              setSavingComment(true)
+              try {
+                await onSaveComment(comment || null)
+              } finally {
+                setSavingComment(false)
+              }
+            }}
+          >
+            Save comment
+          </Button>
+        </Stack>
+      )}
     </Stack>
   )
 
@@ -194,91 +297,30 @@ export function InlineRatingEditor({
         </Box>
       </Tooltip>
       {editable && Boolean(anchorEl) && (
-        <Popover
-          open
-          anchorEl={anchorEl}
-          onClose={() => setAnchorEl(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        >
-          <Stack spacing={1} sx={{ p: 1.5, minWidth: onSaveComment ? 340 : 160 }}>
-            <Stack direction={onSaveComment ? 'row' : 'column'} spacing={1}>
-              {quality && (
-                <Select
-                  size="small"
-                  displayEmpty
-                  value={qualityOptionId ?? ''}
-                  onChange={(e) => onSaveQuality(e.target.value || null)}
-                  fullWidth={Boolean(onSaveComment)}
-                  renderValue={(value) =>
-                    value ? <OptionLabel option={quality.options.find((o) => o.id === value)} /> : <em>Quality</em>
-                  }
-                >
-                  <MenuItem value="">
-                    <em>Quality</em>
-                  </MenuItem>
-                  {[...quality.options]
-                    .sort((a, b) => a.position - b.position)
-                    .map((o) => (
-                      <MenuItem key={o.id} value={o.id}>
-                        <OptionLabel option={o} />
-                      </MenuItem>
-                    ))}
-                </Select>
-              )}
-              {sentiment && (
-                <Select
-                  size="small"
-                  displayEmpty
-                  value={sentimentOptionId ?? ''}
-                  onChange={(e) => onSaveSentiment(e.target.value || null)}
-                  fullWidth={Boolean(onSaveComment)}
-                  renderValue={(value) =>
-                    value ? <OptionLabel option={sentiment.options.find((o) => o.id === value)} /> : <em>Sentiment</em>
-                  }
-                >
-                  <MenuItem value="">
-                    <em>Sentiment</em>
-                  </MenuItem>
-                  {[...sentiment.options]
-                    .sort((a, b) => a.position - b.position)
-                    .map((o) => (
-                      <MenuItem key={o.id} value={o.id}>
-                        <OptionLabel option={o} />
-                      </MenuItem>
-                    ))}
-                </Select>
-              )}
-            </Stack>
-            {onSaveComment && (
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'stretch' }}>
-                <TextField
-                  size="small"
-                  label="Comment"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  multiline
-                  minRows={2}
-                  fullWidth
-                />
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={savingComment}
-                  onClick={async () => {
-                    setSavingComment(true)
-                    try {
-                      await onSaveComment(comment || null)
-                    } finally {
-                      setSavingComment(false)
-                    }
-                  }}
-                >
-                  Save comment
-                </Button>
-              </Stack>
-            )}
-          </Stack>
-        </Popover>
+        isNarrowPortrait ? (
+          <Dialog fullScreen open onClose={() => setAnchorEl(null)}>
+            <AppBar position="relative" color="default" elevation={1}>
+              <Toolbar>
+                <Typography variant="subtitle1" sx={{ flexGrow: 1, fontWeight: 700 }}>
+                  {memberName}
+                </Typography>
+                <IconButton edge="end" onClick={() => setAnchorEl(null)} title="Close">
+                  <CloseIcon />
+                </IconButton>
+              </Toolbar>
+            </AppBar>
+            <Box sx={{ p: 2 }}>{editorContent}</Box>
+          </Dialog>
+        ) : (
+          <Popover
+            open
+            anchorEl={anchorEl}
+            onClose={() => setAnchorEl(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          >
+            <Box sx={{ p: 1.5, minWidth: onSaveComment ? 340 : 160 }}>{editorContent}</Box>
+          </Popover>
+        )
       )}
     </>
   )
