@@ -31,7 +31,7 @@ fun Route.importRoutes(importService: ImportService) {
 
             val parsed = call.parseImportMultipart()
 
-            val importType = parsed.type ?: throw BadRequestException("Missing 'type' field (movies|series|reserve)")
+            val importType = parsed.type ?: throw BadRequestException("Missing 'type' field (movies|series|reserve|comments)")
             if (parsed.files.isEmpty()) throw BadRequestException("Missing 'file' part")
             val mappings = parsed.mappingsJson
                 ?.let { json.decodeFromString<List<ImportMemberMappingDto>>(it) }
@@ -43,7 +43,8 @@ fun Route.importRoutes(importService: ImportService) {
                     "movies" -> importService.importMovies(clubId, actingMemberId, ByteArrayInputStream(bytes), mappings)
                     "series" -> importService.importSeries(clubId, actingMemberId, ByteArrayInputStream(bytes), mappings)
                     "reserve" -> importService.importReserve(clubId, actingMemberId, ByteArrayInputStream(bytes), mappings)
-                    else -> throw BadRequestException("Unknown import type: $importType (expected movies|series|reserve)")
+                    "comments" -> importService.importComments(clubId, actingMemberId, ByteArrayInputStream(bytes), mappings)
+                    else -> throw BadRequestException("Unknown import type: $importType (expected movies|series|reserve|comments)")
                 }
             }
 

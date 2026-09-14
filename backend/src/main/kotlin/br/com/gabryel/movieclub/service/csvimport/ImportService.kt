@@ -11,6 +11,7 @@ import br.com.gabryel.movieclub.db.repositories.RatingScaleRepository
 import br.com.gabryel.movieclub.db.repositories.SeasonRepository
 import br.com.gabryel.movieclub.db.repositories.SeriesRepository
 import br.com.gabryel.movieclub.db.repositories.WatchlistRepository
+import br.com.gabryel.movieclub.db.repositories.dto.MovieRow
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbMovieMetadata
 import br.com.gabryel.movieclub.db.repositories.dto.TmdbSeriesMetadata
 import br.com.gabryel.movieclub.exception.BadRequestException
@@ -344,6 +345,74 @@ class ImportService(
         }
 
         return ImportResult(created, 0, skipped, warnings)
+    }
+
+    /** Matches each CSV row's free-text "Movie" title against the club's own already-imported movie picks by
+     * fuzzy title similarity ([episodeTitleSimilarity]/[TITLE_MATCH_THRESHOLD], the same pairing this codebase
+     * already uses to match an informal CSV title against a TMDB-sourced one) -- unlike the main Movies CSV, this
+     * file has no IMDB id at all to match by exactly. Tries both the pick's own `originalTitle` and its
+     * `customTitle` (if set), since a comment written well after the fact is as likely to reference whichever
+     * title the club actually settled on displaying as the original one. A row whose best match still falls below
+     * the threshold is skipped with a warning rather than guessed at.
+     *
+     * Setting just the comment always has to go through the same full-overwrite [MovieRepository.upsertReview]
+     * [MovieService.rate] itself is built on -- so this reads each member's *current* review first and passes its
+     * quality/sentiment back through unchanged, the same care `MovieSection.tsx`'s own `handleSaveComment` takes,
+     * so a comments-only re-run of this importer can't silently clear a rating a previous Movies CSV import (or a
+     * live rating) already set.
+     */
+    suspend fun importComments(
+        clubId: Uuid,
+        actingMemberId: Uuid,
+        input: InputStream,
+        mappings: List<ImportMemberMapping>,
+    ): ImportResult {
+        clubService.requireAdmin(clubId, actingMemberId)
+        val rows = CommentsCsvParser.parse(input)
+        validateMappingCoverage(
+            initials = emptySet(),
+            displayNames = rows.flatMap { it.commentsByDisplayName.keys }.toSet(),
+            mappings = mappings,
+        )
+        val nameToMember = mappings.byDisplayName()
+        val clubMovies = movieRepository.listByMeetings(meetingRepository.listByClub(clubId).map { it.id })
+
+        var updated = 0
+        val skipped = mutableListOf<ImportRowIssue>()
+        val warnings = mutableListOf<ImportRowIssue>()
+
+        rows.forEach { row ->
+            val movie = clubMovies
+                .map { it to titleSimilarity(it, row.movieTitle) }
+                .filter { it.second >= TITLE_MATCH_THRESHOLD }
+                .maxByOrNull { it.second }
+                ?.first
+
+            if (movie == null) {
+                skipped.add(ImportRowIssue(row.rowNumber, "No matching movie found for '${row.movieTitle}'"))
+                return@forEach
+            }
+
+            row.commentsByDisplayName.forEach { (displayName, comment) ->
+                val memberId = nameToMember[displayName]
+                if (memberId == null) {
+                    warnings.add(ImportRowIssue(row.rowNumber, "Unmapped comment column '$displayName'"))
+                    return@forEach
+                }
+
+                val existingReview = movieRepository.findReview(movie.id, memberId)
+                movieRepository.upsertReview(movie.id, memberId, existingReview?.qualityOptionId, existingReview?.sentimentOptionId, comment)
+                updated++
+            }
+        }
+
+        return ImportResult(0, updated, skipped, warnings)
+    }
+
+    private fun titleSimilarity(movie: MovieRow, csvTitle: String): Double {
+        val originalScore = episodeTitleSimilarity(movie.originalTitle, csvTitle)
+        val customScore = movie.customTitle?.let { episodeTitleSimilarity(it, csvTitle) } ?: 0.0
+        return maxOf(originalScore, customScore)
     }
 
     private fun loadScalesWithOptions(clubId: Uuid): Map<RatingScaleType, Map<String, Uuid>> =

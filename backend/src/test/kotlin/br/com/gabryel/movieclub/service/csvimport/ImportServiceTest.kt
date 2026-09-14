@@ -376,6 +376,58 @@ class ImportServiceTest {
         assertTrue(result.warnings.any { it.reason.contains("Could not find TMDB metadata") })
     }
 
+    @Test
+    fun `importComments matches a CSV title fuzzily and preserves the existing rating when saving a comment`(): Unit =
+        runBlocking {
+            val csv = "Movie,Person A\nExorcist,Scary but good"
+            val meetingId = Uuid.random()
+            val movieId = Uuid.random()
+            val existingQualityId = Uuid.random()
+
+            every { meetingRepository.listByClub(clubId) } returns
+                listOf(MeetingRow(meetingId, clubId, LocalDate(2025, 1, 1)))
+            every { movieRepository.listByMeetings(listOf(meetingId)) } returns
+                listOf(movie(id = movieId, meetingId = meetingId, originalTitle = "The Exorcist"))
+            every { movieRepository.findReview(movieId, personA) } returns
+                MovieReviewRow(movieId, personA, qualityOptionId = existingQualityId)
+            every {
+                movieRepository.upsertReview(movieId, personA, existingQualityId, null, "Scary but good")
+            } returns MovieReviewRow(movieId, personA, existingQualityId, comment = "Scary but good")
+
+            val result = importService.importComments(clubId, actingMemberId, csv.byteInputStream(), mappings)
+
+            assertEquals(1, result.updated)
+            verify { movieRepository.upsertReview(movieId, personA, existingQualityId, null, "Scary but good") }
+        }
+
+    @Test
+    fun `importComments skips a row when no movie title matches closely enough`(): Unit = runBlocking {
+        val csv = "Movie,Person A\nCompletely Unrelated Title,Some comment"
+        val meetingId = Uuid.random()
+
+        every { meetingRepository.listByClub(clubId) } returns
+            listOf(MeetingRow(meetingId, clubId, LocalDate(2025, 1, 1)))
+        every { movieRepository.listByMeetings(listOf(meetingId)) } returns
+            listOf(movie(meetingId = meetingId, originalTitle = "The Exorcist"))
+
+        val result = importService.importComments(clubId, actingMemberId, csv.byteInputStream(), mappings)
+
+        assertEquals(0, result.updated)
+        assertTrue(result.skipped.any { it.reason.contains("No matching movie found") })
+        verify(exactly = 0) { movieRepository.upsertReview(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `importComments throws BadRequestException for an unmapped comment column`() {
+        val csv = "Movie,Unknown Person\nThe Exorcist,Some comment"
+
+        assertFailsWith<BadRequestException> {
+            runBlocking {
+                importService.importComments(clubId, actingMemberId, csv.byteInputStream(), mappings)
+            }
+        }
+    }
+
     private fun watchlistEntry(memberId: Uuid, title: String = "Dune") = WatchlistEntryRow(
         id = Uuid.random(),
         clubId = clubId,
@@ -412,13 +464,19 @@ class ImportServiceTest {
     private fun movieCsvHeader() =
         "Choice,Movie,When?,Person A's Rating,Person A - Liked?,Person B's Rating,Person B - Liked?,Year,Duration,Director,IMDB Rating,Genre,Country,IMDB Id"
 
-    private fun movie(id: Uuid = Uuid.random(), meetingId: Uuid) = MovieRow(
+    private fun movie(
+        id: Uuid = Uuid.random(),
+        meetingId: Uuid,
+        originalTitle: String = "John Wick",
+        customTitle: String? = null,
+    ) = MovieRow(
         id = id,
         meetingId = meetingId,
         chosenById = personA,
         imdbId = "tt2911666",
-        originalTitle = "John Wick",
+        originalTitle = originalTitle,
         translations = emptyList(),
+        customTitle = customTitle,
         displayTitlePreference = ORIGINAL,
         year = 2014,
         createdAt = Clock.System.now(),

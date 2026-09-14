@@ -74,6 +74,7 @@ export function ImportPage() {
             <MenuItem value="movies">Movies</MenuItem>
             <MenuItem value="series">Series</MenuItem>
             <MenuItem value="reserve">Reserve (watchlist)</MenuItem>
+            <MenuItem value="comments">Comments</MenuItem>
           </Select>
           <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
             {files.length > 0 ? `${files.length} file(s) selected` : 'Choose CSV file(s)'}

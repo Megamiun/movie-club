@@ -279,7 +279,7 @@ export interface ImportResult {
   warnings: ImportRowIssue[]
 }
 
-export type ImportType = 'movies' | 'series' | 'reserve'
+export type ImportType = 'movies' | 'series' | 'reserve' | 'comments'
 
 export interface ImportMemberMapping {
   choiceInitial: string
