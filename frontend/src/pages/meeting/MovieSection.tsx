@@ -33,6 +33,7 @@ import type { ClubMember, Movie, RatingScale, TmdbSearchResult } from '../../api
 import { AsyncState } from '../../components/AsyncState'
 import { CountryFlags } from '../../components/CountryFlags'
 import { ImdbLink } from '../../components/ImdbLink'
+import { InlineRatingEditor } from '../../components/InlineRatingEditor'
 import { LanguagePickerDialog } from '../../components/LanguagePickerDialog'
 import { MemberBadge } from '../../components/MemberBadge'
 import { RatingForm } from '../../components/RatingForm'
@@ -273,6 +274,19 @@ function MovieItem({
     reloadReviews()
   }
 
+  // Backs the InlineRatingEditor grid below (one box per club member, same component/visualization the Meetings
+  // table uses) -- only ever called for the viewer's own box (see `editable` below), so there's no memberId to
+  // pass: `rateQuality`/`rateSentiment` always act on the authenticated caller's own review.
+  const handleSaveQuality = async (optionId: string | null) => {
+    await moviesApi.rateQuality(movie.id, optionId)
+    reloadReviews()
+  }
+
+  const handleSaveSentiment = async (optionId: string | null) => {
+    await moviesApi.rateSentiment(movie.id, optionId)
+    reloadReviews()
+  }
+
   return (
     <Box sx={{ pb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
       {error && (
@@ -401,7 +415,31 @@ function MovieItem({
                 {movie.genre && movie.genre.length > 0 ? movie.genre.join(', ') : '—'}
               </Typography>
 
-              <ReviewsList reviews={reviews ?? []} scales={scales} members={members} />
+              {/* One box per club member, always -- reserves the same space whether or not that member has rated
+               * yet, using the exact same InlineRatingEditor the Meetings table renders per column. Only the
+               * viewer's own box is editable; everyone else's is a read-only display, same as the table. */}
+              <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', mt: 0.5 }}>
+                {members.map((m) => {
+                  const review = reviews?.find((r) => r.memberId === m.memberId)
+                  return (
+                    <Stack key={m.memberId} spacing={0.5} sx={{ alignItems: 'center' }}>
+                      <MemberBadge member={m} size={20} />
+                      <InlineRatingEditor
+                        scales={scales}
+                        memberName={m.name}
+                        memberColor={m.color}
+                        qualityOptionId={review?.qualityOptionId ?? null}
+                        sentimentOptionId={review?.sentimentOptionId ?? null}
+                        editable={m.memberId === viewer?.id}
+                        onSaveQuality={handleSaveQuality}
+                        onSaveSentiment={handleSaveSentiment}
+                      />
+                    </Stack>
+                  )
+                })}
+              </Stack>
+
+              <ReviewsList reviews={reviews ?? []} scales={scales} members={members} showRatings={false} />
             </Stack>
           </Collapse>
         </Stack>

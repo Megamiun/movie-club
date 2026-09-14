@@ -19,12 +19,20 @@ export function ReviewsList({
   reviews,
   scales,
   members,
+  showRatings = true,
 }: {
   reviews: ReviewLike[]
   scales: RatingScale[]
   members: ClubMember[]
+  /** False when a caller already shows quality/sentiment some other way (e.g. MovieSection's per-member
+   * InlineRatingEditor grid) and only wants this list for its comments -- rows with neither a comment nor a
+   * rating to show are dropped entirely rather than rendering a bare, empty-looking badge. */
+  showRatings?: boolean
 }) {
-  if (reviews.length === 0) {
+  const visibleReviews = showRatings ? reviews : reviews.filter((r) => r.comment)
+
+  if (visibleReviews.length === 0) {
+    if (!showRatings) return null
     return (
       <Typography variant="body2" color="text.secondary">
         No reviews yet.
@@ -34,9 +42,9 @@ export function ReviewsList({
 
   return (
     <Stack spacing={1}>
-      {reviews.map((r) => {
-        const quality = labelFor(scales, 'QUALITY', r.qualityOptionId)
-        const sentiment = labelFor(scales, 'SENTIMENT', r.sentimentOptionId)
+      {visibleReviews.map((r) => {
+        const quality = showRatings ? labelFor(scales, 'QUALITY', r.qualityOptionId) : null
+        const sentiment = showRatings ? labelFor(scales, 'SENTIMENT', r.sentimentOptionId) : null
         return (
           <Stack key={r.memberId} spacing={0.25}>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
