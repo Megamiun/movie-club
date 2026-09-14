@@ -17,7 +17,12 @@
   One `TranslateIcon` (`MovieSection.tsx`) replaces the old pencil + globe icons; the custom-title TextField only
   appears once "Custom" is picked.
 
-- [ ] Create importer for sample Comments csv file — in progress, see `samples/Movie Club - Movies 2026 - Comments.csv`.
+- [x] Create importer for sample Comments csv file — new "comments" import type
+  (`CommentsCsvParser`/`ImportService.importComments`). Matches each row's informal title against the club's
+  already-imported movies by fuzzy similarity (no IMDB id in this file to match by exactly), reuses the existing
+  `csvDisplayName -> member` mapping mechanism for the per-member columns, and preserves each member's existing
+  quality/sentiment rating when writing just the comment (same full-overwrite `upsertReview` every rating write
+  already has to work around).
 
 - On Movie Details:
   - [x] Movie Details start uncollapsed if has space for two posters — measured via `useContainerWidth`
