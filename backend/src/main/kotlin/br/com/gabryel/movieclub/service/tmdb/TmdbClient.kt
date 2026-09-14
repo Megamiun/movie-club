@@ -31,9 +31,14 @@ private val IMDB_ID_REGEX = Regex("tt\\d{7,9}")
 fun parseImdbId(input: String): String =
     IMDB_ID_REGEX.find(input)?.value ?: throw BadRequestException("Invalid IMDB id or URL: $input")
 
-/** Expands a TMDB `poster_path` (e.g. `/abc123.jpg`) into a full, directly-loadable image URL at a size suited to
- * list/thumbnail display -- not the full-size original, which is unnecessarily large for that use. */
-fun String.toTmdbPosterUrl(): String = "https://image.tmdb.org/t/p/w154$this"
+/** Expands a TMDB `poster_path` (e.g. `/abc123.jpg`) into a full, directly-loadable image URL -- `w780` rather
+ * than the full-size original (unnecessarily large for any use here) or a smaller tier like `w154` (looked
+ * visibly soft once the meeting detail page started showing posters at 350px+ CSS width, especially on a
+ * high-DPI/retina screen). This URL is computed once and persisted (`Movie`/`SeriesRow.posterUrl`) at
+ * add/refresh time, not re-derived per request, so an already-cached row only picks up a size change the next
+ * time its own metadata is refreshed (manually, or via `MetadataRefreshJob`'s nightly sweep) -- not retroactively
+ * for every existing poster immediately. */
+fun String.toTmdbPosterUrl(): String = "https://image.tmdb.org/t/p/w780$this"
 
 @Serializable
 data class TmdbFindResponse(

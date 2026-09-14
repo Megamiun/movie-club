@@ -41,10 +41,12 @@ function isIgnoredLanguage(languageCode: string, ignoredLanguages: string[]): bo
  * CUSTOM wins outright when set. Otherwise: if the original title's own language is *not* ignored, it always
  * wins -- LANGUAGE/preferred-language overrides only ever come into play once the original itself is something
  * the club doesn't want to see. Once the original is ignored: LANGUAGE wins if set and a matching translation
- * exists; else try the club's preferred languages in rank order, first match wins; else fall back to any
- * non-ignored translation, or the original title anyway if there's truly nothing better. A preferred/ignored
- * entry may be region-qualified ("pt-BR") to match a specific `Translation.countryCode`, or bare ("pt") to match
- * any region of that language.
+ * exists; else try the club's preferred languages in rank order, first match wins; else fall back to the
+ * original title anyway -- deliberately not some other, unrequested translation picked at random just because
+ * it happens to exist and isn't ignored; the club named which languages it wants, so anything outside that list
+ * (including the original, when nothing on the list matched) is no better a guess than the original itself. A
+ * preferred/ignored entry may be region-qualified ("pt-BR") to match a specific `Translation.countryCode`, or
+ * bare ("pt") to match any region of that language.
  */
 export function resolveTitle(media: TitledMedia, club: LanguagePreferences): string {
   if (media.displayTitlePreference === 'CUSTOM' && media.customTitle) {
@@ -64,6 +66,5 @@ export function resolveTitle(media: TitledMedia, club: LanguagePreferences): str
     const match = media.translations.find((t) => matchesTranslation(t, lang))
     if (match) return match.title
   }
-  const fallback = media.translations.find((t) => !isIgnoredLanguage(t.languageCode, club.ignoredLanguages))
-  return fallback ? fallback.title : media.originalTitle
+  return media.originalTitle
 }
