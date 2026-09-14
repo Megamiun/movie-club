@@ -32,6 +32,10 @@
       - [x] If device resolution small enough, and in portrait mode, occupy most of width and put info bellow poster
       - [x] Otherwise, keep info to the right of the poster
 
+- [x] Hide empty sections in the meeting detail page (movies/episodes) — each section now hides its own heading
+  and divider entirely once known-empty (episodes also needs no suggestion chips), while the add Dialog stays
+  mounted so there's still a way to add the meeting's first movie/episode.
+
 - [x] "Animation, Comedy +1" and "Drama, Adventure +1" still break in two lines — `TruncatedList`'s char-count
   budget is only an approximation of rendered width, so a string sitting right at the boundary could still be a
   hair too wide; added `whiteSpace: nowrap` to the Genre cell as a hard guarantee on top of it.
