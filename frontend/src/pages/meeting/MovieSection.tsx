@@ -461,15 +461,8 @@ function MovieItem({
         <DialogContent>
           <RadioGroup value={titleMode} onChange={(e) => setTitleMode(e.target.value as TitleMode)} sx={{ mt: 1 }}>
             <FormControlLabel value="ORIGINAL" control={<Radio />} label="Default" />
+
             <FormControlLabel value="CUSTOM" control={<Radio />} label="Custom" />
-            <FormControlLabel
-              value="LANGUAGE"
-              control={<Radio />}
-              label="Language"
-              disabled={movie.translations.length === 0}
-            />
-          </RadioGroup>
-          <Stack spacing={1.5} sx={{ mt: 1 }}>
             {titleMode === 'CUSTOM' && (
               <TextField
                 label="Custom title"
@@ -478,15 +471,23 @@ function MovieItem({
                 onChange={(e) => setCustomTitle(e.target.value)}
                 fullWidth
                 autoFocus
+                sx={{ ml: 4, mt: 0.5, mb: 1, width: 'auto' }}
               />
             )}
+
+            <FormControlLabel
+              value="LANGUAGE"
+              control={<Radio />}
+              label="Language"
+              disabled={movie.translations.length === 0}
+            />
             {titleMode === 'LANGUAGE' && (
               <Select
                 size="small"
                 displayEmpty
                 value={selectedLanguageCode}
                 onChange={(e) => setSelectedLanguageCode(e.target.value)}
-                fullWidth
+                sx={{ ml: 4, mt: 0.5, mb: 1 }}
               >
                 <MenuItem value="" disabled>
                   <em>Choose a language</em>
@@ -498,6 +499,8 @@ function MovieItem({
                 ))}
               </Select>
             )}
+          </RadioGroup>
+          <Stack sx={{ mt: 1 }}>
             <Button
               variant="contained"
               onClick={handleSaveTitle}
