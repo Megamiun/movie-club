@@ -10,7 +10,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   Collapse,
   Dialog,
   DialogContent,
@@ -366,9 +365,6 @@ function MovieItem({
             <MemberBadge member={chooser} />
             <Typography sx={{ fontWeight: 500 }}>{title}</Typography>
             <CountryFlags codes={movie.originCountry} />
-            {movie.displayTitlePreference === 'LANGUAGE' && movie.displayLanguageCode && (
-              <Chip size="small" label={movie.displayLanguageCode} />
-            )}
             <ImdbLink imdbId={movie.imdbId} />
             <ExpandMoreIcon
               fontSize="small"
@@ -378,32 +374,31 @@ function MovieItem({
           </Stack>
 
           <Collapse in={expanded}>
-            <Stack spacing={0.25} sx={{ mt: 0.5 }}>
+            <Stack spacing={1.25} sx={{ mt: 1 }}>
               <Typography variant="body2" color="text.secondary">
-                Year: {movie.year ?? '—'}
+                <Box component="span" sx={{ fontWeight: 700 }}>Year:</Box> {movie.year ?? '—'}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                IMDb rating: {ratingLabel(movie) ?? '—'}
+                <Box component="span" sx={{ fontWeight: 700 }}>IMDb rating:</Box> {ratingLabel(movie) ?? '—'}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Director:{' '}
+                <Box component="span" sx={{ fontWeight: 700 }}>Director:</Box>{' '}
                 {movie.director ? (
                   movie.directorImdbId ? (
                     <ImdbLink imdbId={movie.directorImdbId} kind="name" variant="text">
                       {movie.director}
                     </ImdbLink>
-                  ) : (
-                    movie.director
-                  )
-                ) : (
-                  '—'
-                )}
+                  ) : movie.director
+                ) : '—'
+                }
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Runtime: {movie.runtimeMinutes ? formatDuration(movie.runtimeMinutes) : '—'}
+                <Box component="span" sx={{ fontWeight: 700 }}>Runtime:</Box>{' '}
+                {movie.runtimeMinutes ? formatDuration(movie.runtimeMinutes) : '—'}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Genre: {movie.genre && movie.genre.length > 0 ? movie.genre.join(', ') : '—'}
+                <Box component="span" sx={{ fontWeight: 700 }}>Genre:</Box>{' '}
+                {movie.genre && movie.genre.length > 0 ? movie.genre.join(', ') : '—'}
               </Typography>
 
               <ReviewsList reviews={reviews ?? []} scales={scales} members={members} />
