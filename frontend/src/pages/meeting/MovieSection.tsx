@@ -1,19 +1,23 @@
 import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd'
 import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import LinkIcon from '@mui/icons-material/Link'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import StarIcon from '@mui/icons-material/Star'
+import StarBorderIcon from '@mui/icons-material/StarBorder'
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Button,
   Chip,
+  Collapse,
   Dialog,
   DialogContent,
   DialogTitle,
   IconButton,
   MenuItem,
+  Popover,
   Select,
   Stack,
   TextField,
@@ -21,7 +25,6 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { useState, type FormEvent } from 'react'
 import { moviesApi } from '../../api/movies'
 import { mediaItemsApi } from '../../api/mediaItems'
@@ -29,14 +32,17 @@ import { watchlistApi } from '../../api/watchlist'
 import { ApiError } from '../../api/client'
 import type { ClubMember, Movie, RatingScale, TmdbSearchResult } from '../../api/types'
 import { AsyncState } from '../../components/AsyncState'
+import { CountryFlags } from '../../components/CountryFlags'
 import { ImdbLink } from '../../components/ImdbLink'
 import { LanguagePickerDialog } from '../../components/LanguagePickerDialog'
+import { MemberBadge } from '../../components/MemberBadge'
 import { RatingForm } from '../../components/RatingForm'
 import { ReviewsList } from '../../components/ReviewsList'
 import { TmdbSearchAutocomplete } from '../../components/TmdbSearchAutocomplete'
+import { useAuth } from '../../auth/AuthContext'
 import { useAsync } from '../../hooks/useAsync'
 import { useSmartPolling } from '../../hooks/useSmartPolling'
-import { memberName } from '../../utils/members'
+import { formatDuration } from '../../utils/duration'
 import { ratingLabel } from '../../utils/rating'
 import { resolveTitle, type LanguagePreferences } from '../../utils/title'
 
@@ -162,6 +168,9 @@ export function MovieSection({
   )
 }
 
+const COLLAPSED_POSTER_WIDTH = 64
+const EXPANDED_POSTER_WIDTH = 220
+
 function MovieItem({
   movie,
   clubId,
@@ -177,16 +186,25 @@ function MovieItem({
   languagePrefs: LanguagePreferences
   onChange: () => void
 }) {
+  const { member: viewer } = useAuth()
   const { data: reviews, reload: reloadReviews, silentReload: silentReloadReviews } = useAsync(() => moviesApi.listReviews(movie.id), [movie.id])
   useSmartPolling(silentReloadReviews, 7500)
+  const [expanded, setExpanded] = useState(false)
   const [customTitle, setCustomTitle] = useState(movie.customTitle ?? '')
   const [preference, setPreference] = useState<'ORIGINAL' | 'CUSTOM'>(
     movie.displayTitlePreference === 'CUSTOM' ? 'CUSTOM' : 'ORIGINAL',
   )
   const [watchLink, setWatchLink] = useState(movie.watchLink ?? '')
+  const [titleDialogOpen, setTitleDialogOpen] = useState(false)
+  const [watchLinkDialogOpen, setWatchLinkDialogOpen] = useState(false)
+  const [ratingAnchorEl, setRatingAnchorEl] = useState<HTMLElement | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const title = resolveTitle(movie, languagePrefs)
+  const chooser = members.find((m) => m.memberId === movie.chosenById)
+  const viewerMember = members.find((m) => m.memberId === viewer?.id)
+  const myReview = reviews?.find((r) => r.memberId === viewer?.id)
+  const haveIRated = Boolean(myReview?.qualityOptionId || myReview?.sentimentOptionId)
 
   const handleSaveDetails = async () => {
     setError(null)
@@ -196,6 +214,16 @@ function MovieItem({
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
+  }
+
+  const handleSaveTitle = async () => {
+    await handleSaveDetails()
+    setTitleDialogOpen(false)
+  }
+
+  const handleSaveWatchLink = async () => {
+    await handleSaveDetails()
+    setWatchLinkDialogOpen(false)
   }
 
   const handlePickLanguage = async (languageCode: string) => {
@@ -247,91 +275,198 @@ function MovieItem({
   }
 
   return (
-    <Accordion>
-      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexGrow: 1 }}>
-          {movie.posterUrl && (
-            <Box component="img" src={movie.posterUrl} alt="" sx={{ width: 32, borderRadius: 0.5, flexShrink: 0 }} />
-          )}
-          <Typography sx={{ flexGrow: 1 }}>{title}</Typography>
-          {movie.year && <Chip size="small" label={movie.year} />}
-          {ratingLabel(movie) && <Chip size="small" label={ratingLabel(movie)} />}
-          {movie.displayTitlePreference === 'LANGUAGE' && movie.displayLanguageCode && (
-            <Chip size="small" label={movie.displayLanguageCode} />
-          )}
-          <ImdbLink imdbId={movie.imdbId} />
+    <Box sx={{ pb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 1 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Action icons sit above the poster, only shown once expanded -- same "click to reveal" shape the old
+       * Accordion had, just reordered so these no longer compete with the poster/text for space below it. */}
+      <Collapse in={expanded}>
+        <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap' }}>
+          <IconButton size="small" onClick={() => setTitleDialogOpen(true)} title="Edit title">
+            <EditIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={() => setWatchLinkDialogOpen(true)} title="Edit watch link">
+            <LinkIcon fontSize="small" />
+          </IconButton>
+          <LanguagePickerDialog
+            translations={movie.translations}
+            selectedLanguageCode={movie.displayTitlePreference === 'LANGUAGE' ? movie.displayLanguageCode : null}
+            onSelect={handlePickLanguage}
+          />
+          <IconButton size="small" onClick={handleRefresh} disabled={!movie.mediaItemId} title="Refresh metadata">
+            <RefreshIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={handleMoveToWatchlist} disabled={!movie.tmdbId} title="Move to watchlist">
+            <BookmarkAddIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={handleDelete} title="Delete pick">
+            <DeleteIcon fontSize="small" />
+          </IconButton>
         </Stack>
-      </AccordionSummary>
-      <AccordionDetails>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        <Stack spacing={2}>
-          <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
-            {movie.posterUrl && (
-              <Box component="img" src={movie.posterUrl} alt="" sx={{ width: 92, borderRadius: 1, flexShrink: 0 }} />
+      </Collapse>
+
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+        {/* One poster element total -- its width just grows on expand, rather than a second, separate image
+         * rendered inside the expanded details (the old Accordion summary/details split did exactly that). */}
+        <Stack spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
+          {movie.posterUrl ? (
+            <Box
+              component="img"
+              src={movie.posterUrl}
+              alt=""
+              onClick={() => setExpanded((prev) => !prev)}
+              sx={{
+                width: expanded ? EXPANDED_POSTER_WIDTH : COLLAPSED_POSTER_WIDTH,
+                aspectRatio: '2 / 3',
+                objectFit: 'cover',
+                borderRadius: 1,
+                cursor: 'pointer',
+                transition: 'width 0.2s ease-in-out',
+              }}
+            />
+          ) : (
+            <Box
+              onClick={() => setExpanded((prev) => !prev)}
+              sx={{
+                width: expanded ? EXPANDED_POSTER_WIDTH : COLLAPSED_POSTER_WIDTH,
+                aspectRatio: '2 / 3',
+                borderRadius: 1,
+                bgcolor: 'action.hover',
+                cursor: 'pointer',
+                transition: 'width 0.2s ease-in-out',
+              }}
+            />
+          )}
+          {/* Below the poster: the viewer's own photo plus a rating icon -- always visible (not gated behind
+           * expanding the block), and it stays exactly the same icon whether or not a rating exists yet, so it
+           * always doubles as the way to go back and edit one already given. */}
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+            <MemberBadge member={viewerMember} size={22} />
+            <IconButton
+              size="small"
+              onClick={(e) => setRatingAnchorEl(e.currentTarget)}
+              title={haveIRated ? 'Edit your rating' : 'Rate this movie'}
+            >
+              {haveIRated ? <StarIcon fontSize="small" color="primary" /> : <StarBorderIcon fontSize="small" />}
+            </IconButton>
+          </Stack>
+        </Stack>
+
+        <Stack spacing={0.5} sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ alignItems: 'center', flexWrap: 'wrap', cursor: 'pointer' }}
+            onClick={() => setExpanded((prev) => !prev)}
+          >
+            <MemberBadge member={chooser} />
+            <Typography sx={{ fontWeight: 500 }}>{title}</Typography>
+            <CountryFlags codes={movie.originCountry} />
+            {movie.year && <Chip size="small" label={movie.year} />}
+            {ratingLabel(movie) && <Chip size="small" label={ratingLabel(movie)} />}
+            {movie.displayTitlePreference === 'LANGUAGE' && movie.displayLanguageCode && (
+              <Chip size="small" label={movie.displayLanguageCode} />
             )}
-            <Typography variant="body2" color="text.secondary">
-              Chosen by {memberName(members, movie.chosenById)} &middot; Director: {movie.director ?? '—'} &middot;
-              Runtime:{' '}
-              {movie.runtimeMinutes ? `${movie.runtimeMinutes}min` : '—'}
-              {movie.genre && movie.genre.length > 0 ? ` · Genre: ${movie.genre.join(', ')}` : ''}
-              {movie.productionCountries && movie.productionCountries.length > 0
-                ? ` · Country: ${movie.productionCountries.join(', ')}`
-                : ''}
-            </Typography>
+            <ImdbLink imdbId={movie.imdbId} />
+            <ExpandMoreIcon
+              fontSize="small"
+              color="action"
+              sx={{ ml: 'auto', ...(expanded && { transform: 'rotate(180deg)' }), transition: 'transform 0.2s' }}
+            />
           </Stack>
 
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <Collapse in={expanded}>
+            <Stack spacing={0.25} sx={{ mt: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                Director:{' '}
+                {movie.director ? (
+                  movie.directorImdbId ? (
+                    <ImdbLink imdbId={movie.directorImdbId} kind="name" variant="text">
+                      {movie.director}
+                    </ImdbLink>
+                  ) : (
+                    movie.director
+                  )
+                ) : (
+                  '—'
+                )}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Runtime: {movie.runtimeMinutes ? formatDuration(movie.runtimeMinutes) : '—'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Genre: {movie.genre && movie.genre.length > 0 ? movie.genre.join(', ') : '—'}
+              </Typography>
+
+              <ReviewsList reviews={reviews ?? []} scales={scales} members={members} />
+            </Stack>
+          </Collapse>
+        </Stack>
+      </Stack>
+
+      <Dialog open={titleDialogOpen} onClose={() => setTitleDialogOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Edit title</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.5} sx={{ mt: 1 }}>
             <TextField
               label="Custom title"
               size="small"
               value={customTitle}
               onChange={(e) => setCustomTitle(e.target.value)}
+              fullWidth
             />
-            <Select
-              size="small"
-              value={preference}
-              onChange={(e) => setPreference(e.target.value as 'ORIGINAL' | 'CUSTOM')}
-            >
+            <Select size="small" value={preference} onChange={(e) => setPreference(e.target.value as 'ORIGINAL' | 'CUSTOM')}>
               <MenuItem value="ORIGINAL">ORIGINAL</MenuItem>
               <MenuItem value="CUSTOM">CUSTOM</MenuItem>
             </Select>
-            <LanguagePickerDialog
-              translations={movie.translations}
-              selectedLanguageCode={movie.displayTitlePreference === 'LANGUAGE' ? movie.displayLanguageCode : null}
-              onSelect={handlePickLanguage}
-            />
-            <TextField label="Watch link" size="small" value={watchLink} onChange={(e) => setWatchLink(e.target.value)} />
-            <Button size="small" variant="outlined" onClick={handleSaveDetails}>
+            <Button variant="contained" onClick={handleSaveTitle}>
               Save
             </Button>
-            <IconButton size="small" onClick={handleRefresh} disabled={!movie.mediaItemId} title="Refresh metadata">
-              <RefreshIcon fontSize="small" />
-            </IconButton>
-            <IconButton
-              size="small"
-              onClick={handleMoveToWatchlist}
-              disabled={!movie.tmdbId}
-              title="Move to watchlist"
-            >
-              <BookmarkAddIcon fontSize="small" />
-            </IconButton>
-            <IconButton size="small" onClick={handleDelete} title="Delete pick">
-              <DeleteIcon fontSize="small" />
-            </IconButton>
           </Stack>
+        </DialogContent>
+      </Dialog>
 
+      <Dialog open={watchLinkDialogOpen} onClose={() => setWatchLinkDialogOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Edit watch link</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.5} sx={{ mt: 1 }}>
+            <TextField
+              label="Watch link"
+              size="small"
+              value={watchLink}
+              onChange={(e) => setWatchLink(e.target.value)}
+              fullWidth
+            />
+            <Button variant="contained" onClick={handleSaveWatchLink}>
+              Save
+            </Button>
+          </Stack>
+        </DialogContent>
+      </Dialog>
+
+      <Popover
+        open={Boolean(ratingAnchorEl)}
+        anchorEl={ratingAnchorEl}
+        onClose={() => setRatingAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <Box sx={{ p: 1.5, minWidth: 280 }}>
           <RatingForm
             scales={scales}
-            onSave={handleRate}
+            initialQualityOptionId={myReview?.qualityOptionId}
+            initialSentimentOptionId={myReview?.sentimentOptionId}
+            initialComment={myReview?.comment}
+            onSave={async (quality, sentiment, comment) => {
+              await handleRate(quality, sentiment, comment)
+              setRatingAnchorEl(null)
+            }}
           />
-
-          <ReviewsList reviews={reviews ?? []} scales={scales} members={members} />
-        </Stack>
-      </AccordionDetails>
-    </Accordion>
+        </Box>
+      </Popover>
+    </Box>
   )
 }
