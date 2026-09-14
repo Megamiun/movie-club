@@ -784,6 +784,15 @@ const MovieRow = memo(function MovieRow({
     }
   }
 
+  // Not optimistic (unlike quality/sentiment above) -- comment isn't rendered anywhere in this compact box, so
+  // there's no local slot to patch; the next 5s poll picks up the saved value like any other background refresh.
+  // Comment has no dedicated endpoint (same gap as MovieSection.tsx), so this goes through the combined PUT,
+  // passing the viewer's *current* quality/sentiment back through unchanged to avoid clobbering them.
+  const handleSaveComment = async (comment: string | null) => {
+    if (!myMemberId) return
+    await moviesApi.rate(movie.id, myReview?.qualityOptionId ?? undefined, myReview?.sentimentOptionId ?? undefined, comment ?? undefined)
+  }
+
   return (
     <TableRow
       ref={rowRef}
@@ -853,6 +862,8 @@ const MovieRow = memo(function MovieRow({
               editable={clubMember.memberId === myMemberId}
               onSaveQuality={handleSaveQuality}
               onSaveSentiment={handleSaveSentiment}
+              initialComment={review?.comment}
+              onSaveComment={handleSaveComment}
             />
           </TableCell>
         )
@@ -934,6 +945,12 @@ const EpisodeRow = memo(function EpisodeRow({
     }
   }
 
+  // See `MovieRow.handleSaveComment` above -- same shape/rationale.
+  const handleSaveComment = async (comment: string | null) => {
+    if (!myMemberId) return
+    await episodesApi.rate(episode.id, myReview?.qualityOptionId ?? undefined, myReview?.sentimentOptionId ?? undefined, comment ?? undefined)
+  }
+
   const rating = ratingLabel(episode)
   const displayYear = episode.airDate ? episode.airDate.slice(0, 4) : (series?.year ?? null)
 
@@ -1006,6 +1023,8 @@ const EpisodeRow = memo(function EpisodeRow({
               editable={clubMember.memberId === myMemberId}
               onSaveQuality={handleSaveQuality}
               onSaveSentiment={handleSaveSentiment}
+              initialComment={review?.comment}
+              onSaveComment={handleSaveComment}
             />
           </TableCell>
         )

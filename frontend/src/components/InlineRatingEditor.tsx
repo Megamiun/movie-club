@@ -188,53 +188,57 @@ export function InlineRatingEditor({
           onClose={() => setAnchorEl(null)}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         >
-          <Stack spacing={1} sx={{ p: 1.5, minWidth: onSaveComment ? 260 : 160 }}>
-            {quality && (
-              <Select
-                size="small"
-                displayEmpty
-                value={qualityOptionId ?? ''}
-                onChange={(e) => onSaveQuality(e.target.value || null)}
-                renderValue={(value) =>
-                  value ? <OptionLabel option={quality.options.find((o) => o.id === value)} /> : <em>Quality</em>
-                }
-              >
-                <MenuItem value="">
-                  <em>Quality</em>
-                </MenuItem>
-                {[...quality.options]
-                  .sort((a, b) => a.position - b.position)
-                  .map((o) => (
-                    <MenuItem key={o.id} value={o.id}>
-                      <OptionLabel option={o} />
-                    </MenuItem>
-                  ))}
-              </Select>
-            )}
-            {sentiment && (
-              <Select
-                size="small"
-                displayEmpty
-                value={sentimentOptionId ?? ''}
-                onChange={(e) => onSaveSentiment(e.target.value || null)}
-                renderValue={(value) =>
-                  value ? <OptionLabel option={sentiment.options.find((o) => o.id === value)} /> : <em>Sentiment</em>
-                }
-              >
-                <MenuItem value="">
-                  <em>Sentiment</em>
-                </MenuItem>
-                {[...sentiment.options]
-                  .sort((a, b) => a.position - b.position)
-                  .map((o) => (
-                    <MenuItem key={o.id} value={o.id}>
-                      <OptionLabel option={o} />
-                    </MenuItem>
-                  ))}
-              </Select>
-            )}
+          <Stack spacing={1} sx={{ p: 1.5, minWidth: onSaveComment ? 340 : 160 }}>
+            <Stack direction={onSaveComment ? 'row' : 'column'} spacing={1}>
+              {quality && (
+                <Select
+                  size="small"
+                  displayEmpty
+                  value={qualityOptionId ?? ''}
+                  onChange={(e) => onSaveQuality(e.target.value || null)}
+                  fullWidth={Boolean(onSaveComment)}
+                  renderValue={(value) =>
+                    value ? <OptionLabel option={quality.options.find((o) => o.id === value)} /> : <em>Quality</em>
+                  }
+                >
+                  <MenuItem value="">
+                    <em>Quality</em>
+                  </MenuItem>
+                  {[...quality.options]
+                    .sort((a, b) => a.position - b.position)
+                    .map((o) => (
+                      <MenuItem key={o.id} value={o.id}>
+                        <OptionLabel option={o} />
+                      </MenuItem>
+                    ))}
+                </Select>
+              )}
+              {sentiment && (
+                <Select
+                  size="small"
+                  displayEmpty
+                  value={sentimentOptionId ?? ''}
+                  onChange={(e) => onSaveSentiment(e.target.value || null)}
+                  fullWidth={Boolean(onSaveComment)}
+                  renderValue={(value) =>
+                    value ? <OptionLabel option={sentiment.options.find((o) => o.id === value)} /> : <em>Sentiment</em>
+                  }
+                >
+                  <MenuItem value="">
+                    <em>Sentiment</em>
+                  </MenuItem>
+                  {[...sentiment.options]
+                    .sort((a, b) => a.position - b.position)
+                    .map((o) => (
+                      <MenuItem key={o.id} value={o.id}>
+                        <OptionLabel option={o} />
+                      </MenuItem>
+                    ))}
+                </Select>
+              )}
+            </Stack>
             {onSaveComment && (
-              <>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'stretch' }}>
                 <TextField
                   size="small"
                   label="Comment"
@@ -259,7 +263,7 @@ export function InlineRatingEditor({
                 >
                   Save comment
                 </Button>
-              </>
+              </Stack>
             )}
           </Stack>
         </Popover>

@@ -160,7 +160,7 @@ export function MeetingDetailPage() {
               <IconButton onClick={() => setRescheduleOpen(true)} title="Postpone, swap, or merge this meeting">
                 <EventRepeatIcon />
               </IconButton>
-              <IconButton color="error" onClick={() => setDeleteConfirmOpen(true)} title="Delete this meeting">
+              <IconButton onClick={() => setDeleteConfirmOpen(true)} title="Delete this meeting">
                 <DeleteIcon />
               </IconButton>
             </Stack>
