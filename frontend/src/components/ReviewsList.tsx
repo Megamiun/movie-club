@@ -1,4 +1,4 @@
-import { Chip, Stack, Typography } from '@mui/material'
+import { Box, Chip, Stack, Typography } from '@mui/material'
 import type { ClubMember, RatingScale } from '../api/types'
 import { MemberBadge } from './MemberBadge'
 
@@ -46,17 +46,17 @@ export function ReviewsList({
         const quality = showRatings ? labelFor(scales, 'QUALITY', r.qualityOptionId) : null
         const sentiment = showRatings ? labelFor(scales, 'SENTIMENT', r.sentimentOptionId) : null
         return (
-          <Stack key={r.memberId} spacing={0.25}>
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-              <MemberBadge member={members.find((m) => m.memberId === r.memberId)} size={24} />
-              {quality && <Chip size="small" label={quality} />}
-              {sentiment && <Chip size="small" label={sentiment} variant="outlined" />}
-            </Stack>
-            {r.comment && (
-              <Typography variant="body2" sx={{ pl: 4 }}>
-                {r.comment}
-              </Typography>
-            )}
+          <Stack key={r.memberId} direction="row" spacing={1.5}>
+            <MemberBadge member={members.find((m) => m.memberId === r.memberId)} size={28} />
+            <Box sx={{ borderLeft: '3px solid', borderColor: 'divider', pl: 1.5, flexGrow: 1, minWidth: 0 }}>
+              {(quality || sentiment) && (
+                <Stack direction="row" spacing={1} sx={{ mb: r.comment ? 0.5 : 0, flexWrap: 'wrap' }}>
+                  {quality && <Chip size="small" label={quality} />}
+                  {sentiment && <Chip size="small" label={sentiment} variant="outlined" />}
+                </Stack>
+              )}
+              {r.comment && <Typography variant="body2">{r.comment}</Typography>}
+            </Box>
           </Stack>
         )
       })}
