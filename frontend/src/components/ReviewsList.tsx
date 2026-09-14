@@ -38,7 +38,7 @@ export function ReviewsList({
         const r = reviews.find((review) => review.memberId === m.memberId)
         const isViewer = m.memberId === viewerMemberId
         return (
-          <Stack key={m.memberId} direction="row" spacing={1.5}>
+          <Stack key={m.memberId} direction="row" spacing={1.5} sx={{ mb: r?.comment ? 1 : 0 }}>
             <MemberBadge member={m} size={28} />
             <Box sx={{ borderLeft: '3px solid', borderColor: 'divider', pl: 1.5, flexGrow: 1, minWidth: 0 }}>
               <Box sx={{ mb: r?.comment ? 0.5 : 0 }}>
