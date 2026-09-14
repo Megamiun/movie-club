@@ -115,7 +115,7 @@ export function InlineRatingEditor({
     return Math.max(...scale.options.map((o) => o.label.length))
   }
   const maxContentLength = Math.max(1, maxOptionContentLength(quality), maxOptionContentLength(sentiment))
-  const boxWidth = `calc(${maxContentLength * 2}ch + 20px)`
+  const boxWidth = `calc(${maxContentLength * 2}ch + 10px)`
 
   const textColorFor = (option: RatingOption | undefined) => {
     if (!option) return undefined
