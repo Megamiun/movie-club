@@ -24,7 +24,6 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
-  useMediaQuery,
 } from '@mui/material'
 import { useEffect, useState, type FormEvent } from 'react'
 import { moviesApi } from '../../api/movies'
@@ -48,6 +47,10 @@ import { resolveTitle, type LanguagePreferences } from '../../utils/title'
 
 const COLLAPSED_POSTER_WIDTH = 64
 const EXPANDED_POSTER_WIDTH = 350
+// The narrowest the info column can get before it's no longer worth keeping beside the poster -- below this,
+// the poster+info row stacks instead (see the measured-width check in MovieItem below).
+const MIN_INFO_WIDTH = 220
+const ROW_GAP_PX = 16 // matches the row Stack's own spacing={2}
 
 export function MovieSection({
   meetingId,
@@ -221,9 +224,10 @@ function MovieItem({
   useEffect(() => {
     if (defaultExpanded) setExpanded(true)
   }, [defaultExpanded])
-  // Small screen *and* portrait, together -- a wide phone held landscape (or a small-but-landscape window) still
-  // has room to keep the poster beside the info, so orientation alone or width alone isn't the right signal.
-  const isNarrowPortrait = useMediaQuery('(max-width: 600px) and (orientation: portrait)')
+  // Measures the actual row width available to poster+info, rather than guessing from viewport size/orientation
+  // -- a poster-sized column that would leave the info column narrower than MIN_INFO_WIDTH stacks instead of
+  // squeezing, regardless of *why* the row is that narrow (a phone, a split-screen window, a resized browser).
+  const [rowRef, rowWidth] = useContainerWidth<HTMLDivElement>()
 
   const [titleMode, setTitleMode] = useState<TitleMode>(() => titleModeFor(movie))
   const [customTitle, setCustomTitle] = useState(movie.customTitle ?? '')
@@ -355,16 +359,18 @@ function MovieItem({
       </Collapse>
 
       {(() => {
-        // On a small, portrait screen, an expanded poster occupies most of the row's width and the info moves
-        // below it instead of beside it -- 350px (EXPANDED_POSTER_WIDTH) alongside any meaningful text simply
-        // doesn't fit a ~390px-wide phone. Collapsed (64px) always fits fine beside text, on any screen.
-        const stackedPortrait = expanded && isNarrowPortrait
-        const posterWidth = expanded ? (stackedPortrait ? '100%' : EXPANDED_POSTER_WIDTH) : COLLAPSED_POSTER_WIDTH
+        // Once expanded, the poster (350px, EXPANDED_POSTER_WIDTH) plus a legible info column (MIN_INFO_WIDTH)
+        // plus the gap between them may not fit the row's actual measured width -- when they don't, the poster
+        // occupies most of the row's width and the info moves below it instead of squeezing beside it. Collapsed
+        // (64px) always fits fine beside text, so this only ever applies once expanded. rowWidth starts at 0
+        // before the first ResizeObserver tick fires, so the check is skipped (not falsely triggered) until then.
+        const wontFit = expanded && rowWidth > 0 && rowWidth < EXPANDED_POSTER_WIDTH + MIN_INFO_WIDTH + ROW_GAP_PX
+        const posterWidth = expanded ? (wontFit ? '100%' : EXPANDED_POSTER_WIDTH) : COLLAPSED_POSTER_WIDTH
         return (
-          <Stack direction={stackedPortrait ? 'column' : 'row'} spacing={2}>
+          <Stack ref={rowRef} direction={wontFit ? 'column' : 'row'} spacing={2}>
             {/* One poster element total -- its width just grows on expand, rather than a second, separate image
              * rendered inside the expanded details (the old Accordion summary/details split did exactly that). */}
-            <Stack spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0, width: stackedPortrait ? '100%' : 'auto' }}>
+            <Stack spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0, width: wontFit ? '100%' : 'auto' }}>
               {movie.posterUrl ? (
                 <Box
                   component="img"
@@ -414,7 +420,7 @@ function MovieItem({
               </Stack>
 
               <Collapse in={expanded}>
-                <Stack spacing={1.25} sx={{ mt: 1 }}>
+                <Stack spacing={1.25} sx={{ maxWidth: 500, mt: 1 }}>
                   <Typography variant="body2" color="text.secondary">
                     <Box component="span" sx={{ fontWeight: 700 }}>Year:</Box> {movie.year ?? '—'}
                   </Typography>
