@@ -230,7 +230,6 @@ export function MeetingDetailPage() {
               </DialogActions>
             </Dialog>
 
-            <Divider sx={{ my: 3 }} />
             <MovieSection
               meetingId={meeting.id}
               clubId={meeting.clubId}
@@ -240,7 +239,6 @@ export function MeetingDetailPage() {
               showAddForm={addChoice === 'movie'}
               onCloseAddForm={() => setAddChoice(null)}
             />
-            <Divider sx={{ my: 3 }} />
             <EpisodeSection
               meetingId={meeting.id}
               clubId={meeting.clubId}

@@ -13,6 +13,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  Divider,
   IconButton,
   Stack,
   Typography,
@@ -56,6 +57,10 @@ export function EpisodeSection({
   const seasonNumbers = useSeasonNumbers((episodes ?? []).map((episode) => episode.seasonId))
   const [selectedEpisode, setSelectedEpisode] = useState<EpisodeSearchResult | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  // Hides the whole section (heading, divider included) once it's known there's nothing to show -- unlike
+  // MovieSection, "Up next" suggestions alone are still worth a heading to sit under, so the section only counts
+  // as empty when there's neither an assigned episode nor a suggestion. The add Dialog stays mounted regardless.
+  const isEmpty = !loading && !error && (episodes?.length ?? 0) === 0 && (suggestions?.length ?? 0) === 0
 
   const handleAssign = async (event: FormEvent) => {
     event.preventDefault()
@@ -85,40 +90,45 @@ export function EpisodeSection({
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        Episodes
-      </Typography>
-
-      <AsyncState loading={loading} error={error}>
-        <Stack spacing={1}>
-          {episodes?.map((episode) => (
-            <EpisodeItem
-              key={episode.id}
-              episode={episode}
-              seasonCode={seasonNumbers?.get(episode.seasonId)}
-              meetingId={meetingId}
-              scales={scales}
-              onChange={reload}
-            />
-          ))}
-        </Stack>
-      </AsyncState>
-
-      {suggestions && suggestions.length > 0 && (
-        <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            Up next:
+      {!isEmpty && (
+        <>
+          <Divider sx={{ mb: 3 }} />
+          <Typography variant="h6" gutterBottom>
+            Episodes
           </Typography>
-          {suggestions.map((suggestion) => (
-            <Chip
-              key={suggestion.episodeId}
-              size="small"
-              icon={<PlaylistAddIcon fontSize="small" />}
-              label={`${resolveTitle(suggestion.series, languagePrefs)} ${episodeCode(suggestion.seasonNumber, suggestion.episodeNumber)}${suggestion.episodeTitle ? ` — ${suggestion.episodeTitle}` : ''}`}
-              onClick={() => handleQuickAssign(suggestion.episodeId)}
-            />
-          ))}
-        </Stack>
+
+          <AsyncState loading={loading} error={error}>
+            <Stack spacing={1}>
+              {episodes?.map((episode) => (
+                <EpisodeItem
+                  key={episode.id}
+                  episode={episode}
+                  seasonCode={seasonNumbers?.get(episode.seasonId)}
+                  meetingId={meetingId}
+                  scales={scales}
+                  onChange={reload}
+                />
+              ))}
+            </Stack>
+          </AsyncState>
+
+          {suggestions && suggestions.length > 0 && (
+            <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Up next:
+              </Typography>
+              {suggestions.map((suggestion) => (
+                <Chip
+                  key={suggestion.episodeId}
+                  size="small"
+                  icon={<PlaylistAddIcon fontSize="small" />}
+                  label={`${resolveTitle(suggestion.series, languagePrefs)} ${episodeCode(suggestion.seasonNumber, suggestion.episodeNumber)}${suggestion.episodeTitle ? ` — ${suggestion.episodeTitle}` : ''}`}
+                  onClick={() => handleQuickAssign(suggestion.episodeId)}
+                />
+              ))}
+            </Stack>
+          )}
+        </>
       )}
 
       <Dialog open={showAddForm} onClose={onCloseAddForm} fullWidth maxWidth="sm">

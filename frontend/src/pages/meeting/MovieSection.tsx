@@ -12,6 +12,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControlLabel,
   IconButton,
   Radio,
@@ -65,6 +66,10 @@ export function MovieSection({
 }) {
   const { data: movies, loading, error, reload, silentReload } = useAsync(() => moviesApi.list(meetingId), [meetingId])
   useSmartPolling(silentReload, 7500)
+  // Hides the whole section (heading, divider included) once it's known there's nothing to show -- but the add
+  // Dialog below stays mounted regardless, since that's the only way to add the meeting's *first* movie once the
+  // heading that used to always announce "Movies" is gone.
+  const isEmpty = !loading && !error && (movies?.length ?? 0) === 0
   // A movie starts pre-expanded when the list is wide enough to comfortably fit two expanded posters side by
   // side -- a simple, unit-based proxy for "this is a wide desktop view, not a cramped one" rather than an
   // arbitrary pixel breakpoint disconnected from the poster size actually in play.
@@ -98,26 +103,31 @@ export function MovieSection({
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        Movies
-      </Typography>
+      {!isEmpty && (
+        <>
+          <Divider sx={{ mb: 3 }} />
+          <Typography variant="h6" gutterBottom>
+            Movies
+          </Typography>
 
-      <AsyncState loading={loading} error={error}>
-        <Stack ref={listRef} spacing={1}>
-          {movies?.map((movie) => (
-            <MovieItem
-              key={movie.id}
-              movie={movie}
-              clubId={clubId}
-              scales={scales}
-              members={members}
-              languagePrefs={languagePrefs}
-              onChange={reload}
-              defaultExpanded={defaultExpanded}
-            />
-          ))}
-        </Stack>
-      </AsyncState>
+          <AsyncState loading={loading} error={error}>
+            <Stack ref={listRef} spacing={1}>
+              {movies?.map((movie) => (
+                <MovieItem
+                  key={movie.id}
+                  movie={movie}
+                  clubId={clubId}
+                  scales={scales}
+                  members={members}
+                  languagePrefs={languagePrefs}
+                  onChange={reload}
+                  defaultExpanded={defaultExpanded}
+                />
+              ))}
+            </Stack>
+          </AsyncState>
+        </>
+      )}
 
       <Dialog open={showAddForm} onClose={onCloseAddForm} fullWidth maxWidth="sm">
         <DialogTitle>Add a movie</DialogTitle>
