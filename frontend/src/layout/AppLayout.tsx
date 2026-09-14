@@ -1,11 +1,23 @@
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
-import DarkModeIcon from '@mui/icons-material/DarkMode'
-import LightModeIcon from '@mui/icons-material/LightMode'
+import EditIcon from '@mui/icons-material/Edit'
 import LogoutIcon from '@mui/icons-material/Logout'
-import NumbersIcon from '@mui/icons-material/Numbers'
-import PersonIcon from '@mui/icons-material/Person'
-import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined'
-import { Alert, AppBar, Avatar, Box, Button, Container, IconButton, Snackbar, Toolbar, Typography } from '@mui/material'
+import {
+  Alert,
+  AppBar,
+  Avatar,
+  Box,
+  Button,
+  Container,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  IconButton,
+  Snackbar,
+  Stack,
+  Switch,
+  Toolbar,
+  Typography,
+} from '@mui/material'
 import { useColorScheme } from '@mui/material/styles'
 import { useRef, useState } from 'react'
 import { Link as RouterLink, Outlet, useNavigate } from 'react-router-dom'
@@ -16,47 +28,42 @@ import { useDateDisplay } from '../settings/DateDisplayContext'
 import { useMemberPhotos } from '../settings/MemberPhotoContext'
 import { initials } from '../utils/members'
 
-function ThemeModeToggle() {
+/** Every personal display preference (theme, member photos vs. initials, date format) used to be its own always-
+ * visible toolbar icon -- now a single Edit icon opens this dialog with all three together, so the toolbar isn't
+ * a growing row of one-off toggle icons as more preferences get added. */
+function SettingsDialog() {
+  const [open, setOpen] = useState(false)
   const { mode, setMode } = useColorScheme()
-  const isDark = mode === 'dark'
-
-  return (
-    <IconButton
-      color="inherit"
-      onClick={() => setMode(isDark ? 'light' : 'dark')}
-      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-    >
-      {isDark ? <LightModeIcon /> : <DarkModeIcon />}
-    </IconButton>
-  )
-}
-
-function MemberPhotoToggle() {
   const { showPhotos, setShowPhotos } = useMemberPhotos()
-
-  return (
-    <IconButton
-      color="inherit"
-      onClick={() => setShowPhotos(!showPhotos)}
-      title={showPhotos ? 'Show colored initials instead of photos' : 'Show member photos instead of initials'}
-    >
-      {showPhotos ? <PersonIcon /> : <PersonOutlineIcon />}
-    </IconButton>
-  )
-}
-
-function DateDisplayToggle() {
   const { dateStyle, setDateStyle } = useDateDisplay()
+  const isDark = mode === 'dark'
   const isIso = dateStyle === 'iso'
 
   return (
-    <IconButton
-      color="inherit"
-      onClick={() => setDateStyle(isIso ? 'compact' : 'iso')}
-      title={isIso ? 'Show dates as "13 Sep 2026"' : 'Show dates as "2026-09-13"'}
-    >
-      {isIso ? <NumbersIcon /> : <CalendarMonthIcon />}
-    </IconButton>
+    <>
+      <IconButton color="inherit" onClick={() => setOpen(true)} title="Display settings">
+        <EditIcon />
+      </IconButton>
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Display settings</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1} sx={{ mt: 1 }}>
+            <FormControlLabel
+              control={<Switch checked={isDark} onChange={(e) => setMode(e.target.checked ? 'dark' : 'light')} />}
+              label="Dark mode"
+            />
+            <FormControlLabel
+              control={<Switch checked={showPhotos} onChange={(e) => setShowPhotos(e.target.checked)} />}
+              label="Show member photos instead of initials"
+            />
+            <FormControlLabel
+              control={<Switch checked={isIso} onChange={(e) => setDateStyle(e.target.checked ? 'iso' : 'compact')} />}
+              label='Show dates as "2026-09-13" instead of "13 Sep 2026"'
+            />
+          </Stack>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
@@ -131,17 +138,12 @@ export function AppLayout() {
           >
             Movie Club
           </Typography>
-          <ThemeModeToggle />
-          <MemberPhotoToggle />
-          <DateDisplayToggle />
+          <SettingsDialog />
           {member && (
             <>
               <OwnPhotoUploader />
-              <Typography variant="body2" sx={{ mr: 2, ml: 1 }}>
-                {member.name} (@{member.username})
-              </Typography>
               {member.isSiteAdmin && (
-                <Button color="inherit" component={RouterLink} to="/admin" size="small" sx={{ mr: 1 }}>
+                <Button color="inherit" component={RouterLink} to="/admin" size="small" sx={{ mr: 1, ml: 1 }}>
                   Admin
                 </Button>
               )}
