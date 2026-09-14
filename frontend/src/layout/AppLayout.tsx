@@ -1,5 +1,5 @@
-import EditIcon from '@mui/icons-material/Edit'
 import LogoutIcon from '@mui/icons-material/Logout'
+import SettingsIcon from '@mui/icons-material/Settings'
 import {
   Alert,
   AppBar,
@@ -42,12 +42,12 @@ function SettingsDialog() {
   return (
     <>
       <IconButton color="inherit" onClick={() => setOpen(true)} title="Display settings">
-        <EditIcon />
+        <SettingsIcon />
       </IconButton>
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="xs">
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Display settings</DialogTitle>
         <DialogContent>
-          <Stack spacing={1} sx={{ mt: 1 }}>
+          <Stack spacing={1} sx={{ mt: 1, '& .MuiFormControlLabel-label': { whiteSpace: 'nowrap' } }}>
             <FormControlLabel
               control={<Switch checked={isDark} onChange={(e) => setMode(e.target.checked ? 'dark' : 'light')} />}
               label="Dark mode"
@@ -147,9 +147,6 @@ export function AppLayout() {
                   Admin
                 </Button>
               )}
-              <Button color="inherit" component={RouterLink} to="/invite" size="small" sx={{ mr: 1 }}>
-                Invite
-              </Button>
               <IconButton color="inherit" onClick={handleLogout} title="Log out">
                 <LogoutIcon />
               </IconButton>
