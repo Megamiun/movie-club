@@ -1,6 +1,6 @@
 import { Chip, Stack, Typography } from '@mui/material'
 import type { ClubMember, RatingScale } from '../api/types'
-import { memberName } from '../utils/members'
+import { MemberBadge } from './MemberBadge'
 
 interface ReviewLike {
   memberId: string
@@ -38,13 +38,17 @@ export function ReviewsList({
         const quality = labelFor(scales, 'QUALITY', r.qualityOptionId)
         const sentiment = labelFor(scales, 'SENTIMENT', r.sentimentOptionId)
         return (
-          <Stack key={r.memberId} direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-              {memberName(members, r.memberId)}
-            </Typography>
-            {quality && <Chip size="small" label={quality} />}
-            {sentiment && <Chip size="small" label={sentiment} variant="outlined" />}
-            {r.comment && <Typography variant="body2">{r.comment}</Typography>}
+          <Stack key={r.memberId} spacing={0.25}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+              <MemberBadge member={members.find((m) => m.memberId === r.memberId)} size={24} />
+              {quality && <Chip size="small" label={quality} />}
+              {sentiment && <Chip size="small" label={sentiment} variant="outlined" />}
+            </Stack>
+            {r.comment && (
+              <Typography variant="body2" sx={{ pl: 4 }}>
+                {r.comment}
+              </Typography>
+            )}
           </Stack>
         )
       })}

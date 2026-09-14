@@ -28,49 +28,59 @@ export function RatingForm({ scales, initialQualityOptionId, initialSentimentOpt
   }
 
   return (
-    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: 'center' }}>
-      {quality && (
-        <Select
-          size="small"
-          displayEmpty
-          value={qualityOptionId}
-          onChange={(e) => setQualityOptionId(e.target.value)}
-          sx={{ minWidth: 140 }}
-        >
-          <MenuItem value="">
-            <em>Quality</em>
-          </MenuItem>
-          {[...quality.options]
-            .sort((a, b) => a.position - b.position)
-            .map((o) => (
-              <MenuItem key={o.id} value={o.id}>
-                {o.label}
-              </MenuItem>
-            ))}
-        </Select>
-      )}
-      {sentiment && (
-        <Select
-          size="small"
-          displayEmpty
-          value={sentimentOptionId}
-          onChange={(e) => setSentimentOptionId(e.target.value)}
-          sx={{ minWidth: 140 }}
-        >
-          <MenuItem value="">
-            <em>Sentiment</em>
-          </MenuItem>
-          {[...sentiment.options]
-            .sort((a, b) => a.position - b.position)
-            .map((o) => (
-              <MenuItem key={o.id} value={o.id}>
-                {o.label}
-              </MenuItem>
-            ))}
-        </Select>
-      )}
-      <TextField size="small" label="Comment" value={comment} onChange={(e) => setComment(e.target.value)} fullWidth />
-      <Button size="small" variant="outlined" onClick={handleSave} disabled={saving}>
+    <Stack spacing={1}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        {quality && (
+          <Select
+            size="small"
+            displayEmpty
+            value={qualityOptionId}
+            onChange={(e) => setQualityOptionId(e.target.value)}
+            sx={{ minWidth: 140 }}
+          >
+            <MenuItem value="">
+              <em>Quality</em>
+            </MenuItem>
+            {[...quality.options]
+              .sort((a, b) => a.position - b.position)
+              .map((o) => (
+                <MenuItem key={o.id} value={o.id}>
+                  {o.label}
+                </MenuItem>
+              ))}
+          </Select>
+        )}
+        {sentiment && (
+          <Select
+            size="small"
+            displayEmpty
+            value={sentimentOptionId}
+            onChange={(e) => setSentimentOptionId(e.target.value)}
+            sx={{ minWidth: 140 }}
+          >
+            <MenuItem value="">
+              <em>Sentiment</em>
+            </MenuItem>
+            {[...sentiment.options]
+              .sort((a, b) => a.position - b.position)
+              .map((o) => (
+                <MenuItem key={o.id} value={o.id}>
+                  {o.label}
+                </MenuItem>
+              ))}
+          </Select>
+        )}
+      </Stack>
+      <TextField
+        size="small"
+        label="Comment"
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        multiline
+        minRows={2}
+        fullWidth
+      />
+      <Button size="small" variant="outlined" onClick={handleSave} disabled={saving} sx={{ alignSelf: 'flex-start' }}>
         Save rating
       </Button>
     </Stack>
