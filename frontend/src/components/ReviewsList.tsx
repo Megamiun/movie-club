@@ -33,7 +33,7 @@ export function ReviewsList({
   onSaveComment: (comment: string | null) => void | Promise<void>
 }) {
   return (
-    <Stack spacing={1}>
+    <Stack spacing={1} sx={{ maxHeight: 500, overflowY: 'auto' }}>
       {members.map((m) => {
         const r = reviews.find((review) => review.memberId === m.memberId)
         const isViewer = m.memberId === viewerMemberId
