@@ -15,8 +15,10 @@ import {
   Divider,
   FormControlLabel,
   IconButton,
+  MenuItem,
   Radio,
   RadioGroup,
+  Select,
   Stack,
   TextField,
   ToggleButton,
@@ -184,14 +186,14 @@ export function MovieSection({
   )
 }
 
-/** Encodes the merged title dialog's radio selection as a single string: 'ORIGINAL', 'CUSTOM', or
- * `LANGUAGE:<code>` for one specific exhibition-language translation -- RadioGroup values have to be strings, and
- * this is the one field (a translation's `languageCode`) that already uniquely identifies each radio option. */
-type TitleMode = 'ORIGINAL' | 'CUSTOM' | `LANGUAGE:${string}`
+/** The merged title dialog's top-level choice -- 'LANGUAGE' picks the specific translation via a separate dropdown
+ * (see `selectedLanguageCode` in `MovieItem`) rather than being one radio per translation, so the radio group
+ * itself stays a fixed 3 options regardless of how many exhibition languages a movie has translations for. */
+type TitleMode = 'ORIGINAL' | 'CUSTOM' | 'LANGUAGE'
 
 function titleModeFor(movie: Movie): TitleMode {
   if (movie.displayTitlePreference === 'CUSTOM') return 'CUSTOM'
-  if (movie.displayTitlePreference === 'LANGUAGE' && movie.displayLanguageCode) return `LANGUAGE:${movie.displayLanguageCode}`
+  if (movie.displayTitlePreference === 'LANGUAGE') return 'LANGUAGE'
   return 'ORIGINAL'
 }
 
@@ -225,6 +227,7 @@ function MovieItem({
 
   const [titleMode, setTitleMode] = useState<TitleMode>(() => titleModeFor(movie))
   const [customTitle, setCustomTitle] = useState(movie.customTitle ?? '')
+  const [selectedLanguageCode, setSelectedLanguageCode] = useState(movie.displayLanguageCode ?? '')
   const [watchLink, setWatchLink] = useState(movie.watchLink ?? '')
   const [titleDialogOpen, setTitleDialogOpen] = useState(false)
   const [watchLinkDialogOpen, setWatchLinkDialogOpen] = useState(false)
@@ -237,6 +240,7 @@ function MovieItem({
   const handleOpenTitleDialog = () => {
     setTitleMode(titleModeFor(movie))
     setCustomTitle(movie.customTitle ?? '')
+    setSelectedLanguageCode(movie.displayLanguageCode ?? '')
     setTitleDialogOpen(true)
   }
 
@@ -245,8 +249,9 @@ function MovieItem({
     try {
       if (titleMode === 'CUSTOM') {
         await moviesApi.update(movie.id, { customTitle: customTitle || undefined, preference: 'CUSTOM' })
-      } else if (titleMode.startsWith('LANGUAGE:')) {
-        await moviesApi.update(movie.id, { preference: 'LANGUAGE', languageCode: titleMode.slice('LANGUAGE:'.length) })
+      } else if (titleMode === 'LANGUAGE') {
+        if (!selectedLanguageCode) return
+        await moviesApi.update(movie.id, { preference: 'LANGUAGE', languageCode: selectedLanguageCode })
       } else {
         await moviesApi.update(movie.id, { preference: 'ORIGINAL' })
       }
@@ -457,14 +462,12 @@ function MovieItem({
           <RadioGroup value={titleMode} onChange={(e) => setTitleMode(e.target.value as TitleMode)} sx={{ mt: 1 }}>
             <FormControlLabel value="ORIGINAL" control={<Radio />} label="Default" />
             <FormControlLabel value="CUSTOM" control={<Radio />} label="Custom" />
-            {movie.translations.map((t) => (
-              <FormControlLabel
-                key={`${t.languageCode}-${t.countryCode}`}
-                value={`LANGUAGE:${t.languageCode}`}
-                control={<Radio />}
-                label={`${t.title} (${t.englishName})`}
-              />
-            ))}
+            <FormControlLabel
+              value="LANGUAGE"
+              control={<Radio />}
+              label="Language"
+              disabled={movie.translations.length === 0}
+            />
           </RadioGroup>
           <Stack spacing={1.5} sx={{ mt: 1 }}>
             {titleMode === 'CUSTOM' && (
@@ -477,7 +480,30 @@ function MovieItem({
                 autoFocus
               />
             )}
-            <Button variant="contained" onClick={handleSaveTitle} sx={{ alignSelf: 'flex-start' }}>
+            {titleMode === 'LANGUAGE' && (
+              <Select
+                size="small"
+                displayEmpty
+                value={selectedLanguageCode}
+                onChange={(e) => setSelectedLanguageCode(e.target.value)}
+                fullWidth
+              >
+                <MenuItem value="" disabled>
+                  <em>Choose a language</em>
+                </MenuItem>
+                {movie.translations.map((t) => (
+                  <MenuItem key={`${t.languageCode}-${t.countryCode}`} value={t.languageCode}>
+                    {t.title} ({t.englishName})
+                  </MenuItem>
+                ))}
+              </Select>
+            )}
+            <Button
+              variant="contained"
+              onClick={handleSaveTitle}
+              disabled={titleMode === 'LANGUAGE' && !selectedLanguageCode}
+              sx={{ alignSelf: 'flex-start' }}
+            >
               Save
             </Button>
           </Stack>
