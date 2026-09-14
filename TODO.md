@@ -4,19 +4,28 @@
 - [x] Moved the watch-link input onto its own line in the add/edit movie form so it's not cramped on narrow
   screens.
 
-- [ ] When resolving a movie title, if the original is excluded, but there is no preferred title in a preferred language, still use original
+- [x] When resolving a movie title, if the original is excluded, but there is no preferred title in a preferred language, still use original.
+  `resolveTitle` (`utils/title.ts`) no longer falls back to "any other non-ignored translation" as a last resort
+  before original -- that was unrequested guesswork. Order is now: CUSTOM > original (if not ignored) > LANGUAGE
+  override > preferred-languages list > original.
 
-- [ ] Merge the edit title and choose language dialogs into a single one, invoked then a translate icon is clicked
-  - [ ] Have 2 + X radio button options:
-    - [ ] Default
-    - [ ] Custom
-    - [ ] X Exhibition Languages
+- [x] Merge the edit title and choose language dialogs into a single one, invoked then a translate icon is clicked
+  - [x] Have 2 + X radio button options:
+    - [x] Default
+    - [x] Custom
+    - [x] X Exhibition Languages
+  One `TranslateIcon` (`MovieSection.tsx`) replaces the old pencil + globe icons; the custom-title TextField only
+  appears once "Custom" is picked.
 
-- [ ] Create importer for sample Comments csv file
+- [ ] Create importer for sample Comments csv file — in progress, see `samples/Movie Club - Movies 2026 - Comments.csv`.
 
 - On Movie Details:
-  - [ ] Movie Details start uncollapsed if has space for two posters
-  - [ ] Have bigger
+  - [x] Movie Details start uncollapsed if has space for two posters — measured via `useContainerWidth`
+    (previously CalendarPage-only), compared against 2x the expanded poster width.
+  - [x] Have bigger posters, start at 350px width — also bumped the underlying TMDB image tier (w154 -> w780) so
+    they're not just bigger but not blurry at that size either.
+      - [x] If device resolution small enough, and in portrait mode, occupy most of width and put info bellow poster
+      - [x] Otherwise, keep info to the right of the poster
 
 - [x] "Animation, Comedy +1" and "Drama, Adventure +1" still break in two lines — `TruncatedList`'s char-count
   budget is only an approximation of rendered width, so a string sitting right at the boundary could still be a
