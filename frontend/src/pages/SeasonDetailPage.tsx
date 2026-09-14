@@ -22,7 +22,8 @@ import { ApiError } from '../api/client'
 import type { Episode, RatingScale } from '../api/types'
 import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
-import { RatingForm } from '../components/RatingForm'
+import { InlineRatingEditor } from '../components/InlineRatingEditor'
+import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import { digitsOf } from '../hooks/useSeasonNumbers'
@@ -31,6 +32,7 @@ import { resolveTitle } from '../utils/title'
 
 export function SeasonDetailPage() {
   const { seasonId } = useParams<{ seasonId: string }>()
+  const { member: viewer } = useAuth()
   const [searchParams] = useSearchParams()
   const seriesId = searchParams.get('seriesId')
 
@@ -48,6 +50,7 @@ export function SeasonDetailPage() {
     () => (series ? clubsApi.getRatingScales(series.clubId) : Promise.resolve([])),
     [series?.clubId],
   )
+  const { data: myReview, reload: reloadMyReview } = useAsync(() => seasonsApi.getMyReview(seasonId!), [seasonId])
   useSmartPolling(() => {
     silentReload()
     silentReloadClub()
@@ -73,8 +76,21 @@ export function SeasonDetailPage() {
     }
   }
 
-  const handleRateSeason = async (qualityOptionId?: string, sentimentOptionId?: string, comment?: string) => {
-    await seasonsApi.rate(seasonId!, qualityOptionId, sentimentOptionId, comment)
+  // Season only has the combined PUT (no split quality/sentiment PATCH, same as Series -- see SeriesDetailPage's
+  // own doc comment), so every save has to pass the *other* two fields through unchanged.
+  const handleSaveSeasonQuality = async (optionId: string | null) => {
+    await seasonsApi.rate(seasonId!, optionId ?? undefined, myReview?.sentimentOptionId ?? undefined, myReview?.comment ?? undefined)
+    reloadMyReview()
+  }
+
+  const handleSaveSeasonSentiment = async (optionId: string | null) => {
+    await seasonsApi.rate(seasonId!, myReview?.qualityOptionId ?? undefined, optionId ?? undefined, myReview?.comment ?? undefined)
+    reloadMyReview()
+  }
+
+  const handleSaveSeasonComment = async (comment: string | null) => {
+    await seasonsApi.rate(seasonId!, myReview?.qualityOptionId ?? undefined, myReview?.sentimentOptionId ?? undefined, comment ?? undefined)
+    reloadMyReview()
   }
 
   return (
@@ -98,7 +114,18 @@ export function SeasonDetailPage() {
         <Typography variant="subtitle1" gutterBottom>
           Your rating
         </Typography>
-        <RatingForm scales={scales ?? []} onSave={handleRateSeason} />
+        <InlineRatingEditor
+          scales={scales ?? []}
+          memberName={viewer?.name ?? ''}
+          memberColor={club?.members.find((m) => m.memberId === viewer?.id)?.color}
+          qualityOptionId={myReview?.qualityOptionId ?? null}
+          sentimentOptionId={myReview?.sentimentOptionId ?? null}
+          editable
+          onSaveQuality={handleSaveSeasonQuality}
+          onSaveSentiment={handleSaveSeasonSentiment}
+          initialComment={myReview?.comment}
+          onSaveComment={handleSaveSeasonComment}
+        />
 
         <Typography variant="h6" sx={{ mt: 4 }} gutterBottom>
           Episodes
@@ -168,6 +195,8 @@ function EpisodeRow({
   scales: RatingScale[]
   onChange: () => void
 }) {
+  const { member: viewer } = useAuth()
+  const { data: myReview, reload: reloadMyReview } = useAsync(() => episodesApi.getMyReview(episode.id), [episode.id])
   const [error, setError] = useState<string | null>(null)
 
   const handleRefresh = async () => {
@@ -180,8 +209,19 @@ function EpisodeRow({
     }
   }
 
-  const handleRate = async (qualityOptionId?: string, sentimentOptionId?: string, comment?: string) => {
-    await episodesApi.rate(episode.id, qualityOptionId, sentimentOptionId, comment)
+  const handleSaveQuality = async (optionId: string | null) => {
+    await episodesApi.rateQuality(episode.id, optionId)
+    reloadMyReview()
+  }
+
+  const handleSaveSentiment = async (optionId: string | null) => {
+    await episodesApi.rateSentiment(episode.id, optionId)
+    reloadMyReview()
+  }
+
+  const handleSaveComment = async (comment: string | null) => {
+    await episodesApi.rate(episode.id, myReview?.qualityOptionId ?? undefined, myReview?.sentimentOptionId ?? undefined, comment ?? undefined)
+    reloadMyReview()
   }
 
   return (
@@ -211,7 +251,17 @@ function EpisodeRow({
           <IconButton size="small" onClick={handleRefresh} title="Refresh metadata" sx={{ alignSelf: 'flex-start' }}>
             <RefreshIcon fontSize="small" />
           </IconButton>
-          <RatingForm scales={scales} onSave={handleRate} />
+          <InlineRatingEditor
+            scales={scales}
+            memberName={viewer?.name ?? ''}
+            qualityOptionId={myReview?.qualityOptionId ?? null}
+            sentimentOptionId={myReview?.sentimentOptionId ?? null}
+            editable
+            onSaveQuality={handleSaveQuality}
+            onSaveSentiment={handleSaveSentiment}
+            initialComment={myReview?.comment}
+            onSaveComment={handleSaveComment}
+          />
         </Stack>
       </AccordionDetails>
     </Accordion>

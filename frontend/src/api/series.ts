@@ -27,6 +27,10 @@ export const seriesApi = {
   rate: (seriesId: string, qualityOptionId?: string, sentimentOptionId?: string, comment?: string) =>
     api.put<SeriesReview>(`/series/${seriesId}/review`, { qualityOptionId, sentimentOptionId, comment }),
 
+  // Always 200 with a review-shaped object (all fields null when the viewer hasn't rated yet), never a 404 --
+  // see SeriesService.findReview's own doc comment.
+  getMyReview: (seriesId: string) => api.get<SeriesReview>(`/series/${seriesId}/review`),
+
   listSeasons: (seriesId: string) => api.get<Season[]>(`/series/${seriesId}/seasons`),
 
   addSeason: (seriesId: string, number: number, title?: string) =>
@@ -42,6 +46,8 @@ export const seasonsApi = {
 
   rate: (seasonId: string, qualityOptionId?: string, sentimentOptionId?: string, comment?: string) =>
     api.put<SeasonReview>(`/seasons/${seasonId}/review`, { qualityOptionId, sentimentOptionId, comment }),
+
+  getMyReview: (seasonId: string) => api.get<SeasonReview>(`/seasons/${seasonId}/review`),
 
   listEpisodes: (seasonId: string) => api.get<Episode[]>(`/seasons/${seasonId}/episodes`),
 
@@ -74,6 +80,8 @@ export const episodesApi = {
 
   rateSentiment: (episodeId: string, optionId: string | null) =>
     api.patch<EpisodeReview>(`/episodes/${episodeId}/review/sentiment`, { optionId }),
+
+  getMyReview: (episodeId: string) => api.get<EpisodeReview>(`/episodes/${episodeId}/review`),
 
   listForMeeting: (meetingId: string) => api.get<Episode[]>(`/meetings/${meetingId}/episodes`),
 }

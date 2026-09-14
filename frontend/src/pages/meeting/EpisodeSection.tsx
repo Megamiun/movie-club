@@ -24,7 +24,8 @@ import type { Episode, EpisodeSearchResult, RatingScale } from '../../api/types'
 import { AsyncState } from '../../components/AsyncState'
 import { EpisodeSearchAutocomplete } from '../../components/EpisodeSearchAutocomplete'
 import { ImdbLink } from '../../components/ImdbLink'
-import { RatingForm } from '../../components/RatingForm'
+import { InlineRatingEditor } from '../../components/InlineRatingEditor'
+import { useAuth } from '../../auth/AuthContext'
 import { useAsync } from '../../hooks/useAsync'
 import { useSmartPolling } from '../../hooks/useSmartPolling'
 import { useSeasonNumbers, type SeasonCodeInfo } from '../../hooks/useSeasonNumbers'
@@ -160,6 +161,8 @@ function EpisodeItem({
   scales: RatingScale[]
   onChange: () => void
 }) {
+  const { member: viewer } = useAuth()
+  const { data: myReview, reload: reloadMyReview } = useAsync(() => episodesApi.getMyReview(episode.id), [episode.id])
   const [error, setError] = useState<string | null>(null)
 
   const handleRefresh = async () => {
@@ -182,8 +185,21 @@ function EpisodeItem({
     }
   }
 
-  const handleRate = async (qualityOptionId?: string, sentimentOptionId?: string, comment?: string) => {
-    await episodesApi.rate(episode.id, qualityOptionId, sentimentOptionId, comment)
+  const handleSaveQuality = async (optionId: string | null) => {
+    await episodesApi.rateQuality(episode.id, optionId)
+    reloadMyReview()
+  }
+
+  const handleSaveSentiment = async (optionId: string | null) => {
+    await episodesApi.rateSentiment(episode.id, optionId)
+    reloadMyReview()
+  }
+
+  // No comment-only endpoint exists (same as Movie) -- pass the current quality/sentiment through unchanged so a
+  // comment-only save can't clobber whatever rateQuality/rateSentiment already saved.
+  const handleSaveComment = async (comment: string | null) => {
+    await episodesApi.rate(episode.id, myReview?.qualityOptionId ?? undefined, myReview?.sentimentOptionId ?? undefined, comment ?? undefined)
+    reloadMyReview()
   }
 
   return (
@@ -222,7 +238,17 @@ function EpisodeItem({
               <LinkOffIcon fontSize="small" />
             </IconButton>
           </Stack>
-          <RatingForm scales={scales} onSave={handleRate} />
+          <InlineRatingEditor
+            scales={scales}
+            memberName={viewer?.name ?? ''}
+            qualityOptionId={myReview?.qualityOptionId ?? null}
+            sentimentOptionId={myReview?.sentimentOptionId ?? null}
+            editable
+            onSaveQuality={handleSaveQuality}
+            onSaveSentiment={handleSaveSentiment}
+            initialComment={myReview?.comment}
+            onSaveComment={handleSaveComment}
+          />
         </Stack>
       </AccordionDetails>
     </Accordion>

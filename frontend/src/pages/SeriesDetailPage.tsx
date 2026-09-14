@@ -9,8 +9,9 @@ import { clubsApi } from '../api/clubs'
 import { ApiError } from '../api/client'
 import { AsyncState } from '../components/AsyncState'
 import { ImdbLink } from '../components/ImdbLink'
+import { InlineRatingEditor } from '../components/InlineRatingEditor'
 import { LanguagePickerDialog } from '../components/LanguagePickerDialog'
-import { RatingForm } from '../components/RatingForm'
+import { useAuth } from '../auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import { useSmartPolling } from '../hooks/useSmartPolling'
 import { ratingLabel } from '../utils/rating'
@@ -18,6 +19,7 @@ import { resolveTitle } from '../utils/title'
 
 export function SeriesDetailPage() {
   const { seriesId } = useParams<{ seriesId: string }>()
+  const { member: viewer } = useAuth()
   const { data: series, loading, error, reload, silentReload } = useAsync(() => seriesApi.get(seriesId!), [seriesId])
   const { data: seasons, reload: reloadSeasons, silentReload: silentReloadSeasons } = useAsync(() => seriesApi.listSeasons(seriesId!), [seriesId])
   const { data: club, silentReload: silentReloadClub } = useAsync(
@@ -28,6 +30,7 @@ export function SeriesDetailPage() {
     () => (series ? clubsApi.getRatingScales(series.clubId) : Promise.resolve([])),
     [series?.clubId],
   )
+  const { data: myReview, reload: reloadMyReview } = useAsync(() => seriesApi.getMyReview(seriesId!), [seriesId])
   useSmartPolling(() => {
     silentReload()
     silentReloadSeasons()
@@ -80,8 +83,23 @@ export function SeriesDetailPage() {
     }
   }
 
-  const handleRate = async (qualityOptionId?: string, sentimentOptionId?: string, comment?: string) => {
-    await seriesApi.rate(seriesId!, qualityOptionId, sentimentOptionId, comment)
+  // Series only has the combined PUT (no split quality/sentiment PATCH like Movie/Episode -- CLAUDE.md's
+  // RatingScale section notes it was never added since nothing rated Series/Season inline the way the Meetings
+  // table does Movie/Episode), so every save has to pass the *other* two fields through unchanged to avoid
+  // clobbering them.
+  const handleSaveQuality = async (optionId: string | null) => {
+    await seriesApi.rate(seriesId!, optionId ?? undefined, myReview?.sentimentOptionId ?? undefined, myReview?.comment ?? undefined)
+    reloadMyReview()
+  }
+
+  const handleSaveSentiment = async (optionId: string | null) => {
+    await seriesApi.rate(seriesId!, myReview?.qualityOptionId ?? undefined, optionId ?? undefined, myReview?.comment ?? undefined)
+    reloadMyReview()
+  }
+
+  const handleSaveComment = async (comment: string | null) => {
+    await seriesApi.rate(seriesId!, myReview?.qualityOptionId ?? undefined, myReview?.sentimentOptionId ?? undefined, comment ?? undefined)
+    reloadMyReview()
   }
 
   const handleImportSeasons = async () => {
@@ -169,7 +187,18 @@ export function SeriesDetailPage() {
             <Typography variant="subtitle1" gutterBottom>
               Your rating
             </Typography>
-            <RatingForm scales={scales ?? []} onSave={handleRate} />
+            <InlineRatingEditor
+              scales={scales ?? []}
+              memberName={viewer?.name ?? ''}
+              memberColor={club?.members.find((m) => m.memberId === viewer?.id)?.color}
+              qualityOptionId={myReview?.qualityOptionId ?? null}
+              sentimentOptionId={myReview?.sentimentOptionId ?? null}
+              editable
+              onSaveQuality={handleSaveQuality}
+              onSaveSentiment={handleSaveSentiment}
+              initialComment={myReview?.comment}
+              onSaveComment={handleSaveComment}
+            />
 
             <Stack direction="row" spacing={1} sx={{ mt: 4, alignItems: 'center' }}>
               <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
