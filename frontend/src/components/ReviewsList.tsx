@@ -33,7 +33,7 @@ export function ReviewsList({
   onSaveComment: (comment: string | null) => void | Promise<void>
 }) {
   return (
-    <Stack spacing={1} sx={{ maxHeight: 500, overflowY: 'auto' }}>
+    <Stack spacing={1}>
       {members.map((m) => {
         const r = reviews.find((review) => review.memberId === m.memberId)
         const isViewer = m.memberId === viewerMemberId
@@ -54,7 +54,11 @@ export function ReviewsList({
                   {...(isViewer ? { initialComment: r?.comment, onSaveComment } : {})}
                 />
               </Box>
-              {r?.comment && <Typography variant="body2">{r.comment}</Typography>}
+              {r?.comment && (
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                  {r.comment}
+                </Typography>
+              )}
             </Box>
           </Stack>
         )
