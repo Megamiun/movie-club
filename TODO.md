@@ -48,23 +48,29 @@
         - [x] Improve/clean up the link from a Meetings row to the meeting detail page — the date link only existed on
           an empty meeting's row; now every meeting's date links to its detail page consistently, pick or no pick.
     - Meeting detail page:
-        - [ ] Remove the "assigned member" display at the meeting level.
-        - [ ] Remove the empty-session info block.
-        - [ ] Increase the poster size in the movie list on this page.
-        - [ ] Clicking a movie in the list should expand that movie's own block and enlarge the same poster further,
-          rather than adding a separate/new poster.
-            - On mobile portrait mode, keep a row just for the poster
-        - [ ] Add line breaks between each piece of textual info shown next to the banner/poster.
-            - [ ] First line is user photo, title, country flags
-        - [ ] Move the action buttons to sit above the poster.
-        - [ ] Turn the custom-title feature into an icon; editing the title happens in a modal instead of inline.
-        - [ ] Turn the watch-link feature into an icon; editing the link happens in a modal instead of inline.
-        - [ ] Below the poster, add the viewer's own photo plus a rating icon next to it — the icon should stay visible
-          even after a rating has been given, so it can still be used to edit the existing rating.
-        - [ ] Remove the "other meeting" button.
-        - [ ] Turn the add movie/series action into an icon that opens a modal.
-        - [ ] Turn the delete action into an icon that opens a modal.
-        - [ ] Turn the swap fields into an icon, with the swap performed inside a modal.
+        - [x] Remove the "assigned member" display at the meeting level — it was redundant with each movie's own
+          "Chosen by" (a merged meeting can have several different choosers anyway).
+        - [x] Remove the empty-session info block — same call as the Meetings table's own empty-slot message.
+        - [x] Increase the poster size in the movie list on this page — 64px collapsed (was 32px).
+        - [x] Clicking a movie in the list should expand that movie's own block and enlarge the same poster further,
+          rather than adding a separate/new poster. Replaced the old Accordion (which really did render two
+          separate `<img>`s, summary + details) with one poster element whose width grows on expand (220px).
+            - [x] On mobile portrait mode, keep a row just for the poster — responsive Stack, column below `sm`.
+        - [x] Add line breaks between each piece of textual info shown next to the banner/poster — Director/Runtime/
+          Genre each on their own line now, inside the expanded section.
+            - [x] First line is user photo, title, country flags — chooser's `MemberBadge` + title +
+              `CountryFlags`, plus the existing year/rating/language chips and IMDB link.
+        - [x] Move the action buttons to sit above the poster.
+        - [x] Turn the custom-title feature into an icon; editing the title happens in a modal instead of inline.
+        - [x] Turn the watch-link feature into an icon; editing the link happens in a modal instead of inline.
+        - [x] Below the poster, add the viewer's own photo plus a rating icon next to it — the icon should stay visible
+          even after a rating has been given, so it can still be used to edit the existing rating. Also fixed a real
+          gap while wiring this up: `RatingForm` was never actually pre-filled from an existing review before.
+        - [x] Remove the "other meeting" button — folded into the Reschedule/Swap/Merge icon+modal below.
+        - [x] Turn the add movie/series action into an icon that opens a modal.
+        - [x] Turn the delete action into an icon that opens a modal — a confirm dialog now, not a bare button click.
+        - [x] Turn the swap fields into an icon, with the swap performed inside a modal — bundled with Postpone/Merge
+          into one "Reschedule, swap, or merge" icon+dialog, since they already shared the same target-meeting state.
         - [ ] In the movie block's background, try a gradient built from the poster's own colors.
 
 - [ ] Member-color and language-preference PATCHes raise the same "one action per click" question the movie/episode
