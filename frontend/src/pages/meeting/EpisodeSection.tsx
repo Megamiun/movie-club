@@ -10,6 +10,9 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Stack,
   Typography,
@@ -34,12 +37,14 @@ export function EpisodeSection({
   scales,
   languagePrefs,
   showAddForm,
+  onCloseAddForm,
 }: {
   meetingId: string
   clubId: string
   scales: RatingScale[]
   languagePrefs: LanguagePreferences
   showAddForm: boolean
+  onCloseAddForm: () => void
 }) {
   const { data: episodes, loading, error, reload, silentReload } = useAsync(() => episodesApi.listForMeeting(meetingId), [meetingId])
   const { data: suggestions, reload: reloadSuggestions, silentReload: silentReloadSuggestions } = useAsync(() => episodesApi.nextSuggestions(clubId), [clubId])
@@ -60,6 +65,7 @@ export function EpisodeSection({
       setSelectedEpisode(null)
       reload()
       reloadSuggestions()
+      onCloseAddForm()
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
@@ -114,26 +120,29 @@ export function EpisodeSection({
         </Stack>
       )}
 
-      {showAddForm && (
-        <Box component="form" onSubmit={handleAssign} sx={{ mt: 2 }}>
-          {submitError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {submitError}
-            </Alert>
-          )}
-          <Stack direction="row" spacing={1}>
-            <EpisodeSearchAutocomplete
-              clubId={clubId}
-              value={selectedEpisode}
-              onChange={setSelectedEpisode}
-              languagePrefs={languagePrefs}
-            />
-            <Button type="submit" variant="contained">
-              Assign to this meeting
-            </Button>
-          </Stack>
-        </Box>
-      )}
+      <Dialog open={showAddForm} onClose={onCloseAddForm} fullWidth maxWidth="sm">
+        <DialogTitle>Add a series episode</DialogTitle>
+        <DialogContent>
+          <Box component="form" onSubmit={handleAssign} sx={{ mt: 1 }}>
+            {submitError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {submitError}
+              </Alert>
+            )}
+            <Stack spacing={1}>
+              <EpisodeSearchAutocomplete
+                clubId={clubId}
+                value={selectedEpisode}
+                onChange={setSelectedEpisode}
+                languagePrefs={languagePrefs}
+              />
+              <Button type="submit" variant="contained">
+                Assign to this meeting
+              </Button>
+            </Stack>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Box>
   )
 }

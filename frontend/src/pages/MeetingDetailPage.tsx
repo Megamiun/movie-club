@@ -1,6 +1,23 @@
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { Alert, Autocomplete, Box, Button, Divider, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import EventRepeatIcon from '@mui/icons-material/EventRepeat'
+import {
+  Alert,
+  Autocomplete,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  IconButton,
+  Menu,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material'
 import { useState } from 'react'
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
 import { meetingsApi } from '../api/meetings'
@@ -9,6 +26,8 @@ import { ApiError } from '../api/client'
 import { AsyncState } from '../components/AsyncState'
 import { useAsync } from '../hooks/useAsync'
 import { useSmartPolling } from '../hooks/useSmartPolling'
+import { useDateDisplay } from '../settings/DateDisplayContext'
+import { formatMeetingDate } from '../utils/date'
 import { orderMeetingsByProximity } from '../utils/meetings'
 import { MovieSection } from './meeting/MovieSection'
 import { EpisodeSection } from './meeting/EpisodeSection'
@@ -16,6 +35,7 @@ import { EpisodeSection } from './meeting/EpisodeSection'
 export function MeetingDetailPage() {
   const { meetingId } = useParams<{ meetingId: string }>()
   const navigate = useNavigate()
+  const { dateStyle } = useDateDisplay()
   const { data: meeting, loading, error, reload, silentReload } = useAsync(() => meetingsApi.get(meetingId!), [meetingId])
   const { data: club, silentReload: silentReloadClub } = useAsync(
     () => (meeting ? clubsApi.get(meeting.clubId) : Promise.resolve(null)),
@@ -46,6 +66,9 @@ export function MeetingDetailPage() {
   const [otherMeetingId, setOtherMeetingId] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
   const [addChoice, setAddChoice] = useState<'movie' | 'series' | null>(null)
+  const [addMenuAnchor, setAddMenuAnchor] = useState<HTMLElement | null>(null)
+  const [rescheduleOpen, setRescheduleOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   const otherMeetings = meeting && clubMeetings ? orderMeetingsByProximity(clubMeetings, meeting.date, meeting.id) : []
 
@@ -93,6 +116,7 @@ export function MeetingDetailPage() {
       navigate(`/clubs/${meeting.clubId}`)
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Something went wrong')
+      setDeleteConfirmOpen(false)
     }
   }
 
@@ -109,9 +133,37 @@ export function MeetingDetailPage() {
                 &larr; Back to watchlist
               </Button>
             </Stack>
-            <Typography variant="h4" gutterBottom>
-              Meeting — {meeting.date}
-            </Typography>
+
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
+              <Typography variant="h4">Meeting — {formatMeetingDate(meeting.date, dateStyle)}</Typography>
+              <IconButton onClick={(e) => setAddMenuAnchor(e.currentTarget)} title="Add movie or series">
+                <AddIcon />
+              </IconButton>
+              <Menu anchorEl={addMenuAnchor} open={Boolean(addMenuAnchor)} onClose={() => setAddMenuAnchor(null)}>
+                <MenuItem
+                  onClick={() => {
+                    setAddChoice('movie')
+                    setAddMenuAnchor(null)
+                  }}
+                >
+                  Movie
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setAddChoice('series')
+                    setAddMenuAnchor(null)
+                  }}
+                >
+                  Series
+                </MenuItem>
+              </Menu>
+              <IconButton onClick={() => setRescheduleOpen(true)} title="Postpone, swap, or merge this meeting">
+                <EventRepeatIcon />
+              </IconButton>
+              <IconButton color="error" onClick={() => setDeleteConfirmOpen(true)} title="Delete this meeting">
+                <DeleteIcon />
+              </IconButton>
+            </Stack>
 
             {actionError && (
               <Alert severity="error" sx={{ my: 2 }}>
@@ -119,54 +171,64 @@ export function MeetingDetailPage() {
               </Alert>
             )}
 
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', my: 2 }}>
-              <AddIcon fontSize="small" color="action" />
-              <Typography variant="body2" color="text.secondary">
-                Add:
-              </Typography>
-              <ToggleButtonGroup
-                size="small"
-                exclusive
-                value={addChoice}
-                onChange={(_, value) => setAddChoice(value)}
-              >
-                <ToggleButton value="movie">Movie</ToggleButton>
-                <ToggleButton value="series">Series</ToggleButton>
-              </ToggleButtonGroup>
-            </Stack>
+            <Dialog open={rescheduleOpen} onClose={() => setRescheduleOpen(false)} fullWidth maxWidth="xs">
+              <DialogTitle>Postpone, swap, or merge</DialogTitle>
+              <DialogContent>
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                    <TextField
+                      label="New date"
+                      type="date"
+                      size="small"
+                      value={newDate}
+                      onChange={(e) => setNewDate(e.target.value)}
+                      slotProps={{ inputLabel: { shrink: true } }}
+                      fullWidth
+                    />
+                    <Button size="small" variant="outlined" onClick={handlePostpone} disabled={!newDate}>
+                      Postpone
+                    </Button>
+                  </Stack>
+                  <Divider />
+                  <Autocomplete
+                    size="small"
+                    options={otherMeetings}
+                    getOptionLabel={(m) => formatMeetingDate(m.date, dateStyle)}
+                    isOptionEqualToValue={(a, b) => a.id === b.id}
+                    value={otherMeetings.find((m) => m.id === otherMeetingId) ?? null}
+                    onChange={(_, option) => setOtherMeetingId(option?.id ?? '')}
+                    renderInput={(params) => <TextField {...params} label="Other meeting" />}
+                  />
+                  <Stack direction="row" spacing={1}>
+                    <Button size="small" variant="outlined" onClick={handleSwap} disabled={!otherMeetingId} fullWidth>
+                      Swap assignment
+                    </Button>
+                    <Button size="small" variant="outlined" onClick={handleMerge} disabled={!otherMeetingId} fullWidth>
+                      Merge from
+                    </Button>
+                  </Stack>
+                </Stack>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setRescheduleOpen(false)}>Close</Button>
+              </DialogActions>
+            </Dialog>
 
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'center', my: 2 }}>
-              <TextField
-                label="New date"
-                type="date"
-                size="small"
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-              <Button size="small" variant="outlined" onClick={handlePostpone}>
-                Postpone
-              </Button>
-              <Autocomplete
-                size="small"
-                options={otherMeetings}
-                getOptionLabel={(m) => m.date}
-                isOptionEqualToValue={(a, b) => a.id === b.id}
-                value={otherMeetings.find((m) => m.id === otherMeetingId) ?? null}
-                onChange={(_, option) => setOtherMeetingId(option?.id ?? '')}
-                renderInput={(params) => <TextField {...params} label="Other meeting" />}
-                sx={{ minWidth: 160 }}
-              />
-              <Button size="small" variant="outlined" onClick={handleSwap}>
-                Swap assignment
-              </Button>
-              <Button size="small" variant="outlined" onClick={handleMerge}>
-                Merge from
-              </Button>
-              <Button size="small" color="error" variant="outlined" startIcon={<DeleteIcon />} onClick={handleDelete}>
-                Delete meeting
-              </Button>
-            </Stack>
+            <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} maxWidth="xs">
+              <DialogTitle>Delete this meeting?</DialogTitle>
+              <DialogContent>
+                <Typography variant="body2" color="text.secondary">
+                  This removes the meeting itself. Movies and episodes picked here are not deleted separately by
+                  this action -- they go with it.
+                </Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+                <Button color="error" variant="contained" startIcon={<DeleteIcon />} onClick={handleDelete}>
+                  Delete meeting
+                </Button>
+              </DialogActions>
+            </Dialog>
 
             <Divider sx={{ my: 3 }} />
             <MovieSection
@@ -176,6 +238,7 @@ export function MeetingDetailPage() {
               members={club?.members ?? []}
               languagePrefs={languagePrefs}
               showAddForm={addChoice === 'movie'}
+              onCloseAddForm={() => setAddChoice(null)}
             />
             <Divider sx={{ my: 3 }} />
             <EpisodeSection
@@ -184,6 +247,7 @@ export function MeetingDetailPage() {
               scales={scales ?? []}
               languagePrefs={languagePrefs}
               showAddForm={addChoice === 'series'}
+              onCloseAddForm={() => setAddChoice(null)}
             />
           </>
         )}
