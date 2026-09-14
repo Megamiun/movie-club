@@ -1,9 +1,9 @@
 import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd'
 import DeleteIcon from '@mui/icons-material/Delete'
-import EditIcon from '@mui/icons-material/Edit'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import LinkIcon from '@mui/icons-material/Link'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import TranslateIcon from '@mui/icons-material/Translate'
 import {
   Alert,
   Box,
@@ -12,16 +12,18 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
-  MenuItem,
-  Select,
+  Radio,
+  RadioGroup,
   Stack,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  useMediaQuery,
 } from '@mui/material'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { moviesApi } from '../../api/movies'
 import { mediaItemsApi } from '../../api/mediaItems'
 import { watchlistApi } from '../../api/watchlist'
@@ -30,16 +32,19 @@ import type { ClubMember, Movie, RatingScale, TmdbSearchResult } from '../../api
 import { AsyncState } from '../../components/AsyncState'
 import { CountryFlags } from '../../components/CountryFlags'
 import { ImdbLink } from '../../components/ImdbLink'
-import { LanguagePickerDialog } from '../../components/LanguagePickerDialog'
 import { MemberBadge } from '../../components/MemberBadge'
 import { ReviewsList } from '../../components/ReviewsList'
 import { TmdbSearchAutocomplete } from '../../components/TmdbSearchAutocomplete'
 import { useAuth } from '../../auth/AuthContext'
 import { useAsync } from '../../hooks/useAsync'
+import { useContainerWidth } from '../../hooks/useContainerWidth'
 import { useSmartPolling } from '../../hooks/useSmartPolling'
 import { formatDuration } from '../../utils/duration'
 import { ratingLabel } from '../../utils/rating'
 import { resolveTitle, type LanguagePreferences } from '../../utils/title'
+
+const COLLAPSED_POSTER_WIDTH = 64
+const EXPANDED_POSTER_WIDTH = 350
 
 export function MovieSection({
   meetingId,
@@ -60,6 +65,11 @@ export function MovieSection({
 }) {
   const { data: movies, loading, error, reload, silentReload } = useAsync(() => moviesApi.list(meetingId), [meetingId])
   useSmartPolling(silentReload, 7500)
+  // A movie starts pre-expanded when the list is wide enough to comfortably fit two expanded posters side by
+  // side -- a simple, unit-based proxy for "this is a wide desktop view, not a cramped one" rather than an
+  // arbitrary pixel breakpoint disconnected from the poster size actually in play.
+  const [listRef, listWidth] = useContainerWidth<HTMLDivElement>()
+  const defaultExpanded = listWidth >= 2 * EXPANDED_POSTER_WIDTH
   const [addMode, setAddMode] = useState<'search' | 'imdb'>('search')
   const [selectedResult, setSelectedResult] = useState<TmdbSearchResult | null>(null)
   const [imdbUrlOrId, setImdbUrlOrId] = useState('')
@@ -93,7 +103,7 @@ export function MovieSection({
       </Typography>
 
       <AsyncState loading={loading} error={error}>
-        <Stack spacing={1}>
+        <Stack ref={listRef} spacing={1}>
           {movies?.map((movie) => (
             <MovieItem
               key={movie.id}
@@ -103,6 +113,7 @@ export function MovieSection({
               members={members}
               languagePrefs={languagePrefs}
               onChange={reload}
+              defaultExpanded={defaultExpanded}
             />
           ))}
         </Stack>
@@ -163,8 +174,16 @@ export function MovieSection({
   )
 }
 
-const COLLAPSED_POSTER_WIDTH = 64
-const EXPANDED_POSTER_WIDTH = 220
+/** Encodes the merged title dialog's radio selection as a single string: 'ORIGINAL', 'CUSTOM', or
+ * `LANGUAGE:<code>` for one specific exhibition-language translation -- RadioGroup values have to be strings, and
+ * this is the one field (a translation's `languageCode`) that already uniquely identifies each radio option. */
+type TitleMode = 'ORIGINAL' | 'CUSTOM' | `LANGUAGE:${string}`
+
+function titleModeFor(movie: Movie): TitleMode {
+  if (movie.displayTitlePreference === 'CUSTOM') return 'CUSTOM'
+  if (movie.displayTitlePreference === 'LANGUAGE' && movie.displayLanguageCode) return `LANGUAGE:${movie.displayLanguageCode}`
+  return 'ORIGINAL'
+}
 
 function MovieItem({
   movie,
@@ -173,6 +192,7 @@ function MovieItem({
   members,
   languagePrefs,
   onChange,
+  defaultExpanded,
 }: {
   movie: Movie
   clubId: string
@@ -180,15 +200,21 @@ function MovieItem({
   members: ClubMember[]
   languagePrefs: LanguagePreferences
   onChange: () => void
+  defaultExpanded: boolean
 }) {
   const { member: viewer } = useAuth()
   const { data: reviews, reload: reloadReviews, silentReload: silentReloadReviews } = useAsync(() => moviesApi.listReviews(movie.id), [movie.id])
   useSmartPolling(silentReloadReviews, 7500)
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(defaultExpanded)
+  useEffect(() => {
+    if (defaultExpanded) setExpanded(true)
+  }, [defaultExpanded])
+  // Small screen *and* portrait, together -- a wide phone held landscape (or a small-but-landscape window) still
+  // has room to keep the poster beside the info, so orientation alone or width alone isn't the right signal.
+  const isNarrowPortrait = useMediaQuery('(max-width: 600px) and (orientation: portrait)')
+
+  const [titleMode, setTitleMode] = useState<TitleMode>(() => titleModeFor(movie))
   const [customTitle, setCustomTitle] = useState(movie.customTitle ?? '')
-  const [preference, setPreference] = useState<'ORIGINAL' | 'CUSTOM'>(
-    movie.displayTitlePreference === 'CUSTOM' ? 'CUSTOM' : 'ORIGINAL',
-  )
   const [watchLink, setWatchLink] = useState(movie.watchLink ?? '')
   const [titleDialogOpen, setTitleDialogOpen] = useState(false)
   const [watchLinkDialogOpen, setWatchLinkDialogOpen] = useState(false)
@@ -198,31 +224,35 @@ function MovieItem({
   const chooser = members.find((m) => m.memberId === movie.chosenById)
   const myReview = reviews?.find((r) => r.memberId === viewer?.id)
 
-  const handleSaveDetails = async () => {
+  const handleOpenTitleDialog = () => {
+    setTitleMode(titleModeFor(movie))
+    setCustomTitle(movie.customTitle ?? '')
+    setTitleDialogOpen(true)
+  }
+
+  const handleSaveTitle = async () => {
     setError(null)
     try {
-      await moviesApi.update(movie.id, { customTitle: customTitle || undefined, preference, watchLink: watchLink || undefined })
+      if (titleMode === 'CUSTOM') {
+        await moviesApi.update(movie.id, { customTitle: customTitle || undefined, preference: 'CUSTOM' })
+      } else if (titleMode.startsWith('LANGUAGE:')) {
+        await moviesApi.update(movie.id, { preference: 'LANGUAGE', languageCode: titleMode.slice('LANGUAGE:'.length) })
+      } else {
+        await moviesApi.update(movie.id, { preference: 'ORIGINAL' })
+      }
       onChange()
+      setTitleDialogOpen(false)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
   }
 
-  const handleSaveTitle = async () => {
-    await handleSaveDetails()
-    setTitleDialogOpen(false)
-  }
-
   const handleSaveWatchLink = async () => {
-    await handleSaveDetails()
-    setWatchLinkDialogOpen(false)
-  }
-
-  const handlePickLanguage = async (languageCode: string) => {
     setError(null)
     try {
-      await moviesApi.update(movie.id, { preference: 'LANGUAGE', languageCode })
+      await moviesApi.update(movie.id, { watchLink: watchLink || undefined })
       onChange()
+      setWatchLinkDialogOpen(false)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     }
@@ -291,17 +321,12 @@ function MovieItem({
        * Accordion had, just reordered so these no longer compete with the poster/text for space below it. */}
       <Collapse in={expanded}>
         <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap' }}>
-          <IconButton size="small" onClick={() => setTitleDialogOpen(true)} title="Edit title">
-            <EditIcon fontSize="small" />
+          <IconButton size="small" onClick={handleOpenTitleDialog} title="Title">
+            <TranslateIcon fontSize="small" />
           </IconButton>
           <IconButton size="small" onClick={() => setWatchLinkDialogOpen(true)} title="Edit watch link">
             <LinkIcon fontSize="small" />
           </IconButton>
-          <LanguagePickerDialog
-            translations={movie.translations}
-            selectedLanguageCode={movie.displayTitlePreference === 'LANGUAGE' ? movie.displayLanguageCode : null}
-            onSelect={handlePickLanguage}
-          />
           <IconButton size="small" onClick={handleRefresh} disabled={!movie.mediaItemId} title="Refresh metadata">
             <RefreshIcon fontSize="small" />
           </IconButton>
@@ -314,115 +339,135 @@ function MovieItem({
         </Stack>
       </Collapse>
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        {/* One poster element total -- its width just grows on expand, rather than a second, separate image
-         * rendered inside the expanded details (the old Accordion summary/details split did exactly that). */}
-        <Stack spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
-          {movie.posterUrl ? (
-            <Box
-              component="img"
-              src={movie.posterUrl}
-              alt=""
-              onClick={() => setExpanded((prev) => !prev)}
-              sx={{
-                width: expanded ? EXPANDED_POSTER_WIDTH : COLLAPSED_POSTER_WIDTH,
-                aspectRatio: '2 / 3',
-                objectFit: 'cover',
-                borderRadius: 1,
-                cursor: 'pointer',
-                transition: 'width 0.2s ease-in-out',
-              }}
-            />
-          ) : (
-            <Box
-              onClick={() => setExpanded((prev) => !prev)}
-              sx={{
-                width: expanded ? EXPANDED_POSTER_WIDTH : COLLAPSED_POSTER_WIDTH,
-                aspectRatio: '2 / 3',
-                borderRadius: 1,
-                bgcolor: 'action.hover',
-                cursor: 'pointer',
-                transition: 'width 0.2s ease-in-out',
-              }}
-            />
-          )}
-        </Stack>
-
-        <Stack spacing={0.5} sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{ alignItems: 'center', flexWrap: 'wrap', cursor: 'pointer' }}
-            onClick={() => setExpanded((prev) => !prev)}
-          >
-            <MemberBadge member={chooser} />
-            <Typography sx={{ fontWeight: 500 }}>{title}</Typography>
-            <CountryFlags codes={movie.originCountry} />
-            <ImdbLink imdbId={movie.imdbId} />
-            <ExpandMoreIcon
-              fontSize="small"
-              color="action"
-              sx={{ ml: 'auto', ...(expanded && { transform: 'rotate(180deg)' }), transition: 'transform 0.2s' }}
-            />
-          </Stack>
-
-          <Collapse in={expanded}>
-            <Stack spacing={1.25} sx={{ mt: 1 }}>
-              <Typography variant="body2" color="text.secondary">
-                <Box component="span" sx={{ fontWeight: 700 }}>Year:</Box> {movie.year ?? '—'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                <Box component="span" sx={{ fontWeight: 700 }}>IMDb rating:</Box> {ratingLabel(movie) ?? '—'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                <Box component="span" sx={{ fontWeight: 700 }}>Director:</Box>{' '}
-                {movie.director ? (
-                  movie.directorImdbId ? (
-                    <ImdbLink imdbId={movie.directorImdbId} kind="name" variant="text">
-                      {movie.director}
-                    </ImdbLink>
-                  ) : movie.director
-                ) : '—'
-                }
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                <Box component="span" sx={{ fontWeight: 700 }}>Runtime:</Box>{' '}
-                {movie.runtimeMinutes ? formatDuration(movie.runtimeMinutes) : '—'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                <Box component="span" sx={{ fontWeight: 700 }}>Genre:</Box>{' '}
-                {movie.genre && movie.genre.length > 0 ? movie.genre.join(', ') : '—'}
-              </Typography>
-              <ReviewsList
-                reviews={reviews ?? []}
-                scales={scales}
-                members={members}
-                viewerMemberId={viewer?.id}
-                onSaveQuality={handleSaveQuality}
-                onSaveSentiment={handleSaveSentiment}
-                onSaveComment={handleSaveComment}
-              />
+      {(() => {
+        // On a small, portrait screen, an expanded poster occupies most of the row's width and the info moves
+        // below it instead of beside it -- 350px (EXPANDED_POSTER_WIDTH) alongside any meaningful text simply
+        // doesn't fit a ~390px-wide phone. Collapsed (64px) always fits fine beside text, on any screen.
+        const stackedPortrait = expanded && isNarrowPortrait
+        const posterWidth = expanded ? (stackedPortrait ? '100%' : EXPANDED_POSTER_WIDTH) : COLLAPSED_POSTER_WIDTH
+        return (
+          <Stack direction={stackedPortrait ? 'column' : 'row'} spacing={2}>
+            {/* One poster element total -- its width just grows on expand, rather than a second, separate image
+             * rendered inside the expanded details (the old Accordion summary/details split did exactly that). */}
+            <Stack spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0, width: stackedPortrait ? '100%' : 'auto' }}>
+              {movie.posterUrl ? (
+                <Box
+                  component="img"
+                  src={movie.posterUrl}
+                  alt=""
+                  onClick={() => setExpanded((prev) => !prev)}
+                  sx={{
+                    width: posterWidth,
+                    aspectRatio: '2 / 3',
+                    objectFit: 'cover',
+                    borderRadius: 1,
+                    cursor: 'pointer',
+                    transition: 'width 0.2s ease-in-out',
+                  }}
+                />
+              ) : (
+                <Box
+                  onClick={() => setExpanded((prev) => !prev)}
+                  sx={{
+                    width: posterWidth,
+                    aspectRatio: '2 / 3',
+                    borderRadius: 1,
+                    bgcolor: 'action.hover',
+                    cursor: 'pointer',
+                    transition: 'width 0.2s ease-in-out',
+                  }}
+                />
+              )}
             </Stack>
-          </Collapse>
-        </Stack>
-      </Stack>
+
+            <Stack spacing={0.5} sx={{ flexGrow: 1, minWidth: 0 }}>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ alignItems: 'center', flexWrap: 'wrap', cursor: 'pointer' }}
+                onClick={() => setExpanded((prev) => !prev)}
+              >
+                <MemberBadge member={chooser} />
+                <Typography sx={{ fontWeight: 500 }}>{title}</Typography>
+                <CountryFlags codes={movie.originCountry} />
+                <ImdbLink imdbId={movie.imdbId} />
+                <ExpandMoreIcon
+                  fontSize="small"
+                  color="action"
+                  sx={{ ml: 'auto', ...(expanded && { transform: 'rotate(180deg)' }), transition: 'transform 0.2s' }}
+                />
+              </Stack>
+
+              <Collapse in={expanded}>
+                <Stack spacing={1.25} sx={{ mt: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    <Box component="span" sx={{ fontWeight: 700 }}>Year:</Box> {movie.year ?? '—'}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    <Box component="span" sx={{ fontWeight: 700 }}>IMDb rating:</Box> {ratingLabel(movie) ?? '—'}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    <Box component="span" sx={{ fontWeight: 700 }}>Director:</Box>{' '}
+                    {movie.director ? (
+                      movie.directorImdbId ? (
+                        <ImdbLink imdbId={movie.directorImdbId} kind="name" variant="text">
+                          {movie.director}
+                        </ImdbLink>
+                      ) : movie.director
+                    ) : '—'
+                    }
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    <Box component="span" sx={{ fontWeight: 700 }}>Runtime:</Box>{' '}
+                    {movie.runtimeMinutes ? formatDuration(movie.runtimeMinutes) : '—'}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    <Box component="span" sx={{ fontWeight: 700 }}>Genre:</Box>{' '}
+                    {movie.genre && movie.genre.length > 0 ? movie.genre.join(', ') : '—'}
+                  </Typography>
+                  <ReviewsList
+                    reviews={reviews ?? []}
+                    scales={scales}
+                    members={members}
+                    viewerMemberId={viewer?.id}
+                    onSaveQuality={handleSaveQuality}
+                    onSaveSentiment={handleSaveSentiment}
+                    onSaveComment={handleSaveComment}
+                  />
+                </Stack>
+              </Collapse>
+            </Stack>
+          </Stack>
+        )
+      })()}
 
       <Dialog open={titleDialogOpen} onClose={() => setTitleDialogOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Edit title</DialogTitle>
+        <DialogTitle>Title</DialogTitle>
         <DialogContent>
+          <RadioGroup value={titleMode} onChange={(e) => setTitleMode(e.target.value as TitleMode)} sx={{ mt: 1 }}>
+            <FormControlLabel value="ORIGINAL" control={<Radio />} label="Default" />
+            <FormControlLabel value="CUSTOM" control={<Radio />} label="Custom" />
+            {movie.translations.map((t) => (
+              <FormControlLabel
+                key={`${t.languageCode}-${t.countryCode}`}
+                value={`LANGUAGE:${t.languageCode}`}
+                control={<Radio />}
+                label={`${t.title} (${t.englishName})`}
+              />
+            ))}
+          </RadioGroup>
           <Stack spacing={1.5} sx={{ mt: 1 }}>
-            <TextField
-              label="Custom title"
-              size="small"
-              value={customTitle}
-              onChange={(e) => setCustomTitle(e.target.value)}
-              fullWidth
-            />
-            <Select size="small" value={preference} onChange={(e) => setPreference(e.target.value as 'ORIGINAL' | 'CUSTOM')}>
-              <MenuItem value="ORIGINAL">ORIGINAL</MenuItem>
-              <MenuItem value="CUSTOM">CUSTOM</MenuItem>
-            </Select>
-            <Button variant="contained" onClick={handleSaveTitle}>
+            {titleMode === 'CUSTOM' && (
+              <TextField
+                label="Custom title"
+                size="small"
+                value={customTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+                fullWidth
+                autoFocus
+              />
+            )}
+            <Button variant="contained" onClick={handleSaveTitle} sx={{ alignSelf: 'flex-start' }}>
               Save
             </Button>
           </Stack>
