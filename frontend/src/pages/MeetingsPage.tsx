@@ -411,7 +411,7 @@ function RatingDisplaySettingsButton() {
         onClose={() => setAnchorEl(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
       >
-        <Stack spacing={2} sx={{ p: 2, width: 300 }}>
+        <Stack spacing={2} sx={{ p: 2, width: 300, maxWidth: 'calc(100vw - 32px)' }}>
           <Box>
             <Typography variant="caption" color="text.secondary">
               Gradient blend ({gradientPercent}%)

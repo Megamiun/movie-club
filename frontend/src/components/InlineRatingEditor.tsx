@@ -318,7 +318,11 @@ export function InlineRatingEditor({
             onClose={() => setAnchorEl(null)}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
           >
-            <Box sx={{ p: 1.5, minWidth: onSaveComment ? 340 : 160 }}>{editorContent}</Box>
+            {/* `min()`, not a plain minWidth + a separate maxWidth -- CSS resolves a min-width/max-width conflict
+             * in min-width's favor, so a plain minWidth here would still force this past the viewport's own edge
+             * on a screen narrower than 340px (also causing the whole page to gain a horizontal scrollbar), the
+             * exact thing this is meant to prevent. */}
+            <Box sx={{ p: 1.5, width: `min(${onSaveComment ? 340 : 160}px, calc(100vw - 32px))` }}>{editorContent}</Box>
           </Popover>
         )
       )}
