@@ -366,8 +366,6 @@ function MovieItem({
             <MemberBadge member={chooser} />
             <Typography sx={{ fontWeight: 500 }}>{title}</Typography>
             <CountryFlags codes={movie.originCountry} />
-            {movie.year && <Chip size="small" label={movie.year} />}
-            {ratingLabel(movie) && <Chip size="small" label={ratingLabel(movie)} />}
             {movie.displayTitlePreference === 'LANGUAGE' && movie.displayLanguageCode && (
               <Chip size="small" label={movie.displayLanguageCode} />
             )}
@@ -381,6 +379,12 @@ function MovieItem({
 
           <Collapse in={expanded}>
             <Stack spacing={0.25} sx={{ mt: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                Year: {movie.year ?? '—'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                IMDb rating: {ratingLabel(movie) ?? '—'}
+              </Typography>
               <Typography variant="body2" color="text.secondary">
                 Director:{' '}
                 {movie.director ? (
