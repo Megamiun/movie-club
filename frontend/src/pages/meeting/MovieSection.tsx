@@ -439,7 +439,7 @@ function MovieItem({
                 })}
               </Stack>
 
-              <ReviewsList reviews={reviews ?? []} scales={scales} members={members} showRatings={false} />
+              <ReviewsList reviews={reviews ?? []} scales={scales} members={members} />
             </Stack>
           </Collapse>
         </Stack>
