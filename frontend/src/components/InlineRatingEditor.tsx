@@ -244,6 +244,13 @@ export function InlineRatingEditor({
           sx={{
             position: 'relative',
             width: boxWidth,
+            // `boxWidth` is sized to the scale's worst-case label (see above) so every box in a column lines up,
+            // but nothing upstream constrains it -- on a narrow phone with long Description-mode labels this was
+            // wider than the viewport itself, and since flexShrink:0 below refuses to shrink it, the whole page
+            // gained a horizontal scrollbar. max-width still clamps a flexShrink:0 item's final size per the
+            // flexbox spec, so this is a no-op whenever there's room (every sibling box wants the same boxWidth,
+            // so a table column already sizes itself to fit it) and only kicks in as this safety net.
+            maxWidth: '100%',
             height: 20,
             borderRadius: 0.5,
             overflow: 'hidden',
